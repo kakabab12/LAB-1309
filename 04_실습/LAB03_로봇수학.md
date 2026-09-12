@@ -172,10 +172,38 @@ new = np.tile([0.3, -0.2, 0.1], (30, 1))
 hard = new                      # 그냥 갈아끼우기
 soft = blend(old, new, k=10)    # 10스텝에 걸쳐 섞기
 
-from ex13_jerk import jerk_score          # 앞 실습 함수 재사용
+from utils import jerk_score              # 아래 설명 참고
 print("급전환 저크:", jerk_score(np.vstack([old, hard])))
 print("블렌딩 저크:", jerk_score(np.vstack([old, soft])))
 ```
+
+> ⚠️ **여러 파일에서 함수를 재사용할 때**: 스크립트를 그대로 `import` 하면 그 파일의
+> 출력·그래프 코드까지 같이 실행됩니다. `utils.py`를 따로 만들어 함수만 넣거나,
+> 각 스크립트의 실행 부분을 `if __name__ == "__main__":` 아래로 옮기세요.
+
+```python
+# utils.py - 앞으로 계속 쓸 함수 모음
+import numpy as np
+
+def jerk(traj, dt=1/30):
+    vel = np.diff(traj, axis=0) / dt
+    acc = np.diff(vel,  axis=0) / dt
+    return np.diff(acc, axis=0) / dt
+
+def jerk_score(traj, dt=1/30):
+    return float(np.sqrt((jerk(traj, dt) ** 2).sum(axis=1)).mean())
+```
+
+**실측 결과 (직접 돌려본 값)**
+
+| 궤적 | 저크 |
+|---|---|
+| 부드러운 궤적 | 1.03 |
+| 45프레임에서 툭 끊긴 궤적 | 465.47 |
+| 급전환 (그냥 갈아끼움) | 708.95 |
+| **10스텝 블렌딩** | **78.77** |
+
+→ 블렌딩만으로 저크가 **약 9배** 줄어듭니다.
 
 ⭐ **이게 연구에서 제안할 방법의 원형입니다.** 여기서는 궤적으로 했지만, 실제로는 VLA가 출력한 **action chunk 두 개**를 이렇게 섞습니다. → LAB 04로 이어집니다.
 

@@ -65,8 +65,7 @@ class MultiHeadAttention(nn.Module):
         self.qkv = nn.Linear(dim, dim * 3)
         self.proj = nn.Linear(dim, dim)
 
-    def forward(self, x, context=None, mask=None):
-        # context가 있으면 cross-attention, 없으면 self-attention
+    def forward(self, x, mask=None):
         B, T, D = x.shape
         qkv = self.qkv(x).chunk(3, dim=-1)
         q, k, v = [t.view(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
@@ -83,6 +82,41 @@ x = torch.randn(2, 10, 128)
 mha = MultiHeadAttention(128, n_heads=8)
 print(mha(x).shape)      # (2, 10, 128)
 ```
+
+### cross-attention은 무엇이 다른가
+
+self-attention은 **자기 토큰들끼리** 보고, cross-attention은 **다른 쪽(context)을 참조**합니다.
+VLA에서 "동작 토큰이 이미지 토큰을 참조한다"가 바로 이것입니다.
+
+```python
+class CrossAttention(nn.Module):
+    def __init__(self, dim, n_heads):
+        super().__init__()
+        self.n_heads = n_heads
+        self.head_dim = dim // n_heads
+        self.q = nn.Linear(dim, dim)          # Q는 x에서
+        self.kv = nn.Linear(dim, dim * 2)     # K, V는 context에서  <- 차이점
+        self.proj = nn.Linear(dim, dim)
+
+    def forward(self, x, context):
+        B, T, D = x.shape
+        S = context.shape[1]
+        q = self.q(x).view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
+        k, v = [t.view(B, S, self.n_heads, self.head_dim).transpose(1, 2)
+                for t in self.kv(context).chunk(2, dim=-1)]
+        attn = F.softmax((q @ k.transpose(-2, -1)) / (self.head_dim ** 0.5), dim=-1)
+        out = (attn @ v).transpose(1, 2).reshape(B, T, D)
+        return self.proj(out)
+
+# 동작 토큰 10개가 이미지 토큰 196개를 참조
+ca = CrossAttention(128, 8)
+action_tokens = torch.randn(2, 10, 128)
+image_tokens = torch.randn(2, 196, 128)
+print(ca(action_tokens, image_tokens).shape)      # (2, 10, 128)
+```
+
+> ⚠️ 위 실습들은 **앞 파일의 클래스를 그대로 씁니다.** 한 파일에 이어서 작성하거나,
+> `from ex07_mha import MultiHeadAttention` 처럼 import 하세요.
 
 **직접 해볼 것**
 - `n_heads`를 1, 4, 8로 바꿔가며 파라미터 수가 같은지 확인
