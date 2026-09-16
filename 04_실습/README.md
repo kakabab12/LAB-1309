@@ -13,7 +13,9 @@
 | [LAB 02](LAB02_transformer.md) | Transformer 직접 만들기 — attention부터 미니 VLA까지 | 1단계 | 4~6시간 | ⬜ |
 | [LAB 03](LAB03_로봇수학.md) | 로봇 수학 — 회전, FK/IK, **저크 계산**, 궤적 블렌딩 | 2단계 | 3~4시간 | ⬜ |
 | [LAB 04](LAB04_action_chunking.md) | **Action Chunking과 전환** — 연구의 심장 | 3단계 | 4~6시간 | ⬜ |
-| [LAB 05](LAB05_libero_smolvla.md) | LIBERO + SmolVLA 실전 — 설치부터 첫 전환 실험까지 | 5단계 | 1~2주 | ⬜ |
+| [LAB 05](LAB05_libero_smolvla.md) | LIBERO + SmolVLA 실전 — 설치부터 첫 전환 실험까지 | 5단계 | 1~2주 | ✅ |
+| ↳ [실행방법](05_libero/실행방법.md) | **실제로 돌아간 설치·실행 명령** (2026-09-16 검증) | - | 20분 | ✅ |
+| ↳ [전환 실험](05_libero/switch_experiment/README.md) | 첫 전환 실험 결과 600 에피소드 | - | - | ✅ |
 | [LAB 06](LAB06_piper_실물.md) | PiPER 실물 로봇 — 안전, CAN, 데이터 수집, 정책 실행 | 6단계 | 2~4주 | ⬜ |
 
 ## 폴더 정리 방법

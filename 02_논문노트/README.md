@@ -18,6 +18,8 @@
 - [ ] π0 / π0.5
 
 ### 전환 · 개입 · 기억
+- [x] **[SwitchVLA](SwitchVLA.md)** ⭐⭐ 연구 주제와 거의 동일 (LIBERO-Goal, 전환 시점 3단계)
+- [x] **[LIBERO-Plus](LIBERO-Plus.md)** ⭐ 로봇 초기 상태 교란에 VLA가 취약함을 보임
 - [ ] **Hi Robot** ⭐
 - [ ] RT-H
 - [ ] MemoryVLA

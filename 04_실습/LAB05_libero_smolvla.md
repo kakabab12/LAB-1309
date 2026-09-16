@@ -20,6 +20,11 @@
 > 목표: 공개 체크포인트로 **실제 VLA를 돌리고 수치를 뽑기**
 > 소요: 1~2주 (설치에서 대부분의 시간이 감)
 
+> ⚠️ **설치 방법이 바뀌었습니다.** 아래 conda + Python 3.12 + LeRobot main 조합은 현재 동작하지 않습니다
+> (main 브랜치가 Python ≥ 3.12를 요구하고, LIBERO 의존성과 충돌).
+> **실제로 돌아간 명령은 [05_libero/실행방법.md](05_libero/실행방법.md) 를 보세요** (uv + Python 3.10 + LeRobot 0.4.4, 2026-09-16 검증).
+> 5~7단계 실험은 [05_libero/switch_experiment/](05_libero/switch_experiment/README.md) 에서 이어집니다.
+
 ## 1단계. 설치
 
 ### 1-1. 환경 만들기
