@@ -1,0 +1,271 @@
+task,instruction,offset_cm,yaw_deg,episode,direction,reached_start_pose,start_pose_err_cm,move_steps,success,steps,wall_sec
+1,put the bowl on the stove,0.0,0.0,0,"[-0.314, -0.475, 0.822]",True,0.05,5,True,87,16.9
+1,put the bowl on the stove,0.0,0.0,1,"[0.855, -0.124, 0.503]",True,0.07,5,True,95,21.2
+1,put the bowl on the stove,0.0,0.0,2,"[0.061, -0.925, 0.375]",True,0.01,5,True,93,21.7
+1,put the bowl on the stove,0.0,0.0,3,"[-0.816, -0.096, 0.569]",True,0.02,5,True,89,18.2
+1,put the bowl on the stove,0.0,0.0,4,"[0.097, -0.448, 0.889]",True,0.02,5,True,81,16.4
+1,put the bowl on the stove,0.0,0.0,5,"[-0.902, -0.23, 0.366]",True,0.01,5,True,89,15.3
+1,put the bowl on the stove,0.0,0.0,6,"[0.496, -0.848, 0.186]",True,0.01,5,True,92,17.7
+1,put the bowl on the stove,0.0,0.0,7,"[-0.645, -0.763, 0.038]",True,0.09,5,True,95,15.8
+1,put the bowl on the stove,0.0,0.0,8,"[-0.267, -0.629, 0.73]",True,0.0,5,True,83,12.3
+1,put the bowl on the stove,0.0,0.0,9,"[0.504, 0.828, 0.247]",True,0.02,5,True,91,13.0
+1,put the bowl on the stove,0.0,10.0,0,"[-0.314, -0.475, 0.822]",True,0.09,11,True,81,17.0
+1,put the bowl on the stove,0.0,10.0,1,"[0.855, -0.124, 0.503]",True,0.1,11,True,80,13.3
+1,put the bowl on the stove,0.0,10.0,2,"[0.061, -0.925, 0.375]",True,0.08,11,True,82,11.7
+1,put the bowl on the stove,0.0,10.0,3,"[-0.816, -0.096, 0.569]",True,0.09,11,True,85,14.9
+1,put the bowl on the stove,0.0,10.0,4,"[0.097, -0.448, 0.889]",True,0.09,11,True,74,14.4
+1,put the bowl on the stove,0.0,10.0,5,"[-0.902, -0.23, 0.366]",True,0.09,11,False,300,43.4
+1,put the bowl on the stove,0.0,10.0,6,"[0.496, -0.848, 0.186]",True,0.09,11,True,86,15.1
+1,put the bowl on the stove,0.0,10.0,7,"[-0.645, -0.763, 0.038]",True,0.11,11,True,89,11.6
+1,put the bowl on the stove,0.0,10.0,8,"[-0.267, -0.629, 0.73]",True,0.08,11,False,300,39.5
+1,put the bowl on the stove,0.0,10.0,9,"[0.504, 0.828, 0.247]",True,0.08,11,True,84,16.6
+1,put the bowl on the stove,0.0,20.0,0,"[-0.314, -0.475, 0.822]",True,0.16,14,False,300,42.9
+1,put the bowl on the stove,0.0,20.0,1,"[0.855, -0.124, 0.503]",True,0.17,14,True,94,17.2
+1,put the bowl on the stove,0.0,20.0,2,"[0.061, -0.925, 0.375]",True,0.18,14,True,95,18.0
+1,put the bowl on the stove,0.0,20.0,3,"[-0.816, -0.096, 0.569]",True,0.17,14,True,95,13.5
+1,put the bowl on the stove,0.0,20.0,4,"[0.097, -0.448, 0.889]",True,0.19,14,False,300,38.5
+1,put the bowl on the stove,0.0,20.0,5,"[-0.902, -0.23, 0.366]",True,0.19,14,False,300,37.8
+1,put the bowl on the stove,0.0,20.0,6,"[0.496, -0.848, 0.186]",True,0.19,14,False,300,33.1
+1,put the bowl on the stove,0.0,20.0,7,"[-0.645, -0.763, 0.038]",True,0.17,14,False,300,32.4
+1,put the bowl on the stove,0.0,20.0,8,"[-0.267, -0.629, 0.73]",True,0.18,14,False,300,32.6
+1,put the bowl on the stove,0.0,20.0,9,"[0.504, 0.828, 0.247]",True,0.18,14,False,300,32.0
+1,put the bowl on the stove,0.0,30.0,0,"[-0.314, -0.475, 0.822]",True,0.22,17,False,300,44.9
+1,put the bowl on the stove,0.0,30.0,1,"[0.855, -0.124, 0.503]",True,0.22,17,False,300,33.3
+1,put the bowl on the stove,0.0,30.0,2,"[0.061, -0.925, 0.375]",True,0.24,17,False,300,32.6
+1,put the bowl on the stove,0.0,30.0,3,"[-0.816, -0.096, 0.569]",True,0.23,17,False,300,32.4
+1,put the bowl on the stove,0.0,30.0,4,"[0.097, -0.448, 0.889]",True,0.25,17,False,300,32.2
+1,put the bowl on the stove,0.0,30.0,5,"[-0.902, -0.23, 0.366]",True,0.26,16,False,300,28.4
+1,put the bowl on the stove,0.0,30.0,6,"[0.496, -0.848, 0.186]",True,0.26,16,False,300,24.5
+1,put the bowl on the stove,0.0,30.0,7,"[-0.645, -0.763, 0.038]",True,0.21,17,False,300,24.4
+1,put the bowl on the stove,0.0,30.0,8,"[-0.267, -0.629, 0.73]",True,0.24,17,False,300,24.3
+1,put the bowl on the stove,0.0,30.0,9,"[0.504, 0.828, 0.247]",True,0.23,17,False,300,24.8
+1,put the bowl on the stove,10.0,0.0,0,"[-0.314, -0.475, 0.822]",True,1.02,13,True,107,18.8
+1,put the bowl on the stove,10.0,0.0,1,"[0.855, -0.124, 0.503]",True,1.26,15,True,86,16.6
+1,put the bowl on the stove,10.0,0.0,2,"[0.061, -0.925, 0.375]",True,0.17,14,False,300,42.6
+1,put the bowl on the stove,10.0,0.0,3,"[-0.816, -0.096, 0.569]",True,1.27,14,False,300,43.2
+1,put the bowl on the stove,10.0,0.0,4,"[0.097, -0.448, 0.889]",True,0.22,14,False,300,40.3
+1,put the bowl on the stove,10.0,0.0,5,"[-0.902, -0.23, 0.366]",True,1.08,14,True,117,14.5
+1,put the bowl on the stove,10.0,0.0,6,"[0.496, -0.848, 0.186]",True,0.66,13,False,300,37.0
+1,put the bowl on the stove,10.0,0.0,7,"[-0.645, -0.763, 0.038]",True,1.1,13,False,300,36.8
+1,put the bowl on the stove,10.0,0.0,8,"[-0.267, -0.629, 0.73]",True,0.76,13,True,107,18.7
+1,put the bowl on the stove,10.0,0.0,9,"[0.504, 0.828, 0.247]",True,0.64,13,False,300,42.6
+1,put the bowl on the stove,2.0,0.0,0,"[-0.314, -0.475, 0.822]",True,0.68,8,True,88,13.8
+1,put the bowl on the stove,2.0,0.0,1,"[0.855, -0.124, 0.503]",True,0.4,10,True,82,12.0
+1,put the bowl on the stove,2.0,0.0,2,"[0.061, -0.925, 0.375]",True,0.69,8,True,96,15.4
+1,put the bowl on the stove,2.0,0.0,3,"[-0.816, -0.096, 0.569]",True,0.67,8,True,93,16.2
+1,put the bowl on the stove,2.0,0.0,4,"[0.097, -0.448, 0.889]",True,0.73,8,True,86,15.7
+1,put the bowl on the stove,2.0,0.0,5,"[-0.902, -0.23, 0.366]",True,0.51,9,True,90,15.3
+1,put the bowl on the stove,2.0,0.0,6,"[0.496, -0.848, 0.186]",True,0.45,9,True,93,17.2
+1,put the bowl on the stove,2.0,0.0,7,"[-0.645, -0.763, 0.038]",True,0.4,9,True,95,17.9
+1,put the bowl on the stove,2.0,0.0,8,"[-0.267, -0.629, 0.73]",True,0.66,8,True,86,12.4
+1,put the bowl on the stove,2.0,0.0,9,"[0.504, 0.828, 0.247]",True,0.46,9,True,91,12.9
+1,put the bowl on the stove,4.0,0.0,0,"[-0.314, -0.475, 0.822]",True,0.56,10,True,93,17.5
+1,put the bowl on the stove,4.0,0.0,1,"[0.855, -0.124, 0.503]",True,0.15,12,True,83,15.4
+1,put the bowl on the stove,4.0,0.0,2,"[0.061, -0.925, 0.375]",True,0.48,10,True,95,17.2
+1,put the bowl on the stove,4.0,0.0,3,"[-0.816, -0.096, 0.569]",True,0.5,10,True,94,16.3
+1,put the bowl on the stove,4.0,0.0,4,"[0.097, -0.448, 0.889]",True,0.57,10,False,300,39.8
+1,put the bowl on the stove,4.0,0.0,5,"[-0.902, -0.23, 0.366]",True,0.3,11,True,106,13.9
+1,put the bowl on the stove,4.0,0.0,6,"[0.496, -0.848, 0.186]",True,0.17,11,True,90,10.6
+1,put the bowl on the stove,4.0,0.0,7,"[-0.645, -0.763, 0.038]",True,0.45,10,True,94,11.9
+1,put the bowl on the stove,4.0,0.0,8,"[-0.267, -0.629, 0.73]",True,0.5,10,True,98,14.9
+1,put the bowl on the stove,4.0,0.0,9,"[0.504, 0.828, 0.247]",True,0.18,11,True,84,15.1
+1,put the bowl on the stove,6.0,0.0,0,"[-0.314, -0.475, 0.822]",True,0.59,11,True,100,13.3
+1,put the bowl on the stove,6.0,0.0,1,"[0.855, -0.124, 0.503]",True,0.66,13,True,87,12.0
+1,put the bowl on the stove,6.0,0.0,2,"[0.061, -0.925, 0.375]",True,0.4,11,True,96,16.4
+1,put the bowl on the stove,6.0,0.0,3,"[-0.816, -0.096, 0.569]",True,0.72,11,False,300,33.5
+1,put the bowl on the stove,6.0,0.0,4,"[0.097, -0.448, 0.889]",True,0.49,11,False,300,41.1
+1,put the bowl on the stove,6.0,0.0,5,"[-0.902, -0.23, 0.366]",True,0.69,12,True,106,19.6
+1,put the bowl on the stove,6.0,0.0,6,"[0.496, -0.848, 0.186]",True,0.18,12,False,300,43.8
+1,put the bowl on the stove,6.0,0.0,7,"[-0.645, -0.763, 0.038]",True,0.46,11,True,94,17.8
+1,put the bowl on the stove,6.0,0.0,8,"[-0.267, -0.629, 0.73]",True,0.49,11,True,99,17.4
+1,put the bowl on the stove,6.0,0.0,9,"[0.504, 0.828, 0.247]",True,0.16,12,True,81,15.7
+1,put the bowl on the stove,8.0,0.0,0,"[-0.314, -0.475, 0.822]",True,0.76,12,True,103,17.9
+1,put the bowl on the stove,8.0,0.0,1,"[0.855, -0.124, 0.503]",True,1.02,14,True,86,13.2
+1,put the bowl on the stove,8.0,0.0,2,"[0.061, -0.925, 0.375]",True,0.4,12,True,100,12.7
+1,put the bowl on the stove,8.0,0.0,3,"[-0.816, -0.096, 0.569]",True,0.91,12,False,300,40.8
+1,put the bowl on the stove,8.0,0.0,4,"[0.097, -0.448, 0.889]",True,0.21,13,False,300,42.7
+1,put the bowl on the stove,8.0,0.0,5,"[-0.902, -0.23, 0.366]",True,0.94,13,True,113,20.1
+1,put the bowl on the stove,8.0,0.0,6,"[0.496, -0.848, 0.186]",True,0.53,13,False,300,42.5
+1,put the bowl on the stove,8.0,0.0,7,"[-0.645, -0.763, 0.038]",True,0.79,12,False,300,35.4
+1,put the bowl on the stove,8.0,0.0,8,"[-0.267, -0.629, 0.73]",True,0.55,12,True,98,13.8
+1,put the bowl on the stove,8.0,0.0,9,"[0.504, 0.828, 0.247]",True,0.25,12,True,79,14.6
+5,push the plate to the front of the stove,0.0,0.0,0,"[0.169, -0.976, 0.137]",True,0.1,5,True,131,25.5
+5,push the plate to the front of the stove,0.0,0.0,1,"[0.971, -0.152, 0.183]",True,0.01,5,True,133,22.5
+5,push the plate to the front of the stove,0.0,0.0,2,"[-0.964, -0.259, 0.06]",True,0.15,5,False,300,34.0
+5,push the plate to the front of the stove,0.0,0.0,3,"[-0.935, 0.336, 0.117]",True,0.09,5,False,300,45.4
+5,push the plate to the front of the stove,0.0,0.0,4,"[0.447, -0.892, 0.066]",True,0.01,5,False,300,46.3
+5,push the plate to the front of the stove,0.0,0.0,5,"[0.994, -0.104, 0.026]",True,0.02,5,True,147,24.9
+5,push the plate to the front of the stove,0.0,0.0,6,"[0.598, -0.49, 0.634]",True,0.03,5,True,136,22.4
+5,push the plate to the front of the stove,0.0,0.0,7,"[-0.439, -0.008, 0.898]",True,0.01,5,True,132,23.7
+5,push the plate to the front of the stove,0.0,0.0,8,"[0.517, 0.625, 0.585]",True,0.29,5,True,122,15.7
+5,push the plate to the front of the stove,0.0,0.0,9,"[0.787, 0.454, 0.418]",True,0.01,5,False,300,38.7
+5,push the plate to the front of the stove,0.0,10.0,0,"[0.169, -0.976, 0.137]",True,0.12,11,False,300,46.6
+5,push the plate to the front of the stove,0.0,10.0,1,"[0.971, -0.152, 0.183]",True,0.1,11,False,300,43.7
+5,push the plate to the front of the stove,0.0,10.0,2,"[-0.964, -0.259, 0.06]",True,0.18,11,True,135,19.6
+5,push the plate to the front of the stove,0.0,10.0,3,"[-0.935, 0.336, 0.117]",True,0.11,11,True,154,20.0
+5,push the plate to the front of the stove,0.0,10.0,4,"[0.447, -0.892, 0.066]",True,0.08,11,True,193,29.8
+5,push the plate to the front of the stove,0.0,10.0,5,"[0.994, -0.104, 0.026]",True,0.09,11,True,133,23.0
+5,push the plate to the front of the stove,0.0,10.0,6,"[0.598, -0.49, 0.634]",True,0.09,11,False,300,43.9
+5,push the plate to the front of the stove,0.0,10.0,7,"[-0.439, -0.008, 0.898]",True,0.09,11,False,300,48.8
+5,push the plate to the front of the stove,0.0,10.0,8,"[0.517, 0.625, 0.585]",True,0.29,11,False,300,36.6
+5,push the plate to the front of the stove,0.0,10.0,9,"[0.787, 0.454, 0.418]",True,0.08,11,False,300,48.5
+5,push the plate to the front of the stove,0.0,20.0,0,"[0.169, -0.976, 0.137]",True,0.17,14,True,184,30.6
+5,push the plate to the front of the stove,0.0,20.0,1,"[0.971, -0.152, 0.183]",True,0.2,14,True,181,29.0
+5,push the plate to the front of the stove,0.0,20.0,2,"[-0.964, -0.259, 0.06]",True,0.22,14,False,300,44.2
+5,push the plate to the front of the stove,0.0,20.0,3,"[-0.935, 0.336, 0.117]",True,0.17,14,False,300,49.2
+5,push the plate to the front of the stove,0.0,20.0,4,"[0.447, -0.892, 0.066]",True,0.18,14,False,300,36.7
+5,push the plate to the front of the stove,0.0,20.0,5,"[0.994, -0.104, 0.026]",True,0.19,14,True,192,33.6
+5,push the plate to the front of the stove,0.0,20.0,6,"[0.598, -0.49, 0.634]",True,0.17,14,True,292,42.0
+5,push the plate to the front of the stove,0.0,20.0,7,"[-0.439, -0.008, 0.898]",True,0.18,14,False,300,49.6
+5,push the plate to the front of the stove,0.0,20.0,8,"[0.517, 0.625, 0.585]",True,0.24,14,False,300,45.2
+5,push the plate to the front of the stove,0.0,20.0,9,"[0.787, 0.454, 0.418]",True,0.17,14,False,300,42.3
+5,push the plate to the front of the stove,0.0,30.0,0,"[0.169, -0.976, 0.137]",True,0.22,17,True,216,37.1
+5,push the plate to the front of the stove,0.0,30.0,1,"[0.971, -0.152, 0.183]",True,0.25,17,False,300,42.4
+5,push the plate to the front of the stove,0.0,30.0,2,"[-0.964, -0.259, 0.06]",True,0.25,17,False,300,49.8
+5,push the plate to the front of the stove,0.0,30.0,3,"[-0.935, 0.336, 0.117]",True,0.22,17,False,300,46.1
+5,push the plate to the front of the stove,0.0,30.0,4,"[0.447, -0.892, 0.066]",True,0.24,17,True,206,31.5
+5,push the plate to the front of the stove,0.0,30.0,5,"[0.994, -0.104, 0.026]",True,0.25,17,True,258,31.7
+5,push the plate to the front of the stove,0.0,30.0,6,"[0.598, -0.49, 0.634]",True,0.23,17,True,168,20.1
+5,push the plate to the front of the stove,0.0,30.0,7,"[-0.439, -0.008, 0.898]",True,0.24,16,True,182,24.9
+5,push the plate to the front of the stove,0.0,30.0,8,"[0.517, 0.625, 0.585]",True,0.26,16,False,300,41.7
+5,push the plate to the front of the stove,0.0,30.0,9,"[0.787, 0.454, 0.418]",True,0.22,17,False,300,42.7
+5,push the plate to the front of the stove,10.0,0.0,0,"[0.169, -0.976, 0.137]",True,0.28,14,False,300,64.5
+5,push the plate to the front of the stove,10.0,0.0,1,"[0.971, -0.152, 0.183]",True,1.05,15,True,135,34.0
+5,push the plate to the front of the stove,10.0,0.0,2,"[-0.964, -0.259, 0.06]",True,1.27,15,False,300,56.6
+5,push the plate to the front of the stove,10.0,0.0,3,"[-0.935, 0.336, 0.117]",True,1.42,15,False,300,44.4
+5,push the plate to the front of the stove,10.0,0.0,4,"[0.447, -0.892, 0.066]",True,0.56,13,False,300,44.1
+5,push the plate to the front of the stove,10.0,0.0,5,"[0.994, -0.104, 0.026]",True,0.95,15,True,115,17.0
+5,push the plate to the front of the stove,10.0,0.0,6,"[0.598, -0.49, 0.634]",True,1.06,14,False,300,38.4
+5,push the plate to the front of the stove,10.0,0.0,7,"[-0.439, -0.008, 0.898]",True,1.14,14,False,300,42.4
+5,push the plate to the front of the stove,10.0,0.0,8,"[0.517, 0.625, 0.585]",True,0.84,13,False,300,44.4
+5,push the plate to the front of the stove,10.0,0.0,9,"[0.787, 0.454, 0.418]",True,0.95,14,False,300,49.5
+5,push the plate to the front of the stove,2.0,0.0,0,"[0.169, -0.976, 0.137]",True,0.5,9,True,141,25.4
+5,push the plate to the front of the stove,2.0,0.0,1,"[0.971, -0.152, 0.183]",True,0.5,9,True,133,24.0
+5,push the plate to the front of the stove,2.0,0.0,2,"[-0.964, -0.259, 0.06]",True,0.43,10,False,300,46.2
+5,push the plate to the front of the stove,2.0,0.0,3,"[-0.935, 0.336, 0.117]",True,0.4,9,False,300,43.5
+5,push the plate to the front of the stove,2.0,0.0,4,"[0.447, -0.892, 0.066]",True,0.45,9,True,257,36.8
+5,push the plate to the front of the stove,2.0,0.0,5,"[0.994, -0.104, 0.026]",True,0.53,9,False,300,35.3
+5,push the plate to the front of the stove,2.0,0.0,6,"[0.598, -0.49, 0.634]",True,0.6,9,True,136,20.6
+5,push the plate to the front of the stove,2.0,0.0,7,"[-0.439, -0.008, 0.898]",True,0.64,8,True,145,17.3
+5,push the plate to the front of the stove,2.0,0.0,8,"[0.517, 0.625, 0.585]",True,0.5,8,True,110,16.7
+5,push the plate to the front of the stove,2.0,0.0,9,"[0.787, 0.454, 0.418]",True,0.58,9,False,300,42.6
+5,push the plate to the front of the stove,4.0,0.0,0,"[0.169, -0.976, 0.137]",True,0.53,10,True,202,31.1
+5,push the plate to the front of the stove,4.0,0.0,1,"[0.971, -0.152, 0.183]",True,0.13,11,True,133,16.3
+5,push the plate to the front of the stove,4.0,0.0,2,"[-0.964, -0.259, 0.06]",True,0.27,12,True,120,17.5
+5,push the plate to the front of the stove,4.0,0.0,3,"[-0.935, 0.336, 0.117]",True,0.3,11,False,300,42.3
+5,push the plate to the front of the stove,4.0,0.0,4,"[0.447, -0.892, 0.066]",True,0.2,11,False,300,34.3
+5,push the plate to the front of the stove,4.0,0.0,5,"[0.994, -0.104, 0.026]",True,0.17,11,True,140,22.9
+5,push the plate to the front of the stove,4.0,0.0,6,"[0.598, -0.49, 0.634]",True,0.23,11,False,300,46.1
+5,push the plate to the front of the stove,4.0,0.0,7,"[-0.439, -0.008, 0.898]",True,0.52,10,True,153,34.0
+5,push the plate to the front of the stove,4.0,0.0,8,"[0.517, 0.625, 0.585]",True,0.29,10,False,300,60.9
+5,push the plate to the front of the stove,4.0,0.0,9,"[0.787, 0.454, 0.418]",True,0.18,11,True,288,59.0
+5,push the plate to the front of the stove,6.0,0.0,0,"[0.169, -0.976, 0.137]",True,0.44,11,False,300,42.8
+5,push the plate to the front of the stove,6.0,0.0,1,"[0.971, -0.152, 0.183]",True,0.41,12,True,134,20.8
+5,push the plate to the front of the stove,6.0,0.0,2,"[-0.964, -0.259, 0.06]",True,0.79,13,True,123,16.3
+5,push the plate to the front of the stove,6.0,0.0,3,"[-0.935, 0.336, 0.117]",True,0.72,12,False,300,41.6
+5,push the plate to the front of the stove,6.0,0.0,4,"[0.447, -0.892, 0.066]",True,0.14,12,False,300,46.3
+5,push the plate to the front of the stove,6.0,0.0,5,"[0.994, -0.104, 0.026]",True,0.72,13,False,300,62.7
+5,push the plate to the front of the stove,6.0,0.0,6,"[0.598, -0.49, 0.634]",True,0.15,12,False,300,60.7
+5,push the plate to the front of the stove,6.0,0.0,7,"[-0.439, -0.008, 0.898]",True,0.62,11,False,300,56.2
+5,push the plate to the front of the stove,6.0,0.0,8,"[0.517, 0.625, 0.585]",True,0.34,12,False,300,63.1
+5,push the plate to the front of the stove,6.0,0.0,9,"[0.787, 0.454, 0.418]",True,0.3,12,True,218,48.4
+5,push the plate to the front of the stove,8.0,0.0,0,"[0.169, -0.976, 0.137]",True,0.14,13,False,300,44.3
+5,push the plate to the front of the stove,8.0,0.0,1,"[0.971, -0.152, 0.183]",True,0.96,14,True,133,24.3
+5,push the plate to the front of the stove,8.0,0.0,2,"[-0.964, -0.259, 0.06]",True,1.09,14,True,252,51.4
+5,push the plate to the front of the stove,8.0,0.0,3,"[-0.935, 0.336, 0.117]",True,0.97,13,False,300,61.6
+5,push the plate to the front of the stove,8.0,0.0,4,"[0.447, -0.892, 0.066]",True,0.42,13,False,300,58.3
+5,push the plate to the front of the stove,8.0,0.0,5,"[0.994, -0.104, 0.026]",True,0.89,14,False,300,61.9
+5,push the plate to the front of the stove,8.0,0.0,6,"[0.598, -0.49, 0.634]",True,0.64,13,False,300,62.5
+5,push the plate to the front of the stove,8.0,0.0,7,"[-0.439, -0.008, 0.898]",True,0.95,12,False,300,53.0
+5,push the plate to the front of the stove,8.0,0.0,8,"[0.517, 0.625, 0.585]",True,0.4,12,False,300,44.3
+5,push the plate to the front of the stove,8.0,0.0,9,"[0.787, 0.454, 0.418]",True,0.69,13,False,300,44.6
+7,turn on the stove,0.0,0.0,0,"[-0.639, 0.434, 0.635]",True,0.08,5,True,67,14.1
+7,turn on the stove,0.0,0.0,1,"[0.249, 0.622, 0.743]",True,0.01,5,True,74,13.4
+7,turn on the stove,0.0,0.0,2,"[0.39, -0.915, 0.102]",True,0.06,5,True,75,13.2
+7,turn on the stove,0.0,0.0,3,"[0.574, 0.817, 0.051]",True,0.02,5,True,65,12.7
+7,turn on the stove,0.0,0.0,4,"[-0.897, -0.398, 0.195]",True,0.04,5,True,67,12.6
+7,turn on the stove,0.0,0.0,5,"[0.666, -0.157, 0.73]",True,0.03,5,True,78,15.1
+7,turn on the stove,0.0,0.0,6,"[-0.465, 0.864, 0.191]",True,0.01,5,True,73,13.4
+7,turn on the stove,0.0,0.0,7,"[0.927, 0.187, 0.324]",True,0.02,5,True,74,14.5
+7,turn on the stove,0.0,0.0,8,"[0.019, 0.959, 0.281]",True,0.01,5,True,69,13.7
+7,turn on the stove,0.0,0.0,9,"[-0.92, -0.391, 0.015]",True,0.01,5,True,67,13.4
+7,turn on the stove,0.0,10.0,0,"[-0.639, 0.434, 0.635]",True,0.12,11,True,138,17.2
+7,turn on the stove,0.0,10.0,1,"[0.249, 0.622, 0.743]",True,0.09,11,True,78,10.1
+7,turn on the stove,0.0,10.0,2,"[0.39, -0.915, 0.102]",True,0.11,11,True,102,14.5
+7,turn on the stove,0.0,10.0,3,"[0.574, 0.817, 0.051]",True,0.08,11,False,300,41.9
+7,turn on the stove,0.0,10.0,4,"[-0.897, -0.398, 0.195]",True,0.09,11,True,67,14.1
+7,turn on the stove,0.0,10.0,5,"[0.666, -0.157, 0.73]",True,0.09,11,True,76,15.2
+7,turn on the stove,0.0,10.0,6,"[-0.465, 0.864, 0.191]",True,0.09,11,True,68,12.8
+7,turn on the stove,0.0,10.0,7,"[0.927, 0.187, 0.324]",True,0.09,11,True,140,22.5
+7,turn on the stove,0.0,10.0,8,"[0.019, 0.959, 0.281]",True,0.09,11,True,77,15.2
+7,turn on the stove,0.0,10.0,9,"[-0.92, -0.391, 0.015]",True,0.08,11,True,92,16.0
+7,turn on the stove,0.0,20.0,0,"[-0.639, 0.434, 0.635]",True,0.19,14,True,69,11.0
+7,turn on the stove,0.0,20.0,1,"[0.249, 0.622, 0.743]",True,0.19,14,False,300,34.9
+7,turn on the stove,0.0,20.0,2,"[0.39, -0.915, 0.102]",True,0.2,14,True,118,20.1
+7,turn on the stove,0.0,20.0,3,"[0.574, 0.817, 0.051]",True,0.17,14,False,300,41.7
+7,turn on the stove,0.0,20.0,4,"[-0.897, -0.398, 0.195]",True,0.17,14,True,82,14.6
+7,turn on the stove,0.0,20.0,5,"[0.666, -0.157, 0.73]",True,0.19,14,False,300,41.7
+7,turn on the stove,0.0,20.0,6,"[-0.465, 0.864, 0.191]",True,0.18,14,True,90,13.8
+7,turn on the stove,0.0,20.0,7,"[0.927, 0.187, 0.324]",True,0.19,14,True,83,11.3
+7,turn on the stove,0.0,20.0,8,"[0.019, 0.959, 0.281]",True,0.18,14,False,300,41.4
+7,turn on the stove,0.0,20.0,9,"[-0.92, -0.391, 0.015]",True,0.18,14,True,74,14.8
+7,turn on the stove,0.0,30.0,0,"[-0.639, 0.434, 0.635]",True,0.23,17,False,300,42.5
+7,turn on the stove,0.0,30.0,1,"[0.249, 0.622, 0.743]",True,0.23,17,False,300,42.0
+7,turn on the stove,0.0,30.0,2,"[0.39, -0.915, 0.102]",True,0.26,16,False,300,41.5
+7,turn on the stove,0.0,30.0,3,"[0.574, 0.817, 0.051]",True,0.23,17,False,300,34.6
+7,turn on the stove,0.0,30.0,4,"[-0.897, -0.398, 0.195]",True,0.23,17,False,300,40.8
+7,turn on the stove,0.0,30.0,5,"[0.666, -0.157, 0.73]",True,0.25,16,False,300,37.5
+7,turn on the stove,0.0,30.0,6,"[-0.465, 0.864, 0.191]",True,0.26,16,False,300,42.3
+7,turn on the stove,0.0,30.0,7,"[0.927, 0.187, 0.324]",True,0.24,16,False,300,45.1
+7,turn on the stove,0.0,30.0,8,"[0.019, 0.959, 0.281]",True,0.24,17,False,300,44.4
+7,turn on the stove,0.0,30.0,9,"[-0.92, -0.391, 0.015]",True,0.24,17,False,300,44.1
+7,turn on the stove,10.0,0.0,0,"[-0.639, 0.434, 0.635]",True,1.08,13,True,76,15.0
+7,turn on the stove,10.0,0.0,1,"[0.249, 0.622, 0.743]",True,0.22,13,True,74,14.5
+7,turn on the stove,10.0,0.0,2,"[0.39, -0.915, 0.102]",True,0.67,14,True,95,16.5
+7,turn on the stove,10.0,0.0,3,"[0.574, 0.817, 0.051]",True,0.65,13,False,300,43.3
+7,turn on the stove,10.0,0.0,4,"[-0.897, -0.398, 0.195]",True,1.16,14,True,85,15.1
+7,turn on the stove,10.0,0.0,5,"[0.666, -0.157, 0.73]",True,1.05,14,False,300,41.7
+7,turn on the stove,10.0,0.0,6,"[-0.465, 0.864, 0.191]",True,0.99,13,True,72,14.1
+7,turn on the stove,10.0,0.0,7,"[0.927, 0.187, 0.324]",True,1.18,15,False,300,30.6
+7,turn on the stove,10.0,0.0,8,"[0.019, 0.959, 0.281]",True,0.25,14,True,68,7.7
+7,turn on the stove,10.0,0.0,9,"[-0.92, -0.391, 0.015]",True,1.38,15,True,75,11.1
+7,turn on the stove,2.0,0.0,0,"[-0.639, 0.434, 0.635]",True,0.71,8,True,71,14.6
+7,turn on the stove,2.0,0.0,1,"[0.249, 0.622, 0.743]",True,0.45,9,True,75,13.4
+7,turn on the stove,2.0,0.0,2,"[0.39, -0.915, 0.102]",True,0.4,9,True,76,14.4
+7,turn on the stove,2.0,0.0,3,"[0.574, 0.817, 0.051]",True,0.52,9,True,64,12.7
+7,turn on the stove,2.0,0.0,4,"[-0.897, -0.398, 0.195]",True,0.43,9,True,72,13.8
+7,turn on the stove,2.0,0.0,5,"[0.666, -0.157, 0.73]",True,0.49,9,True,80,14.3
+7,turn on the stove,2.0,0.0,6,"[-0.465, 0.864, 0.191]",True,0.45,9,True,72,14.4
+7,turn on the stove,2.0,0.0,7,"[0.927, 0.187, 0.324]",True,0.5,9,True,76,16.0
+7,turn on the stove,2.0,0.0,8,"[0.019, 0.959, 0.281]",True,0.68,8,True,69,14.3
+7,turn on the stove,2.0,0.0,9,"[-0.92, -0.391, 0.015]",True,0.51,9,True,68,12.9
+7,turn on the stove,4.0,0.0,0,"[-0.639, 0.434, 0.635]",True,0.5,10,True,70,14.6
+7,turn on the stove,4.0,0.0,1,"[0.249, 0.622, 0.743]",True,0.5,10,True,73,14.1
+7,turn on the stove,4.0,0.0,2,"[0.39, -0.915, 0.102]",True,0.42,10,True,74,14.3
+7,turn on the stove,4.0,0.0,3,"[0.574, 0.817, 0.051]",True,0.21,11,True,62,12.4
+7,turn on the stove,4.0,0.0,4,"[-0.897, -0.398, 0.195]",True,0.31,11,True,74,14.0
+7,turn on the stove,4.0,0.0,5,"[0.666, -0.157, 0.73]",True,0.14,11,True,77,14.7
+7,turn on the stove,4.0,0.0,6,"[-0.465, 0.864, 0.191]",True,0.47,10,True,72,14.8
+7,turn on the stove,4.0,0.0,7,"[0.927, 0.187, 0.324]",True,0.1,11,True,73,15.9
+7,turn on the stove,4.0,0.0,8,"[0.019, 0.959, 0.281]",True,0.47,10,True,67,14.4
+7,turn on the stove,4.0,0.0,9,"[-0.92, -0.391, 0.015]",True,0.22,11,True,73,13.3
+7,turn on the stove,6.0,0.0,0,"[-0.639, 0.434, 0.635]",True,0.56,11,True,71,11.2
+7,turn on the stove,6.0,0.0,1,"[0.249, 0.622, 0.743]",True,0.1,12,True,74,13.5
+7,turn on the stove,6.0,0.0,2,"[0.39, -0.915, 0.102]",True,0.26,11,True,148,23.4
+7,turn on the stove,6.0,0.0,3,"[0.574, 0.817, 0.051]",True,0.2,12,False,300,43.3
+7,turn on the stove,6.0,0.0,4,"[-0.897, -0.398, 0.195]",True,0.73,12,True,82,15.3
+7,turn on the stove,6.0,0.0,5,"[0.666, -0.157, 0.73]",True,0.26,12,True,77,13.6
+7,turn on the stove,6.0,0.0,6,"[-0.465, 0.864, 0.191]",True,0.4,11,True,70,12.8
+7,turn on the stove,6.0,0.0,7,"[0.927, 0.187, 0.324]",True,0.41,12,True,234,33.7
+7,turn on the stove,6.0,0.0,8,"[0.019, 0.959, 0.281]",True,0.41,11,True,67,12.3
+7,turn on the stove,6.0,0.0,9,"[-0.92, -0.391, 0.015]",True,0.61,12,True,76,10.6
+7,turn on the stove,8.0,0.0,0,"[-0.639, 0.434, 0.635]",True,0.81,12,True,73,14.3
+7,turn on the stove,8.0,0.0,1,"[0.249, 0.622, 0.743]",True,0.15,12,True,74,14.5
+7,turn on the stove,8.0,0.0,2,"[0.39, -0.915, 0.102]",True,0.39,13,True,82,15.6
+7,turn on the stove,8.0,0.0,3,"[0.574, 0.817, 0.051]",True,0.32,12,False,300,42.4
+7,turn on the stove,8.0,0.0,4,"[-0.897, -0.398, 0.195]",True,0.99,13,True,78,14.5
+7,turn on the stove,8.0,0.0,5,"[0.666, -0.157, 0.73]",True,0.73,13,True,86,14.6
+7,turn on the stove,8.0,0.0,6,"[-0.465, 0.864, 0.191]",True,0.62,12,True,72,14.3
+7,turn on the stove,8.0,0.0,7,"[0.927, 0.187, 0.324]",True,1.02,14,True,88,16.4
+7,turn on the stove,8.0,0.0,8,"[0.019, 0.959, 0.281]",True,0.2,13,True,67,13.4
+7,turn on the stove,8.0,0.0,9,"[-0.92, -0.391, 0.015]",True,0.88,13,True,76,13.6
