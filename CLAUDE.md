@@ -42,7 +42,7 @@
 
 - [x] 연구 방향·모델·환경 선택 완료
 - [x] 공부 커리큘럼 문서화 (이 저장소)
-- [ ] **LAB 01~04 실습** ← 지금 여기
+- [ ] **LAB 01~04 실습** ← 지금 여기 (01_딥러닝기초 1-1 완료, 1-2 CNN·ViT 직전. [2026-09-15 일지](03_일지/2026-09-15.md))
 - [x] Ubuntu 환경 구축 (연구실 PC, LeRobot 0.4.4 + hf-libero)
 - [x] LIBERO-Goal 기준 점수 측정 → **74%** (10 태스크 × 10회, `n_action_steps=10`)
 - [x] 첫 전환 실험 → [04_실습/05_libero/switch_experiment](04_실습/05_libero/switch_experiment/README.md), [일지](03_일지/2026-09-14.md)

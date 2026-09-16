@@ -10,6 +10,7 @@
 | LAB | 내용 | 연결 단계 | 소요 | 상태 |
 |---|---|---|---|---|
 | [LAB 01](LAB01_pytorch기초.md) | PyTorch 기초 — 텐서, autograd, MNIST, 속도 측정 | 1단계 | 3~5시간 | ⬜ |
+| ↳ [실습 기록 2026-09-15](01_pytorch/2026-09-15_실습과제.md) | 과제 4개 코드·결과 (Colab) | - | - | 🟡 3·4 재실행 필요 |
 | [LAB 02](LAB02_transformer.md) | Transformer 직접 만들기 — attention부터 미니 VLA까지 | 1단계 | 4~6시간 | ⬜ |
 | [LAB 03](LAB03_로봇수학.md) | 로봇 수학 — 회전, FK/IK, **저크 계산**, 궤적 블렌딩 | 2단계 | 3~4시간 | ⬜ |
 | [LAB 04](LAB04_action_chunking.md) | **Action Chunking과 전환** — 연구의 심장 | 3단계 | 4~6시간 | ⬜ |
