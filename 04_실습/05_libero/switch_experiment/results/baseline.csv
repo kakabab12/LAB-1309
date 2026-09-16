@@ -1,0 +1,11 @@
+task_id,instruction,success_pct,success,n
+0,open the middle drawer of the cabinet,60,6,10
+1,put the bowl on the stove,100,10,10
+2,put the wine bottle on top of the cabinet,80,8,10
+3,open the top drawer and put the bowl inside,50,5,10
+4,put the bowl on top of the cabinet,90,9,10
+5,push the plate to the front of the stove,100,10,10
+6,put the cream cheese in the bowl,50,5,10
+7,turn on the stove,100,10,10
+8,put the bowl on the plate,60,6,10
+9,put the wine bottle on the rack,50,5,10
