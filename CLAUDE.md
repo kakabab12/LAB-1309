@@ -34,7 +34,7 @@
 
 | 장비 | 사양 | 주의 |
 |---|---|---|
-| 연구실 GPU | **GTX 1080 Ti (11GB, Pascal)** | ⚠️ PyTorch 2.8+ cu128, CUDA 13 미지원 → **2.7.1 + cu126** 사용. bf16 불가(fp32로 동작) |
+| 연구실 GPU | **GTX 1080 Ti (11GB, Pascal)** | ⚠️ cu128/CUDA 13 미지원 → **cu126 빌드** 사용. bf16 불가(fp32로 동작). 2026-09 실측: PyTorch **2.10.0+cu126** 정상 동작 |
 | 개인 PC | RTX 4070 Ti (12GB, Ada), RAM 32GB | bf16 가능. 파인튜닝용 |
 | OS | LIBERO와 PiPER 플러그인 모두 **Linux 필요** | |
 
@@ -43,9 +43,12 @@
 - [x] 연구 방향·모델·환경 선택 완료
 - [x] 공부 커리큘럼 문서화 (이 저장소)
 - [ ] **LAB 01~04 실습** ← 지금 여기
-- [ ] Ubuntu 환경 구축
-- [ ] LIBERO-Goal 기준 점수 측정
-- [ ] 첫 전환 실험
+- [x] Ubuntu 환경 구축 (연구실 PC, LeRobot 0.4.4 + hf-libero)
+- [x] LIBERO-Goal 기준 점수 측정 → **74%** (10 태스크 × 10회, `n_action_steps=10`)
+- [x] 첫 전환 실험 → [04_실습/05_libero/switch_experiment](04_실습/05_libero/switch_experiment/README.md), [일지](03_일지/2026-09-14.md)
+  - chunk 처리(flush/keep/blend)는 B 성공률 18~39%로 차이 없음
+  - 내려놓고 초기 자세 복귀 후 전환(retreat)만 B 82~92%, A 재개 50~72%
+  - 지배 변수는 **전환 시점의 로봇 자세** (지시 이해는 됨)
 
 ## 문서 지도
 
