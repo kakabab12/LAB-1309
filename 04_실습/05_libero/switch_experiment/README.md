@@ -122,7 +122,25 @@
 ![끝단 높이 궤적](results/traj_example.png)
 
 - flush / keep / blend는 전환 후 궤적이 거의 겹침 → **chunk 처리 방식 차이가 실제 동작에 거의 반영되지 않음**
-- 영상: [flush](results/videos/A8_B7_grasp3_flush_ep0.mp4) / [retreat](results/videos/A8_B7_grasp3_retreat_ep0.mp4) (8→7, 잡은 직후, 에피소드 0). 막대 색: 파랑 A, 회색 스크립트 복귀, 주황 B, 초록 A 재개
+### 장면 비교 (8→7, 잡은 직후 전환)
+
+![retreat 장면](results/scene_retreat.png)
+
+![flush 장면](results/scene_flush.png)
+
+flush는 그릇을 든 채 스토브로 가서 내려놓지만, 손목이 틀어진 자세 그대로 손잡이를 계속 헛집습니다.
+
+### 영상
+
+막대 색: 파랑 A, 회색 스크립트 복귀, 주황 B, 초록 A 재개. 왼쪽 3인칭 / 오른쪽 손목 카메라.
+
+| 영상 | 내용 |
+|---|---|
+| [retreat 성공](results/videos/A8_B7_grasp3_retreat_ep1.mp4) | 8→7 잡은 직후, B·A 재개 모두 성공 |
+| [flush 실패](results/videos/A8_B7_grasp3_flush_ep0.mp4) | 같은 조건, 둘 다 실패 |
+| [retreat A 재개 실패](results/videos/A8_B7_grasp3_retreat_ep0.mp4) | B 성공, A 재개 시간 초과 |
+| [flush 들고 이동 중](results/videos/A1_B5_grasp20_flush_ep0.mp4) | 1→5, 들고 가는 중 전환 |
+| [retreat 들고 이동 중](results/videos/A1_B5_grasp20_retreat_ep0.mp4) | 같은 조건의 retreat |
 
 ---
 
