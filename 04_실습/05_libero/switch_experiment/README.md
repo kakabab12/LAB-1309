@@ -130,12 +130,19 @@
 
 flush는 그릇을 든 채 스토브로 가서 내려놓지만, 손목이 틀어진 자세 그대로 손잡이를 계속 헛집습니다.
 
-### 영상
+### 영상 (GIF, 왼쪽 retreat / 오른쪽 flush)
 
-막대 색: 파랑 A, 회색 스크립트 복귀, 주황 B, 초록 A 재개. 왼쪽 3인칭 / 오른쪽 손목 카메라.
+![잡은 직후 전환 비교](results/compare_grasp3.gif)
 
-| 영상 | 내용 |
-|---|---|
+*잡은 직후 전환, 8→7 (bowl→plate 도중 turn on the stove)*
+
+![들고 이동 중 전환 비교](results/compare_grasp20.gif)
+
+*들고 이동 중 전환, 1→5 (bowl→stove 도중 push the plate). retreat은 B 성공·A 재개 실패, flush는 둘 다 실패한 에피소드*
+
+원본 mp4 (손목 카메라 포함): `results/videos/` — `A8_B7_grasp3_retreat_ep1`(B·A 재개 성공), `A8_B7_grasp3_flush_ep0`(둘 다 실패), `A8_B7_grasp3_retreat_ep0`(B만 성공), `A1_B5_grasp20_{flush,retreat}_ep0`
+
+---|---|
 | [retreat 성공](results/videos/A8_B7_grasp3_retreat_ep1.mp4) | 8→7 잡은 직후, B·A 재개 모두 성공 |
 | [flush 실패](results/videos/A8_B7_grasp3_flush_ep0.mp4) | 같은 조건, 둘 다 실패 |
 | [retreat A 재개 실패](results/videos/A8_B7_grasp3_retreat_ep0.mp4) | B 성공, A 재개 시간 초과 |
