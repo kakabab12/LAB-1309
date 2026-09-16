@@ -1,0 +1,601 @@
+pair,switch_at,strategy,episode,switched,grasp_step,a_steps_before_switch,holding_at_switch,held_object,a_success,b_success,b_failure_type,a_completed_during_b,a_resume_success,both_success,drop,reaction_steps,jerk,wall_sec
+1→5,grasp:20,blend,0,True,40,60,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,7,7.772708040585358,97.1
+1→5,grasp:20,blend,1,True,48,68,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,7,11.960273562199918,98.1
+1→5,grasp:20,blend,2,True,39,59,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,7.970701831991777,97.9
+1→5,grasp:20,blend,3,True,38,58,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,9,10.632662285023502,96.8
+1→5,grasp:20,blend,4,True,38,58,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,7,9.482730848827353,97.4
+1→5,grasp:20,blend,5,True,41,61,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,7,11.80267600626009,97.4
+1→5,grasp:20,blend,6,True,42,62,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,7,11.501482656723697,99.6
+1→5,grasp:20,blend,7,True,42,62,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,7,9.755715517158432,89.8
+1→5,grasp:20,blend,8,True,45,65,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,6,10.745628003230316,91.6
+1→5,grasp:20,blend,9,True,43,63,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,8,9.595012006181202,97.0
+1→5,grasp:20,flush,0,True,40,60,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,10.068109883852697,97.8
+1→5,grasp:20,flush,1,True,48,68,True,akita_black_bowl_1,,True,,False,False,False,False,3,13.530450997845413,71.4
+1→5,grasp:20,flush,2,True,40,60,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,10.145120737340353,98.4
+1→5,grasp:20,flush,3,True,38,58,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,11.09472773426446,97.0
+1→5,grasp:20,flush,4,True,38,58,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,4,10.880355076206692,97.4
+1→5,grasp:20,flush,5,True,41,61,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,14.005773152033044,98.2
+1→5,grasp:20,flush,6,True,42,62,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,13.764519343865079,98.0
+1→5,grasp:20,flush,7,True,42,62,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,9.68929644390869,98.5
+1→5,grasp:20,flush,8,True,45,65,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,12.575396578396816,88.2
+1→5,grasp:20,flush,9,True,43,63,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,12.16017804519917,89.9
+1→5,grasp:20,keep,0,True,40,60,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,10.068109883852697,97.9
+1→5,grasp:20,keep,1,True,48,68,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,5,15.302174475465575,98.3
+1→5,grasp:20,keep,2,True,39,59,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,10.541332483905334,96.7
+1→5,grasp:20,keep,3,True,38,58,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,5,11.51895859983449,97.3
+1→5,grasp:20,keep,4,True,38,58,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,6,10.836264605718405,96.3
+1→5,grasp:20,keep,5,True,41,61,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,12,13.462513929702165,98.1
+1→5,grasp:20,keep,6,True,42,62,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,11,12.132678530274957,98.8
+1→5,grasp:20,keep,7,True,42,62,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,11,9.92948263174049,88.1
+1→5,grasp:20,keep,8,True,45,65,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,8,11.95654175002756,98.9
+1→5,grasp:20,keep,9,True,43,63,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,9.838425182704503,90.3
+1→5,grasp:20,none,0,True,40,60,True,akita_black_bowl_1,True,,,,,,False,,4.819156957191262,12.4
+1→5,grasp:20,none,1,True,48,68,True,akita_black_bowl_1,True,,,,,,False,,9.772703370341501,13.4
+1→5,grasp:20,none,2,True,40,60,True,akita_black_bowl_1,True,,,,,,False,,7.894387865069852,12.1
+1→5,grasp:20,none,3,True,38,58,True,akita_black_bowl_1,True,,,,,,False,,6.886214309395749,14.1
+1→5,grasp:20,none,4,True,38,58,True,akita_black_bowl_1,True,,,,,,False,,5.1557493818636235,12.0
+1→5,grasp:20,none,5,True,41,61,True,akita_black_bowl_1,True,,,,,,False,,8.308095098580148,12.1
+1→5,grasp:20,none,6,True,42,62,True,akita_black_bowl_1,True,,,,,,False,,8.577616121700823,12.1
+1→5,grasp:20,none,7,True,42,62,True,akita_black_bowl_1,True,,,,,,False,,6.320180496980312,14.5
+1→5,grasp:20,none,8,True,45,65,True,akita_black_bowl_1,True,,,,,,False,,6.291594822448697,12.0
+1→5,grasp:20,none,9,True,43,63,True,akita_black_bowl_1,True,,,,,,False,,5.559586059280008,9.0
+1→5,grasp:20,retreat,0,True,40,60,True,akita_black_bowl_1,,True,,False,False,False,False,3,3.5719822826828316,70.4
+1→5,grasp:20,retreat,1,True,48,68,True,akita_black_bowl_1,,True,,False,True,True,False,3,3.8346584861696495,40.8
+1→5,grasp:20,retreat,2,True,40,60,True,akita_black_bowl_1,,True,,False,False,False,False,3,3.793009550214883,70.4
+1→5,grasp:20,retreat,3,True,38,58,True,akita_black_bowl_1,,True,,False,True,True,False,3,3.779735975294928,43.8
+1→5,grasp:20,retreat,4,True,38,58,True,akita_black_bowl_1,,False,시간 초과,False,True,False,False,2,3.8254332985178174,55.0
+1→5,grasp:20,retreat,5,True,41,61,True,akita_black_bowl_1,,True,,False,False,False,False,3,3.7689005082586653,73.5
+1→5,grasp:20,retreat,6,True,42,62,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,3.745104332195228,88.1
+1→5,grasp:20,retreat,7,True,42,62,True,akita_black_bowl_1,,False,시간 초과,False,True,False,False,3,3.5400910915114276,71.3
+1→5,grasp:20,retreat,8,True,45,65,True,akita_black_bowl_1,,True,,False,True,True,False,3,3.5955227329798896,44.5
+1→5,grasp:20,retreat,9,True,43,63,True,akita_black_bowl_1,,True,,False,True,True,False,2,3.667394863031359,47.4
+1→5,grasp:3,blend,0,True,40,43,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,12,10.098687066626798,88.3
+1→5,grasp:3,blend,1,True,48,51,True,cream_cheese_1,,False,시간 초과,False,False,False,False,11,14.412490160426927,96.1
+1→5,grasp:3,blend,2,True,40,43,True,cream_cheese_1,,False,시간 초과,False,False,False,False,12,9.7583283043504,95.9
+1→5,grasp:3,blend,3,True,38,41,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,12,8.809627238699285,95.5
+1→5,grasp:3,blend,4,True,38,41,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,16,11.316124145680613,96.4
+1→5,grasp:3,blend,5,True,41,44,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,13.089378113460931,96.8
+1→5,grasp:3,blend,6,True,42,45,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,9,11.676909902412877,95.6
+1→5,grasp:3,blend,7,True,42,45,True,akita_black_bowl_1,,False,물체 낙하,False,False,False,True,12,7.522124910158038,95.3
+1→5,grasp:3,blend,8,True,45,48,True,cream_cheese_1,,False,시간 초과,False,False,False,False,9,10.02962660656676,93.4
+1→5,grasp:3,blend,9,True,43,46,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,11,9.011907725370602,91.8
+1→5,grasp:3,flush,0,True,40,43,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,8,5.955534635230139,96.4
+1→5,grasp:3,flush,1,True,48,51,True,cream_cheese_1,,False,시간 초과,False,False,False,False,6,15.319077861319197,96.7
+1→5,grasp:3,flush,2,True,40,43,True,cream_cheese_1,,False,시간 초과,False,False,False,False,8,12.269574294876987,95.6
+1→5,grasp:3,flush,3,True,38,41,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,5,12.468478289943215,95.0
+1→5,grasp:3,flush,4,True,38,41,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,15,9.746552419974385,95.2
+1→5,grasp:3,flush,5,True,41,44,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,13.755236091461141,95.4
+1→5,grasp:3,flush,6,True,42,45,True,akita_black_bowl_1,,False,시간 초과,False,True,False,False,4,13.716225920559214,65.0
+1→5,grasp:3,flush,7,True,42,45,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,7,8.681647085205991,94.8
+1→5,grasp:3,flush,8,True,45,48,True,cream_cheese_1,,False,시간 초과,False,False,False,False,6,9.057401519650904,85.2
+1→5,grasp:3,flush,9,True,43,46,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,5,11.753897537726845,96.4
+1→5,grasp:3,keep,0,True,40,43,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,12,9.016012951098896,85.2
+1→5,grasp:3,keep,1,True,48,51,True,cream_cheese_1,,False,시간 초과,False,False,False,False,14,12.952269575971773,98.3
+1→5,grasp:3,keep,2,True,40,43,True,cream_cheese_1,,False,시간 초과,False,False,False,False,11,13.647893368813415,95.7
+1→5,grasp:3,keep,3,True,38,41,True,akita_black_bowl_1,,False,물체 낙하,False,False,False,True,14,11.224674698361442,96.2
+1→5,grasp:3,keep,4,True,38,41,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,15,8.503862379460243,95.4
+1→5,grasp:3,keep,5,True,41,44,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,12,12.826306690761031,95.6
+1→5,grasp:3,keep,6,True,42,45,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,12.266044039550092,95.2
+1→5,grasp:3,keep,7,True,42,45,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,11,9.708025326621167,95.8
+1→5,grasp:3,keep,8,True,45,48,True,cream_cheese_1,,False,시간 초과,False,False,False,False,8,11.207346172102252,85.2
+1→5,grasp:3,keep,9,True,43,46,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,11,9.15633559928491,95.3
+1→5,grasp:3,none,0,True,40,43,True,akita_black_bowl_1,True,,,,,,False,,6.354682105013571,11.4
+1→5,grasp:3,none,1,True,48,51,True,cream_cheese_1,True,,,,,,False,,9.380854694704903,13.1
+1→5,grasp:3,none,2,True,40,43,True,cream_cheese_1,True,,,,,,False,,7.234108213011876,11.7
+1→5,grasp:3,none,3,True,38,41,True,akita_black_bowl_1,True,,,,,,False,,6.581725541769544,13.6
+1→5,grasp:3,none,4,True,38,41,True,akita_black_bowl_1,True,,,,,,False,,5.7776720623853475,11.8
+1→5,grasp:3,none,5,True,41,44,True,akita_black_bowl_1,True,,,,,,False,,7.715805909264976,12.0
+1→5,grasp:3,none,6,True,42,45,True,akita_black_bowl_1,True,,,,,,False,,7.725697244374834,11.8
+1→5,grasp:3,none,7,True,42,45,True,akita_black_bowl_1,True,,,,,,False,,6.303707616959764,13.7
+1→5,grasp:3,none,8,True,45,48,True,cream_cheese_1,True,,,,,,False,,5.659161674487197,12.1
+1→5,grasp:3,none,9,True,43,46,True,akita_black_bowl_1,True,,,,,,False,,5.964802464679126,12.0
+1→5,grasp:3,retreat,0,True,40,43,True,akita_black_bowl_1,,True,,False,True,True,False,7,3.3616813120576197,40.3
+1→5,grasp:3,retreat,1,True,48,51,True,cream_cheese_1,,True,,False,True,True,False,6,3.4724465117325196,43.0
+1→5,grasp:3,retreat,2,True,40,43,True,cream_cheese_1,,True,,False,False,False,False,6,3.411743184042233,60.5
+1→5,grasp:3,retreat,3,True,38,41,True,akita_black_bowl_1,,True,,False,True,True,False,7,2.9761444828034365,40.2
+1→5,grasp:3,retreat,4,True,38,41,True,akita_black_bowl_1,,True,,False,True,True,False,7,3.846287044363715,39.7
+1→5,grasp:3,retreat,5,True,41,44,True,akita_black_bowl_1,,True,,False,True,True,False,5,3.5634044400195766,40.6
+1→5,grasp:3,retreat,6,True,42,45,True,akita_black_bowl_1,,False,시간 초과,False,True,False,False,6,3.2183705643301184,67.2
+1→5,grasp:3,retreat,7,True,42,45,True,akita_black_bowl_1,,True,,False,True,True,False,6,3.562082481061378,34.7
+1→5,grasp:3,retreat,8,True,45,48,True,cream_cheese_1,,True,,False,True,True,False,5,3.6768999475385358,38.0
+1→5,grasp:3,retreat,9,True,43,46,True,akita_black_bowl_1,,False,시간 초과,False,True,False,False,6,3.1090058058755154,67.6
+1→5,step:15,blend,0,True,,15,False,,,False,시간 초과,False,False,False,False,8,7.250561500797131,85.5
+1→5,step:15,blend,1,True,,15,False,,,True,,False,False,False,False,10,8.05227299141376,85.9
+1→5,step:15,blend,2,True,,15,False,,,False,시간 초과,False,False,False,False,9,10.64071352922921,90.4
+1→5,step:15,blend,3,True,,15,False,,,False,시간 초과,False,False,False,False,8,8.280111975474869,91.3
+1→5,step:15,blend,4,True,,15,False,,,True,,False,False,False,False,8,8.038009855608912,80.7
+1→5,step:15,blend,5,True,,15,False,,,True,,False,False,False,False,9,7.531895088691609,65.7
+1→5,step:15,blend,6,True,,15,False,,,False,시간 초과,False,False,False,False,8,9.166271035477846,90.7
+1→5,step:15,blend,7,True,,15,False,,,True,,False,False,False,False,9,6.439609302826574,68.5
+1→5,step:15,blend,8,True,,15,False,,,False,시간 초과,False,False,False,False,9,6.9427178897467625,90.9
+1→5,step:15,blend,9,True,,15,False,,,False,시간 초과,False,False,False,False,9,10.729380074176914,91.4
+1→5,step:15,flush,0,True,,15,False,,,False,시간 초과,False,False,False,False,6,8.359569458758243,64.6
+1→5,step:15,flush,1,True,,15,False,,,True,,False,False,False,False,7,8.2540367334965,74.5
+1→5,step:15,flush,2,True,,15,False,,,False,시간 초과,False,False,False,False,7,10.075346423581705,91.2
+1→5,step:15,flush,3,True,,15,False,,,False,시간 초과,False,False,False,False,6,7.647955369519035,92.2
+1→5,step:15,flush,4,True,,15,False,,,True,,False,False,False,False,6,7.422055004857782,73.3
+1→5,step:15,flush,5,True,,15,False,,,True,,False,False,False,False,5,8.030187329258283,71.9
+1→5,step:15,flush,6,True,,15,False,,,False,시간 초과,False,False,False,False,5,7.960786069684406,91.5
+1→5,step:15,flush,7,True,,15,False,,,True,,False,False,False,False,6,6.871147653419816,61.0
+1→5,step:15,flush,8,True,,15,False,,,False,시간 초과,False,False,False,False,7,6.851954358110752,91.6
+1→5,step:15,flush,9,True,,15,False,,,False,시간 초과,False,False,False,False,5,7.7627348316067515,90.6
+1→5,step:15,keep,0,True,,15,False,,,True,,False,False,False,False,8,7.811222351632338,63.6
+1→5,step:15,keep,1,True,,15,False,,,False,시간 초과,False,False,False,False,9,9.959099795416135,84.7
+1→5,step:15,keep,2,True,,15,False,,,False,시간 초과,False,False,False,False,9,10.474378582556218,91.0
+1→5,step:15,keep,3,True,,15,False,,,False,시간 초과,False,False,False,False,8,9.617789371776452,91.4
+1→5,step:15,keep,4,True,,15,False,,,True,,False,False,False,False,8,8.218409617768287,81.2
+1→5,step:15,keep,5,True,,15,False,,,True,,False,False,False,False,8,8.071716062952992,65.7
+1→5,step:15,keep,6,True,,15,False,,,True,,False,False,False,False,9,9.148022437048745,62.5
+1→5,step:15,keep,7,True,,15,False,,,False,시간 초과,False,False,False,False,9,7.693784146098569,90.8
+1→5,step:15,keep,8,True,,15,False,,,False,시간 초과,False,False,False,False,8,7.466243934983689,91.2
+1→5,step:15,keep,9,True,,15,False,,,False,시간 초과,False,False,False,False,9,10.001488788032795,91.2
+1→5,step:15,none,0,True,,15,False,,True,,,,,,False,,7.140676693329941,9.7
+1→5,step:15,none,1,True,,15,False,,True,,,,,,False,,7.718593026087931,13.2
+1→5,step:15,none,2,True,,15,False,,True,,,,,,False,,5.878701612446692,12.0
+1→5,step:15,none,3,True,,15,False,,True,,,,,,False,,6.042646919471079,13.2
+1→5,step:15,none,4,True,,15,False,,True,,,,,,False,,6.27363556088115,12.5
+1→5,step:15,none,5,True,,15,False,,True,,,,,,False,,6.278049459813628,12.1
+1→5,step:15,none,6,True,,15,False,,True,,,,,,False,,5.830842483457352,11.9
+1→5,step:15,none,7,True,,15,False,,True,,,,,,False,,7.089524435442466,13.3
+1→5,step:15,none,8,True,,15,False,,True,,,,,,False,,6.1367638124048085,12.7
+1→5,step:15,none,9,True,,15,False,,True,,,,,,False,,6.6178481031313625,13.6
+1→5,step:15,retreat,0,True,,15,False,,,False,시간 초과,False,False,False,False,3,7.735270215463285,88.1
+1→5,step:15,retreat,1,True,,15,False,,,True,,False,True,True,False,3,8.499458581867074,36.6
+1→5,step:15,retreat,2,True,,15,False,,,True,,False,True,True,False,3,8.28310393740446,30.9
+1→5,step:15,retreat,3,True,,15,False,,,True,,False,True,True,False,3,8.715364652244496,51.6
+1→5,step:15,retreat,4,True,,15,False,,,False,시간 초과,False,True,False,False,3,7.980351253869825,56.2
+1→5,step:15,retreat,5,True,,15,False,,,True,,False,True,True,False,3,7.718921551249055,30.8
+1→5,step:15,retreat,6,True,,15,False,,,True,,False,True,True,False,3,7.809467229523102,34.2
+1→5,step:15,retreat,7,True,,15,False,,,True,,False,True,True,False,3,8.522794046974058,53.4
+1→5,step:15,retreat,8,True,,15,False,,,False,시간 초과,False,True,False,False,3,8.542286651483703,57.8
+1→5,step:15,retreat,9,True,,15,False,,,True,,False,False,False,False,3,9.176203468755805,87.3
+2→5,grasp:20,blend,0,True,39,59,True,wine_bottle_1,,False,시간 초과,False,False,False,False,6,8.231588081531664,96.3
+2→5,grasp:20,blend,1,True,48,68,True,wine_bottle_1,,False,시간 초과,False,False,False,False,7,11.131105887450364,98.1
+2→5,grasp:20,blend,2,False,96,96,,,True,,,,,,,,,14.1
+2→5,grasp:20,blend,3,True,38,58,True,wine_bottle_1,,False,시간 초과,False,False,False,False,7,8.557448973114079,96.1
+2→5,grasp:20,blend,4,False,,84,,,True,,,,,,,,,12.6
+2→5,grasp:20,blend,5,False,,82,,,True,,,,,,,,,13.3
+2→5,grasp:20,blend,6,False,,146,,,True,,,,,,,,,22.1
+2→5,grasp:20,blend,7,True,42,62,True,wine_bottle_1,,False,시간 초과,False,False,False,False,7,7.295582320346367,98.7
+2→5,grasp:20,blend,8,True,43,63,True,wine_bottle_1,,False,시간 초과,False,False,False,False,7,9.637330950108149,90.7
+2→5,grasp:20,blend,9,True,34,54,True,wine_bottle_1,,False,시간 초과,False,False,False,False,7,7.259944923826319,93.8
+2→5,grasp:20,flush,0,True,39,59,True,wine_bottle_1,,False,시간 초과,False,False,False,False,3,10.23463760339611,97.2
+2→5,grasp:20,flush,1,True,48,68,True,wine_bottle_1,,False,시간 초과,False,False,False,False,2,12.483438887794142,99.2
+2→5,grasp:20,flush,2,False,96,96,,,True,,,,,,,,,14.9
+2→5,grasp:20,flush,3,True,38,58,True,wine_bottle_1,,False,시간 초과,False,False,False,False,3,11.278668789810098,96.4
+2→5,grasp:20,flush,4,False,,84,,,True,,,,,,,,,13.2
+2→5,grasp:20,flush,5,False,,83,,,True,,,,,,,,,12.5
+2→5,grasp:20,flush,6,False,150,150,,,True,,,,,,,,,22.5
+2→5,grasp:20,flush,7,True,42,62,True,wine_bottle_1,,False,시간 초과,False,False,False,False,4,8.507120863901237,99.2
+2→5,grasp:20,flush,8,True,43,63,True,wine_bottle_1,,False,시간 초과,False,False,False,False,3,11.878159470116865,98.0
+2→5,grasp:20,flush,9,True,34,54,True,wine_bottle_1,,False,시간 초과,False,False,False,False,4,9.440176819822423,86.4
+2→5,grasp:20,keep,0,True,39,59,True,wine_bottle_1,,False,시간 초과,False,False,False,False,4,9.811310508711337,97.4
+2→5,grasp:20,keep,1,True,48,68,True,wine_bottle_1,,True,,False,False,False,False,5,13.999861034545587,72.3
+2→5,grasp:20,keep,2,False,96,96,,,True,,,,,,,,,14.8
+2→5,grasp:20,keep,3,True,38,58,True,wine_bottle_1,,False,시간 초과,False,False,False,False,5,10.799156373007792,95.9
+2→5,grasp:20,keep,4,False,,84,,,True,,,,,,,,,13.2
+2→5,grasp:20,keep,5,False,,82,,,True,,,,,,,,,13.8
+2→5,grasp:20,keep,6,False,,146,,,True,,,,,,,,,21.9
+2→5,grasp:20,keep,7,True,42,62,True,wine_bottle_1,,False,시간 초과,False,False,False,False,11,7.398697893769519,99.0
+2→5,grasp:20,keep,8,True,43,63,True,wine_bottle_1,,False,시간 초과,False,False,False,False,10,9.135797569870482,99.3
+2→5,grasp:20,keep,9,True,34,54,True,wine_bottle_1,,False,시간 초과,False,False,False,False,9,8.746981121195697,87.0
+2→5,grasp:20,none,0,True,39,59,True,wine_bottle_1,True,,,,,,False,,7.636698126492432,12.8
+2→5,grasp:20,none,1,True,48,68,True,wine_bottle_1,True,,,,,,False,,11.957743040663136,14.8
+2→5,grasp:20,none,2,True,45,65,True,wine_bottle_1,True,,,,,,False,,8.506852244777036,13.5
+2→5,grasp:20,none,3,True,38,58,True,wine_bottle_1,True,,,,,,False,,8.970654268806337,13.6
+2→5,grasp:20,none,4,False,,84,,,True,,,,,,,,,12.7
+2→5,grasp:20,none,5,False,,83,,,True,,,,,,,,,12.6
+2→5,grasp:20,none,6,False,,146,,,True,,,,,,,,,21.0
+2→5,grasp:20,none,7,True,42,62,True,wine_bottle_1,True,,,,,,False,,6.8962655927557535,14.8
+2→5,grasp:20,none,8,True,43,63,True,wine_bottle_1,True,,,,,,False,,9.400430891546987,16.9
+2→5,grasp:20,none,9,True,34,54,True,wine_bottle_1,True,,,,,,False,,8.315220475397348,10.3
+2→5,grasp:20,retreat,0,True,39,59,True,wine_bottle_1,,False,시간 초과,False,False,False,False,2,5.0969547703443245,97.4
+2→5,grasp:20,retreat,1,True,48,68,True,wine_bottle_1,,True,,False,False,False,False,2,5.12109311476496,73.5
+2→5,grasp:20,retreat,2,False,96,96,,,True,,,,,,,,,13.7
+2→5,grasp:20,retreat,3,True,38,58,True,wine_bottle_1,,True,,False,False,False,False,2,4.227696771048002,48.7
+2→5,grasp:20,retreat,4,False,,84,,,True,,,,,,,,,6.4
+2→5,grasp:20,retreat,5,False,,82,,,True,,,,,,,,,6.4
+2→5,grasp:20,retreat,6,False,,146,,,True,,,,,,,,,10.6
+2→5,grasp:20,retreat,7,True,42,62,True,wine_bottle_1,,True,,False,False,False,False,3,5.017642577643332,37.7
+2→5,grasp:20,retreat,8,True,43,63,True,wine_bottle_1,,False,시간 초과,False,False,False,False,2,4.840448160600564,50.0
+2→5,grasp:20,retreat,9,True,34,54,True,wine_bottle_1,,True,,False,False,False,False,2,4.321951150987132,37.5
+2→5,grasp:3,blend,0,True,38,41,True,wine_bottle_1,,False,시간 초과,False,False,False,False,8,9.72992975871926,94.1
+2→5,grasp:3,blend,1,True,48,51,True,wine_bottle_1,,False,시간 초과,False,False,False,False,9,10.044498317998283,91.4
+2→5,grasp:3,blend,2,False,96,96,,,True,,,,,,,,,14.9
+2→5,grasp:3,blend,3,True,38,41,True,wine_bottle_1,,False,시간 초과,False,False,False,False,8,9.454745563068126,95.4
+2→5,grasp:3,blend,4,False,,84,,,True,,,,,,,,,12.2
+2→5,grasp:3,blend,5,False,,82,,,True,,,,,,,,,12.4
+2→5,grasp:3,blend,6,False,,158,,,True,,,,,,,,,23.6
+2→5,grasp:3,blend,7,True,42,45,True,wine_bottle_1,,False,시간 초과,False,False,False,False,10,8.98263441737822,97.3
+2→5,grasp:3,blend,8,True,43,46,True,wine_bottle_1,,False,시간 초과,False,False,False,False,9,8.383599111323713,97.9
+2→5,grasp:3,blend,9,True,34,37,True,wine_bottle_1,,False,시간 초과,False,False,False,False,10,9.977809849670708,93.8
+2→5,grasp:3,flush,0,True,39,42,True,wine_bottle_1,,False,시간 초과,False,False,False,False,4,14.007258482354308,87.9
+2→5,grasp:3,flush,1,True,48,51,True,wine_bottle_1,,True,,False,False,False,False,4,10.692825207170346,74.8
+2→5,grasp:3,flush,2,False,96,96,,,True,,,,,,,,,14.8
+2→5,grasp:3,flush,3,True,38,41,True,wine_bottle_1,,False,시간 초과,False,False,False,False,4,12.281929275274136,95.0
+2→5,grasp:3,flush,4,False,,84,,,True,,,,,,,,,13.5
+2→5,grasp:3,flush,5,False,,82,,,True,,,,,,,,,13.2
+2→5,grasp:3,flush,6,False,,146,,,True,,,,,,,,,22.2
+2→5,grasp:3,flush,7,True,42,45,True,wine_bottle_1,,False,시간 초과,False,False,False,False,4,8.906021881507366,93.6
+2→5,grasp:3,flush,8,True,43,46,True,wine_bottle_1,,False,시간 초과,False,False,False,False,5,9.024212553297698,95.0
+2→5,grasp:3,flush,9,True,34,37,True,wine_bottle_1,,False,시간 초과,False,False,False,False,5,11.019289385271565,94.4
+2→5,grasp:3,keep,0,True,39,42,True,wine_bottle_1,,False,시간 초과,False,False,False,False,11,11.08092473733428,85.7
+2→5,grasp:3,keep,1,True,48,51,True,wine_bottle_1,,False,시간 초과,False,False,False,False,13,12.392972934932647,96.3
+2→5,grasp:3,keep,2,False,96,96,,,True,,,,,,,,,15.4
+2→5,grasp:3,keep,3,True,37,40,True,wine_bottle_1,,False,시간 초과,False,False,False,False,4,12.115603718215775,94.8
+2→5,grasp:3,keep,4,False,,84,,,True,,,,,,,,,13.5
+2→5,grasp:3,keep,5,False,,82,,,True,,,,,,,,,13.4
+2→5,grasp:3,keep,6,False,,146,,,True,,,,,,,,,20.6
+2→5,grasp:3,keep,7,True,42,45,True,wine_bottle_1,,False,시간 초과,False,False,False,False,10,11.30715864819926,97.3
+2→5,grasp:3,keep,8,True,43,46,True,wine_bottle_1,,False,시간 초과,False,False,False,False,9,8.464304681984615,96.1
+2→5,grasp:3,keep,9,True,34,37,True,wine_bottle_1,,False,시간 초과,False,False,False,False,7,11.554047426161167,93.8
+2→5,grasp:3,none,0,True,39,42,True,wine_bottle_1,True,,,,,,False,,7.520664317234513,12.0
+2→5,grasp:3,none,1,True,48,51,True,wine_bottle_1,True,,,,,,False,,9.296238268001202,14.8
+2→5,grasp:3,none,2,False,96,96,,,True,,,,,,,,,13.3
+2→5,grasp:3,none,3,True,38,41,True,wine_bottle_1,True,,,,,,False,,7.446221677081564,13.4
+2→5,grasp:3,none,4,False,,84,,,True,,,,,,,,,11.9
+2→5,grasp:3,none,5,False,,82,,,True,,,,,,,,,11.7
+2→5,grasp:3,none,6,False,150,150,,,True,,,,,,,,,21.5
+2→5,grasp:3,none,7,True,42,45,True,wine_bottle_1,True,,,,,,False,,5.055738089856466,15.1
+2→5,grasp:3,none,8,True,43,46,True,wine_bottle_1,True,,,,,,False,,6.004691529977987,16.8
+2→5,grasp:3,none,9,True,34,37,True,wine_bottle_1,True,,,,,,False,,6.862469410474819,11.8
+2→5,grasp:3,retreat,0,True,39,42,True,wine_bottle_1,,True,,False,True,True,False,3,5.353162212037204,41.8
+2→5,grasp:3,retreat,1,True,48,51,True,wine_bottle_1,,True,,False,False,False,False,6,3.855388933775841,71.0
+2→5,grasp:3,retreat,2,False,96,96,,,True,,,,,,,,,14.5
+2→5,grasp:3,retreat,3,True,38,41,True,wine_bottle_1,,True,,False,True,True,False,8,3.4126318543621803,40.5
+2→5,grasp:3,retreat,4,False,,84,,,True,,,,,,,,,12.8
+2→5,grasp:3,retreat,5,False,,82,,,True,,,,,,,,,13.3
+2→5,grasp:3,retreat,6,False,,157,,,True,,,,,,,,,20.5
+2→5,grasp:3,retreat,7,True,42,45,True,wine_bottle_1,,True,,False,False,False,False,7,3.3216251803533865,64.2
+2→5,grasp:3,retreat,8,True,43,46,True,wine_bottle_1,,False,시간 초과,False,False,False,False,7,3.272484691880844,95.3
+2→5,grasp:3,retreat,9,True,34,37,True,wine_bottle_1,,True,,False,True,True,False,9,3.550518116619432,59.6
+2→5,step:15,blend,0,True,,15,False,,,False,시간 초과,False,False,False,False,8,7.700467628487336,87.5
+2→5,step:15,blend,1,True,,15,False,,,False,시간 초과,False,False,False,False,11,6.196496993080055,87.4
+2→5,step:15,blend,2,True,,15,False,,,False,시간 초과,False,False,False,False,9,6.208773105212615,79.9
+2→5,step:15,blend,3,True,,15,False,,,False,시간 초과,False,False,False,False,8,8.665115336894093,89.9
+2→5,step:15,blend,4,True,,15,False,,,False,시간 초과,False,False,False,False,7,9.518871151738075,88.7
+2→5,step:15,blend,5,True,,15,False,,,False,시간 초과,False,False,False,False,8,12.13866405166158,91.0
+2→5,step:15,blend,6,True,,15,False,,,False,시간 초과,False,False,False,False,8,9.434608757998538,89.4
+2→5,step:15,blend,7,True,,15,False,,,False,시간 초과,False,False,False,False,8,6.586466477632057,90.7
+2→5,step:15,blend,8,True,,15,False,,,False,시간 초과,False,False,False,False,8,6.7740791642989,80.4
+2→5,step:15,blend,9,True,,15,False,,,False,시간 초과,False,False,False,False,7,10.90142577163977,85.1
+2→5,step:15,flush,0,True,,15,False,,,False,시간 초과,False,False,False,False,4,7.1858554115626125,91.6
+2→5,step:15,flush,1,True,,15,False,,,True,,False,False,False,False,4,12.731651553015853,55.2
+2→5,step:15,flush,2,True,,15,False,,,False,시간 초과,False,False,False,False,4,9.43932697105687,85.6
+2→5,step:15,flush,3,True,,15,False,,,False,시간 초과,False,False,False,False,4,9.589722905986282,91.3
+2→5,step:15,flush,4,True,,15,False,,,False,시간 초과,False,False,False,False,4,12.475715832372877,90.7
+2→5,step:15,flush,5,True,,15,False,,,False,시간 초과,False,False,False,False,4,10.69649819264825,87.9
+2→5,step:15,flush,6,True,,15,False,,,False,시간 초과,False,False,False,False,4,9.508858895171214,90.5
+2→5,step:15,flush,7,True,,15,False,,,False,시간 초과,False,False,False,False,4,11.125987080006391,90.2
+2→5,step:15,flush,8,True,,15,False,,,False,시간 초과,False,False,False,False,4,8.354006698844188,87.9
+2→5,step:15,flush,9,True,,15,False,,,False,시간 초과,False,False,False,False,4,11.577131109252834,76.5
+2→5,step:15,keep,0,True,,15,False,,,False,시간 초과,False,False,False,False,8,8.882360371078574,91.6
+2→5,step:15,keep,1,True,,15,False,,,True,,False,False,False,False,10,9.236940558054792,67.4
+2→5,step:15,keep,2,True,,15,False,,,False,시간 초과,False,False,False,False,9,7.183005295227562,78.1
+2→5,step:15,keep,3,True,,15,False,,,False,시간 초과,False,False,False,False,8,10.439495032202613,91.1
+2→5,step:15,keep,4,True,,15,False,,,False,시간 초과,False,False,False,False,8,10.086686894687283,89.4
+2→5,step:15,keep,5,True,,15,False,,,False,시간 초과,False,False,False,False,9,11.579217866339048,89.8
+2→5,step:15,keep,6,True,,15,False,,,False,시간 초과,False,False,False,False,9,10.987131173411726,88.2
+2→5,step:15,keep,7,True,,15,False,,,False,시간 초과,False,False,False,False,9,6.849418465741759,90.7
+2→5,step:15,keep,8,True,,15,False,,,False,시간 초과,False,False,False,False,9,8.830489174701684,90.5
+2→5,step:15,keep,9,True,,15,False,,,False,시간 초과,False,False,False,False,8,11.002542115323257,80.7
+2→5,step:15,none,0,True,,15,False,,True,,,,,,False,,6.380604326725691,8.6
+2→5,step:15,none,1,True,,15,False,,True,,,,,,False,,7.9948039241090205,14.8
+2→5,step:15,none,2,True,,15,False,,True,,,,,,False,,5.519512834737008,13.4
+2→5,step:15,none,3,True,,15,False,,True,,,,,,False,,7.524831632993027,13.4
+2→5,step:15,none,4,True,,15,False,,True,,,,,,False,,6.8024432939885235,12.1
+2→5,step:15,none,5,True,,15,False,,True,,,,,,False,,5.608110837838906,12.1
+2→5,step:15,none,6,True,,15,False,,True,,,,,,False,,3.6909719673228416,22.9
+2→5,step:15,none,7,True,,15,False,,True,,,,,,False,,7.409889990267209,14.8
+2→5,step:15,none,8,True,,15,False,,True,,,,,,False,,4.454347533001594,16.3
+2→5,step:15,none,9,True,,15,False,,True,,,,,,False,,6.6603905207508864,13.8
+2→5,step:15,retreat,0,True,,15,False,,,True,,False,False,False,False,4,7.886781566795619,77.9
+2→5,step:15,retreat,1,True,,15,False,,,True,,False,False,False,False,5,8.089715361799072,56.3
+2→5,step:15,retreat,2,True,,15,False,,,True,,False,True,True,False,5,8.080255609285606,35.1
+2→5,step:15,retreat,3,True,,15,False,,,True,,False,False,False,False,4,8.171111189957001,87.6
+2→5,step:15,retreat,4,True,,15,False,,,False,시간 초과,False,False,False,False,4,7.936692995604018,88.0
+2→5,step:15,retreat,5,True,,15,False,,,True,,False,True,False,False,5,6.9498577280207705,27.6
+2→5,step:15,retreat,6,True,,15,False,,,True,,False,False,False,False,6,8.225294998500132,64.6
+2→5,step:15,retreat,7,True,,15,False,,,False,시간 초과,False,True,False,False,4,7.617786173637772,61.5
+2→5,step:15,retreat,8,True,,15,False,,,False,시간 초과,False,True,False,False,5,7.787442466940715,62.7
+2→5,step:15,retreat,9,True,,15,False,,,True,,False,True,True,False,4,7.534227334706088,28.6
+4→7,grasp:20,blend,0,True,33,53,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,6,7.427081029594824,96.9
+4→7,grasp:20,blend,1,True,36,56,True,akita_black_bowl_1,,True,,False,False,False,False,6,8.24997654228856,77.4
+4→7,grasp:20,blend,2,True,40,60,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,5,6.275155328216569,96.6
+4→7,grasp:20,blend,3,True,33,53,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,6,6.112412927017791,97.4
+4→7,grasp:20,blend,4,True,32,52,True,akita_black_bowl_1,,True,,False,False,False,False,6,6.145489691713606,92.5
+4→7,grasp:20,blend,5,True,34,54,False,,,False,시간 초과,False,False,False,False,5,8.447854200171687,95.5
+4→7,grasp:20,blend,6,True,37,57,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,6,8.544477098900968,97.6
+4→7,grasp:20,blend,7,True,33,53,True,akita_black_bowl_1,,True,,False,False,False,False,5,5.694320341291138,92.9
+4→7,grasp:20,blend,8,True,34,54,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,6,7.23430799481398,87.6
+4→7,grasp:20,blend,9,True,31,51,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,2,5.700263482147283,84.5
+4→7,grasp:20,flush,0,True,33,53,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,7.919388905388483,96.7
+4→7,grasp:20,flush,1,True,36,56,True,akita_black_bowl_1,,True,,False,False,False,False,2,10.398105001478505,76.3
+4→7,grasp:20,flush,2,True,40,60,True,akita_black_bowl_1,,True,,False,False,False,False,2,9.197912040761297,76.9
+4→7,grasp:20,flush,3,True,33,53,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,8.455551025333243,96.4
+4→7,grasp:20,flush,4,True,32,52,True,akita_black_bowl_1,,True,,False,False,False,False,3,7.8486468127154625,73.7
+4→7,grasp:20,flush,5,True,34,54,False,,,False,시간 초과,False,False,False,False,2,11.961456922689356,97.9
+4→7,grasp:20,flush,6,True,37,57,True,akita_black_bowl_1,,True,,False,False,False,False,2,11.717544854013633,70.6
+4→7,grasp:20,flush,7,True,33,53,True,akita_black_bowl_1,,True,,False,False,False,False,2,10.708080392473638,75.2
+4→7,grasp:20,flush,8,True,34,54,True,akita_black_bowl_1,,True,,False,False,False,False,3,8.435545312432572,80.8
+4→7,grasp:20,flush,9,True,31,51,True,akita_black_bowl_1,,True,,False,False,False,False,1,7.9428144044556594,78.4
+4→7,grasp:20,keep,0,True,33,53,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,9,8.828520785385848,95.9
+4→7,grasp:20,keep,1,True,36,56,True,akita_black_bowl_1,,True,,False,False,False,False,6,10.098921386372018,75.7
+4→7,grasp:20,keep,2,True,40,60,True,akita_black_bowl_1,,True,,False,False,False,False,2,9.197912040761297,78.4
+4→7,grasp:20,keep,3,True,33,53,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,9,8.748187692358568,97.2
+4→7,grasp:20,keep,4,True,32,52,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,8.634908712200247,96.6
+4→7,grasp:20,keep,5,True,34,54,False,,,True,,False,False,False,False,8,11.403035847341458,70.1
+4→7,grasp:20,keep,6,True,37,57,True,akita_black_bowl_1,,True,,False,False,False,False,5,11.914384705818792,70.7
+4→7,grasp:20,keep,7,True,33,53,True,akita_black_bowl_1,,True,,False,False,False,False,9,9.313983860885516,75.6
+4→7,grasp:20,keep,8,True,34,54,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,8,9.01802499987748,90.7
+4→7,grasp:20,keep,9,True,31,51,True,akita_black_bowl_1,,True,,False,False,False,False,3,8.754818488054001,67.6
+4→7,grasp:20,none,0,True,33,53,True,akita_black_bowl_1,True,,,,,,False,,5.1569758744554655,12.4
+4→7,grasp:20,none,1,True,36,56,True,akita_black_bowl_1,True,,,,,,False,,7.517069079104525,11.7
+4→7,grasp:20,none,2,True,40,60,True,akita_black_bowl_1,True,,,,,,False,,8.521926651423447,11.7
+4→7,grasp:20,none,3,True,33,53,True,akita_black_bowl_1,True,,,,,,False,,8.008321394883982,11.9
+4→7,grasp:20,none,4,True,32,52,True,akita_black_bowl_1,True,,,,,,False,,5.544399595952591,12.0
+4→7,grasp:20,none,5,True,35,55,False,,False,,,,,,False,,8.79569551181259,52.2
+4→7,grasp:20,none,6,True,37,57,True,akita_black_bowl_1,True,,,,,,False,,9.81320411855462,11.9
+4→7,grasp:20,none,7,True,33,53,True,akita_black_bowl_1,True,,,,,,False,,6.861315334355367,12.0
+4→7,grasp:20,none,8,True,34,54,True,akita_black_bowl_1,True,,,,,,False,,7.250661563178849,13.2
+4→7,grasp:20,none,9,True,29,49,True,akita_black_bowl_1,True,,,,,,False,,7.023717635770333,7.7
+4→7,grasp:20,retreat,0,True,33,53,True,akita_black_bowl_1,,True,,False,True,True,False,2,3.977700912571569,39.0
+4→7,grasp:20,retreat,1,True,36,56,True,akita_black_bowl_1,,True,,False,True,True,False,2,3.4741530418788362,33.9
+4→7,grasp:20,retreat,2,True,40,60,True,akita_black_bowl_1,,True,,False,True,True,False,2,3.7038129664140107,33.5
+4→7,grasp:20,retreat,3,True,33,53,True,akita_black_bowl_1,,True,,False,True,True,False,2,3.7860150007197118,33.3
+4→7,grasp:20,retreat,4,True,32,52,True,akita_black_bowl_1,,True,,False,True,True,False,2,3.9359696564892483,36.0
+4→7,grasp:20,retreat,5,True,34,54,False,,,True,,False,False,False,False,2,3.725896231188619,67.4
+4→7,grasp:20,retreat,6,True,37,57,True,akita_black_bowl_1,,True,,False,True,True,False,2,4.242889021101705,30.3
+4→7,grasp:20,retreat,7,True,33,53,True,akita_black_bowl_1,,True,,False,True,True,False,2,3.8797154331643378,34.9
+4→7,grasp:20,retreat,8,True,34,54,True,akita_black_bowl_1,,True,,False,True,True,False,2,3.893991769942952,33.3
+4→7,grasp:20,retreat,9,True,31,51,True,akita_black_bowl_1,,True,,False,True,True,False,1,3.987859909703049,34.2
+4→7,grasp:3,blend,0,True,33,36,True,akita_black_bowl_1,,True,,False,False,False,False,13,6.447514592518299,67.6
+4→7,grasp:3,blend,1,True,36,39,True,akita_black_bowl_1,,True,,False,False,False,False,9,8.10899790103057,75.7
+4→7,grasp:3,blend,2,True,40,43,True,akita_black_bowl_1,,True,,False,False,False,False,11,7.4916395936661875,74.9
+4→7,grasp:3,blend,3,True,33,36,True,akita_black_bowl_1,,True,,False,False,False,False,12,7.946120177439197,81.7
+4→7,grasp:3,blend,4,True,32,35,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,11,7.1887468305182525,93.7
+4→7,grasp:3,blend,5,True,34,37,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,7,7.995242707335431,93.8
+4→7,grasp:3,blend,6,True,34,37,True,akita_black_bowl_1,,True,,False,False,False,False,14,9.74104116926235,70.2
+4→7,grasp:3,blend,7,True,33,36,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,13,6.043606003787833,93.3
+4→7,grasp:3,blend,8,True,34,37,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,6.248465789694378,95.9
+4→7,grasp:3,blend,9,True,31,34,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,8.059417934205023,94.4
+4→7,grasp:3,flush,0,True,33,36,True,akita_black_bowl_1,,True,,False,False,False,False,11,7.663244599240616,75.0
+4→7,grasp:3,flush,1,True,36,39,True,akita_black_bowl_1,,True,,False,False,False,False,9,8.534858290508117,80.1
+4→7,grasp:3,flush,2,True,40,43,True,akita_black_bowl_1,,True,,False,False,False,False,8,8.096697900246488,71.1
+4→7,grasp:3,flush,3,True,33,36,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,9,8.526456413830713,94.6
+4→7,grasp:3,flush,4,True,32,35,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,6.647215881179521,94.1
+4→7,grasp:3,flush,5,True,34,37,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,6,9.607133080822514,93.8
+4→7,grasp:3,flush,6,True,37,40,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,8.902302042546234,94.3
+4→7,grasp:3,flush,7,True,33,36,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,7.253509235985839,94.8
+4→7,grasp:3,flush,8,True,34,37,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,6.345461458372195,94.2
+4→7,grasp:3,flush,9,True,31,34,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,8,7.561506065610153,84.9
+4→7,grasp:3,keep,0,True,33,36,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,12,7.461074980624276,83.5
+4→7,grasp:3,keep,1,True,36,39,True,akita_black_bowl_1,,True,,False,False,False,False,9,8.473523004720688,78.3
+4→7,grasp:3,keep,2,True,40,43,True,akita_black_bowl_1,,True,,False,False,False,False,11,9.060563925812101,72.7
+4→7,grasp:3,keep,3,True,33,36,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,11,8.550145921886909,94.5
+4→7,grasp:3,keep,4,True,32,35,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,11,6.837792197215028,98.2
+4→7,grasp:3,keep,5,True,34,37,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,7,8.732664185527504,95.2
+4→7,grasp:3,keep,6,True,37,40,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,11,8.627274796357375,94.9
+4→7,grasp:3,keep,7,True,33,36,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,7.581419396269913,95.4
+4→7,grasp:3,keep,8,True,34,37,True,akita_black_bowl_1,,True,,False,False,False,False,9,7.340168376895655,67.0
+4→7,grasp:3,keep,9,True,31,34,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,11,8.750216127021606,83.4
+4→7,grasp:3,none,0,True,33,36,True,akita_black_bowl_1,True,,,,,,False,,5.158848056332667,12.1
+4→7,grasp:3,none,1,True,36,39,True,akita_black_bowl_1,True,,,,,,False,,8.17753716540928,10.8
+4→7,grasp:3,none,2,True,40,43,True,akita_black_bowl_1,True,,,,,,False,,7.801905831107513,11.9
+4→7,grasp:3,none,3,True,33,36,True,akita_black_bowl_1,True,,,,,,False,,7.843173778959403,12.3
+4→7,grasp:3,none,4,True,32,35,True,akita_black_bowl_1,True,,,,,,False,,6.149004736805125,12.3
+4→7,grasp:3,none,5,True,35,38,True,akita_black_bowl_1,False,,,,,,False,,9.054301991669776,49.2
+4→7,grasp:3,none,6,True,37,40,True,akita_black_bowl_1,True,,,,,,False,,8.377700572603887,10.1
+4→7,grasp:3,none,7,True,33,36,True,akita_black_bowl_1,True,,,,,,False,,7.197456643234622,12.5
+4→7,grasp:3,none,8,True,34,37,True,akita_black_bowl_1,True,,,,,,False,,5.966234024649196,13.8
+4→7,grasp:3,none,9,True,31,34,True,akita_black_bowl_1,True,,,,,,False,,7.393849441337219,11.1
+4→7,grasp:3,retreat,0,True,33,36,True,akita_black_bowl_1,,True,,False,False,False,False,7,2.5562240903292097,60.2
+4→7,grasp:3,retreat,1,True,36,39,True,akita_black_bowl_1,,True,,False,True,True,False,5,3.911312735888918,32.5
+4→7,grasp:3,retreat,2,True,40,43,True,akita_black_bowl_1,,True,,False,True,True,False,6,3.1788491692526515,27.8
+4→7,grasp:3,retreat,3,True,33,36,True,akita_black_bowl_1,,True,,False,True,True,False,7,2.8908644466562943,30.6
+4→7,grasp:3,retreat,4,True,32,35,True,akita_black_bowl_1,,True,,False,True,True,False,8,3.212833561906263,29.3
+4→7,grasp:3,retreat,5,True,34,37,True,akita_black_bowl_1,,True,,False,True,True,False,5,2.916395106798744,30.9
+4→7,grasp:3,retreat,6,True,37,40,True,akita_black_bowl_1,,True,,False,False,False,False,8,2.9278915591071266,54.2
+4→7,grasp:3,retreat,7,True,33,36,True,akita_black_bowl_1,,True,,False,False,False,False,7,3.778981444437198,61.9
+4→7,grasp:3,retreat,8,True,34,37,True,akita_black_bowl_1,,True,,False,True,True,False,6,2.631904062986517,31.9
+4→7,grasp:3,retreat,9,True,31,34,True,akita_black_bowl_1,,True,,False,True,True,False,6,3.4001119294194386,28.4
+4→7,step:15,blend,0,True,,15,False,,,True,,False,False,False,False,10,7.631837989221991,49.9
+4→7,step:15,blend,1,True,,15,False,,,False,시간 초과,False,False,False,False,8,6.978847681852997,91.7
+4→7,step:15,blend,2,True,,15,False,,,False,시간 초과,False,False,False,False,10,7.5679171078256795,90.2
+4→7,step:15,blend,3,True,,15,False,,,False,시간 초과,False,False,False,False,9,8.02618120319621,90.6
+4→7,step:15,blend,4,True,,15,False,,,False,시간 초과,False,False,False,False,10,5.8518119043649,91.7
+4→7,step:15,blend,5,True,,15,False,,,False,시간 초과,False,False,False,False,10,7.673097460507246,92.5
+4→7,step:15,blend,6,True,,15,False,,,False,시간 초과,False,False,False,False,11,8.61998296748949,90.3
+4→7,step:15,blend,7,True,,15,False,,,False,시간 초과,False,False,False,False,10,7.61502702658976,90.3
+4→7,step:15,blend,8,True,,15,False,,,True,,False,False,False,False,11,7.956987760727048,91.5
+4→7,step:15,blend,9,True,,15,False,,,False,시간 초과,False,False,False,False,10,8.290273628210334,92.4
+4→7,step:15,flush,0,True,,15,False,,,False,시간 초과,False,False,False,False,4,9.417137577240913,80.8
+4→7,step:15,flush,1,True,,15,False,,,False,시간 초과,False,False,False,False,5,7.140300260643362,89.8
+4→7,step:15,flush,2,True,,15,False,,,False,시간 초과,False,False,False,False,3,9.672447130166224,91.1
+4→7,step:15,flush,3,True,,15,False,,,False,시간 초과,False,False,False,False,3,8.330317841788059,90.2
+4→7,step:15,flush,4,True,,15,False,,,False,시간 초과,False,False,False,False,4,7.6750536218553815,91.0
+4→7,step:15,flush,5,True,,15,False,,,False,시간 초과,False,False,False,False,3,8.57413937616599,91.5
+4→7,step:15,flush,6,True,,15,False,,,False,시간 초과,False,False,False,False,4,10.3240187728013,89.2
+4→7,step:15,flush,7,True,,15,False,,,False,시간 초과,False,False,False,False,5,12.152744429838448,90.9
+4→7,step:15,flush,8,True,,15,False,,,False,시간 초과,False,False,False,False,3,10.546169486508584,91.0
+4→7,step:15,flush,9,True,,15,False,,,False,시간 초과,False,False,False,False,4,9.3505216517865,81.8
+4→7,step:15,keep,0,True,,15,False,,,True,,False,False,False,False,11,7.263142053843001,63.5
+4→7,step:15,keep,1,True,,15,False,,,True,,False,False,False,False,10,10.095691968420638,61.2
+4→7,step:15,keep,2,True,,15,False,,,False,시간 초과,False,False,False,False,10,9.338659076614764,90.7
+4→7,step:15,keep,3,True,,15,False,,,False,시간 초과,False,False,False,False,10,7.429246795776405,90.9
+4→7,step:15,keep,4,True,,15,False,,,False,시간 초과,False,False,False,False,11,6.444198284573077,90.4
+4→7,step:15,keep,5,True,,15,False,,,False,시간 초과,False,False,False,False,10,8.626319038771168,90.4
+4→7,step:15,keep,6,True,,15,False,,,True,,False,False,False,False,11,8.022813115528255,88.2
+4→7,step:15,keep,7,True,,15,False,,,False,시간 초과,False,False,False,False,11,7.2922747082743715,90.2
+4→7,step:15,keep,8,True,,15,False,,,False,시간 초과,False,False,False,False,10,7.09026057939792,92.0
+4→7,step:15,keep,9,True,,15,False,,,False,시간 초과,False,False,False,False,11,8.601658474681912,91.1
+4→7,step:15,none,0,True,,15,False,,True,,,,,,False,,9.445570029879088,11.1
+4→7,step:15,none,1,True,,15,False,,True,,,,,,False,,7.329194732576384,12.1
+4→7,step:15,none,2,True,,15,False,,True,,,,,,False,,7.629181853869016,12.0
+4→7,step:15,none,3,True,,15,False,,True,,,,,,False,,7.9346130326546085,13.4
+4→7,step:15,none,4,True,,15,False,,True,,,,,,False,,7.330642817528712,12.2
+4→7,step:15,none,5,True,,15,False,,False,,,,,,False,,7.244166960113994,46.7
+4→7,step:15,none,6,True,,15,False,,True,,,,,,False,,9.527714509953617,11.1
+4→7,step:15,none,7,True,,15,False,,True,,,,,,False,,7.6953803111576375,13.3
+4→7,step:15,none,8,True,,15,False,,True,,,,,,False,,6.400228947458913,14.0
+4→7,step:15,none,9,True,,15,False,,True,,,,,,False,,7.685107461244073,11.9
+4→7,step:15,retreat,0,True,,15,False,,,True,,False,False,False,False,3,7.395644301998112,57.1
+4→7,step:15,retreat,1,True,,15,False,,,True,,False,True,True,False,3,7.862356894210844,23.1
+4→7,step:15,retreat,2,True,,15,False,,,True,,False,True,True,False,3,8.01046227376005,25.4
+4→7,step:15,retreat,3,True,,15,False,,,True,,False,True,True,False,3,7.947926284380019,29.0
+4→7,step:15,retreat,4,True,,15,False,,,True,,False,True,True,False,3,7.375978997403716,26.9
+4→7,step:15,retreat,5,True,,15,False,,,True,,False,True,True,False,3,7.540590228178139,26.7
+4→7,step:15,retreat,6,True,,15,False,,,True,,False,True,True,False,3,7.275336400824043,24.3
+4→7,step:15,retreat,7,True,,15,False,,,True,,False,False,False,False,3,7.869940697455864,54.5
+4→7,step:15,retreat,8,True,,15,False,,,True,,False,True,True,False,3,7.97823915290364,27.6
+4→7,step:15,retreat,9,True,,15,False,,,True,,False,True,True,False,3,8.502080737939531,25.2
+8→7,grasp:20,blend,0,True,40,60,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,6,7.976061266649357,98.3
+8→7,grasp:20,blend,1,True,39,59,True,akita_black_bowl_1,,True,,False,False,False,False,5,10.638916366469498,76.5
+8→7,grasp:20,blend,2,True,39,59,True,akita_black_bowl_1,,True,,False,False,False,False,5,7.188673479118556,77.6
+8→7,grasp:20,blend,3,True,37,57,True,akita_black_bowl_1,,True,,False,False,False,False,6,7.798931803120046,80.8
+8→7,grasp:20,blend,4,True,37,57,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,6,6.724739731986307,97.2
+8→7,grasp:20,blend,5,True,40,60,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,5,10.439935130109033,97.7
+8→7,grasp:20,blend,6,True,40,60,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,5,9.244833104672024,97.1
+8→7,grasp:20,blend,7,True,38,58,True,akita_black_bowl_1,,True,,False,False,False,False,6,6.701027031552267,79.0
+8→7,grasp:20,blend,8,True,54,74,False,,,False,시간 초과,False,False,False,False,6,9.730945107942086,99.1
+8→7,grasp:20,blend,9,True,37,57,True,akita_black_bowl_1,,True,,False,False,False,False,6,7.143927257621891,58.3
+8→7,grasp:20,flush,0,True,40,60,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,8.459373012500018,97.7
+8→7,grasp:20,flush,1,True,39,59,True,akita_black_bowl_1,,True,,False,False,False,False,2,12.217050377842423,79.5
+8→7,grasp:20,flush,2,True,39,59,True,akita_black_bowl_1,,True,,False,False,False,False,3,8.9803548109439,78.3
+8→7,grasp:20,flush,3,True,38,58,True,akita_black_bowl_1,,True,,False,False,False,False,3,9.118325803828496,82.2
+8→7,grasp:20,flush,4,True,37,57,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,2,9.224138811862295,96.6
+8→7,grasp:20,flush,5,True,40,60,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,2,12.298645148458336,97.8
+8→7,grasp:20,flush,6,True,40,60,True,akita_black_bowl_1,,True,,False,False,False,False,2,11.698837295375984,74.7
+8→7,grasp:20,flush,7,True,38,58,True,akita_black_bowl_1,,True,,False,False,False,False,2,9.566495438612195,82.0
+8→7,grasp:20,flush,8,True,54,74,False,,,False,시간 초과,False,False,False,False,2,11.344525433296347,99.6
+8→7,grasp:20,flush,9,True,37,57,True,akita_black_bowl_1,,True,,False,False,False,False,3,8.412821918404068,62.0
+8→7,grasp:20,keep,0,True,40,60,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,3,8.459373012500018,97.4
+8→7,grasp:20,keep,1,True,39,59,True,akita_black_bowl_1,,True,,False,False,False,False,3,12.591153988167013,78.0
+8→7,grasp:20,keep,2,True,39,59,True,akita_black_bowl_1,,True,,False,False,False,False,4,9.056795766199686,77.0
+8→7,grasp:20,keep,3,True,38,58,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,4,9.85131490764716,97.3
+8→7,grasp:20,keep,4,True,37,57,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,5,9.551161409051707,97.2
+8→7,grasp:20,keep,5,True,40,60,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,2,12.111117928790023,98.0
+8→7,grasp:20,keep,6,True,40,60,True,akita_black_bowl_1,,True,,False,False,False,False,2,12.035883340802469,73.4
+8→7,grasp:20,keep,7,True,38,58,True,akita_black_bowl_1,,True,,False,False,False,False,4,9.34359755679605,75.2
+8→7,grasp:20,keep,8,True,54,74,False,,,False,시간 초과,False,False,False,False,11,9.27805090354286,88.4
+8→7,grasp:20,keep,9,True,37,57,True,akita_black_bowl_1,,True,,False,False,False,False,5,8.438465344640749,69.4
+8→7,grasp:20,none,0,True,40,60,True,akita_black_bowl_1,True,,,,,,False,,5.802208332272434,13.0
+8→7,grasp:20,none,1,True,39,59,True,akita_black_bowl_1,True,,,,,,False,,10.29770041958186,11.2
+8→7,grasp:20,none,2,True,39,59,True,akita_black_bowl_1,True,,,,,,False,,10.539732565963645,11.1
+8→7,grasp:20,none,3,True,38,58,True,akita_black_bowl_1,True,,,,,,False,,6.629823385076428,11.2
+8→7,grasp:20,none,4,True,37,57,True,akita_black_bowl_1,True,,,,,,False,,5.424969445852864,9.7
+8→7,grasp:20,none,5,True,40,60,True,akita_black_bowl_1,True,,,,,,False,,8.929555649802195,9.5
+8→7,grasp:20,none,6,True,40,60,True,akita_black_bowl_1,True,,,,,,False,,11.586840537374236,8.0
+8→7,grasp:20,none,7,True,38,58,True,akita_black_bowl_1,True,,,,,,False,,9.489543819722536,9.0
+8→7,grasp:20,none,8,True,54,74,False,,False,,,,,,False,,8.675671317558292,51.9
+8→7,grasp:20,none,9,True,37,57,True,akita_black_bowl_1,True,,,,,,False,,7.3918567260181565,6.9
+8→7,grasp:20,retreat,0,True,40,60,True,akita_black_bowl_1,,True,,False,True,True,False,3,3.493717080005628,39.4
+8→7,grasp:20,retreat,1,True,39,59,True,akita_black_bowl_1,,True,,False,False,False,False,2,3.8281569186637157,65.3
+8→7,grasp:20,retreat,2,True,39,59,True,akita_black_bowl_1,,True,,False,False,False,False,4,3.655217602704801,65.2
+8→7,grasp:20,retreat,3,True,38,58,True,akita_black_bowl_1,,True,,False,False,False,False,3,3.3110673253440757,65.4
+8→7,grasp:20,retreat,4,True,37,57,True,akita_black_bowl_1,,True,,False,False,False,False,3,3.512583569674585,64.4
+8→7,grasp:20,retreat,5,True,40,60,True,akita_black_bowl_1,,True,,False,False,False,False,3,3.5585818574463466,55.6
+8→7,grasp:20,retreat,6,True,40,60,True,akita_black_bowl_1,,True,,True,True,True,False,4,3.3606943310316955,21.7
+8→7,grasp:20,retreat,7,True,38,58,True,akita_black_bowl_1,,True,,False,False,False,False,4,3.605407692842867,54.6
+8→7,grasp:20,retreat,8,True,54,74,False,,,True,,False,True,True,False,4,2.8422975276204285,38.0
+8→7,grasp:20,retreat,9,True,37,57,True,akita_black_bowl_1,,True,,False,False,False,False,3,3.880999206630239,63.1
+8→7,grasp:3,blend,0,True,40,43,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,12,6.7480514430993175,96.4
+8→7,grasp:3,blend,1,True,39,42,True,akita_black_bowl_1,,True,,False,False,False,False,10,9.23519300603694,77.1
+8→7,grasp:3,blend,2,True,39,42,True,akita_black_bowl_1,,True,,False,False,False,False,10,8.17845166390232,71.0
+8→7,grasp:3,blend,3,True,38,41,True,akita_black_bowl_1,,True,,False,False,False,False,10,6.766997218652175,88.1
+8→7,grasp:3,blend,4,True,37,40,True,akita_black_bowl_1,,True,,False,False,False,False,10,7.1051494301280815,67.8
+8→7,grasp:3,blend,5,True,40,43,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,9,9.47511134488284,97.0
+8→7,grasp:3,blend,6,True,40,43,True,akita_black_bowl_1,,True,,False,False,False,False,10,9.723609487648115,70.3
+8→7,grasp:3,blend,7,True,38,41,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,11,7.5601208405185005,96.2
+8→7,grasp:3,blend,8,True,54,57,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,1,8.143541768488484,97.1
+8→7,grasp:3,blend,9,True,37,40,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,12,7.813952882818261,84.8
+8→7,grasp:3,flush,0,True,40,43,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,7.243912862092087,96.1
+8→7,grasp:3,flush,1,True,39,42,True,akita_black_bowl_1,,True,,False,False,False,False,8,9.502527474471362,77.5
+8→7,grasp:3,flush,2,True,39,42,True,akita_black_bowl_1,,True,,False,False,False,False,9,7.99137746385791,72.6
+8→7,grasp:3,flush,3,True,38,41,True,akita_black_bowl_1,,True,,False,False,False,False,9,7.252375723041958,72.7
+8→7,grasp:3,flush,4,True,37,40,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,9,7.541409090236537,95.6
+8→7,grasp:3,flush,5,True,40,43,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,8,9.131665076082252,95.7
+8→7,grasp:3,flush,6,True,40,43,True,akita_black_bowl_1,,True,,False,False,False,False,10,10.521773514916053,70.0
+8→7,grasp:3,flush,7,True,38,41,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,7.503404366557129,95.2
+8→7,grasp:3,flush,8,True,54,57,True,akita_black_bowl_1,,True,,False,False,False,False,1,9.659141000679456,75.1
+8→7,grasp:3,flush,9,True,37,40,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,7.721127632198337,92.2
+8→7,grasp:3,keep,0,True,40,43,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,12,8.176655172125217,85.4
+8→7,grasp:3,keep,1,True,39,42,True,akita_black_bowl_1,,True,,False,False,False,False,11,8.283789492051497,75.2
+8→7,grasp:3,keep,2,True,39,42,True,akita_black_bowl_1,,True,,False,False,False,False,11,8.85634016077665,72.5
+8→7,grasp:3,keep,3,True,38,41,True,akita_black_bowl_1,,True,,False,False,False,False,12,8.069742175152227,72.5
+8→7,grasp:3,keep,4,True,37,40,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,9,7.55665653423245,94.0
+8→7,grasp:3,keep,5,True,40,43,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,9.494855214535196,96.2
+8→7,grasp:3,keep,6,True,40,43,True,akita_black_bowl_1,,True,,False,False,False,False,11,8.880049315058395,69.3
+8→7,grasp:3,keep,7,True,38,41,True,akita_black_bowl_1,,True,,False,False,False,False,12,7.959824379043237,73.0
+8→7,grasp:3,keep,8,True,54,57,True,akita_black_bowl_1,,True,,False,False,False,False,1,8.334244303851444,78.6
+8→7,grasp:3,keep,9,True,37,40,True,akita_black_bowl_1,,False,시간 초과,False,False,False,False,10,7.721127632198337,84.3
+8→7,grasp:3,none,0,True,40,43,True,akita_black_bowl_1,True,,,,,,False,,6.441986089735138,13.4
+8→7,grasp:3,none,1,True,39,42,True,akita_black_bowl_1,True,,,,,,False,,9.740964502998134,11.3
+8→7,grasp:3,none,2,True,39,42,True,akita_black_bowl_1,True,,,,,,False,,8.674467635377043,11.2
+8→7,grasp:3,none,3,True,37,40,True,akita_black_bowl_1,True,,,,,,False,,6.911329094126049,11.4
+8→7,grasp:3,none,4,True,37,40,True,akita_black_bowl_1,True,,,,,,False,,6.754657974355763,9.9
+8→7,grasp:3,none,5,True,40,43,True,akita_black_bowl_1,True,,,,,,False,,9.036598230165948,10.1
+8→7,grasp:3,none,6,True,40,43,True,akita_black_bowl_1,True,,,,,,False,,9.058518568815678,8.3
+8→7,grasp:3,none,7,True,38,41,True,akita_black_bowl_1,True,,,,,,False,,9.05823857471529,9.5
+8→7,grasp:3,none,8,True,45,48,True,akita_black_bowl_1,False,,,,,,False,,7.3395170762739115,47.6
+8→7,grasp:3,none,9,True,37,40,True,akita_black_bowl_1,True,,,,,,False,,7.130856111492081,8.7
+8→7,grasp:3,retreat,0,True,40,43,True,akita_black_bowl_1,,True,,False,False,False,False,7,2.863155571453569,59.7
+8→7,grasp:3,retreat,1,True,39,42,True,akita_black_bowl_1,,True,,False,True,True,False,4,3.7257727800640823,34.5
+8→7,grasp:3,retreat,2,True,39,42,True,akita_black_bowl_1,,True,,False,True,True,False,5,3.177926667537853,33.9
+8→7,grasp:3,retreat,3,True,38,41,True,akita_black_bowl_1,,True,,False,True,True,False,6,3.114494091248941,31.7
+8→7,grasp:3,retreat,4,True,37,40,True,akita_black_bowl_1,,True,,False,False,False,False,5,4.018554246443904,60.5
+8→7,grasp:3,retreat,5,True,40,43,True,akita_black_bowl_1,,True,,False,True,True,False,5,4.30549955408597,34.4
+8→7,grasp:3,retreat,6,True,40,43,True,akita_black_bowl_1,,True,,False,True,True,False,6,3.369613904361772,34.9
+8→7,grasp:3,retreat,7,True,38,41,True,akita_black_bowl_1,,True,,False,False,False,False,6,3.9474297938783467,52.9
+8→7,grasp:3,retreat,8,True,54,57,True,akita_black_bowl_1,,True,,False,True,True,False,1,3.4636893282231003,33.6
+8→7,grasp:3,retreat,9,True,37,40,True,akita_black_bowl_1,,True,,False,True,True,False,7,3.7780330399281805,26.6
+8→7,step:15,blend,0,True,,15,False,,,True,,False,False,False,False,11,8.51124378070594,42.5
+8→7,step:15,blend,1,True,,15,False,,,False,시간 초과,False,False,False,False,9,8.497161544219978,92.8
+8→7,step:15,blend,2,True,,15,False,,,False,시간 초과,False,False,False,False,10,9.955046152461472,89.1
+8→7,step:15,blend,3,True,,15,False,,,False,시간 초과,False,False,False,False,9,6.563434698571042,91.2
+8→7,step:15,blend,4,True,,15,False,,,False,시간 초과,False,False,False,False,10,6.515914674647918,90.6
+8→7,step:15,blend,5,True,,15,False,,,False,시간 초과,False,False,False,False,8,8.085144590961978,89.7
+8→7,step:15,blend,6,True,,15,False,,,False,시간 초과,False,False,False,False,9,7.992605133811764,91.2
+8→7,step:15,blend,7,True,,15,False,,,False,시간 초과,False,False,False,False,9,7.568453414146261,90.4
+8→7,step:15,blend,8,True,,15,False,,,False,시간 초과,False,False,False,False,10,7.043439424491134,91.0
+8→7,step:15,blend,9,True,,15,False,,,False,시간 초과,False,False,False,False,10,8.985295606136027,90.8
+8→7,step:15,flush,0,True,,15,False,,,False,시간 초과,False,False,False,False,4,9.30538115348648,86.3
+8→7,step:15,flush,1,True,,15,False,,,False,시간 초과,False,False,False,False,6,8.563491147794066,90.1
+8→7,step:15,flush,2,True,,15,False,,,False,시간 초과,False,False,False,False,3,9.177417775047704,89.6
+8→7,step:15,flush,3,True,,15,False,,,False,시간 초과,False,False,False,False,3,9.942786717534496,90.3
+8→7,step:15,flush,4,True,,15,False,,,False,시간 초과,False,False,False,False,3,7.688875217546401,91.9
+8→7,step:15,flush,5,True,,15,False,,,False,시간 초과,False,False,False,False,3,8.772955880661291,91.2
+8→7,step:15,flush,6,True,,15,False,,,True,,False,False,False,False,4,8.68412555249894,61.6
+8→7,step:15,flush,7,True,,15,False,,,False,시간 초과,False,False,False,False,5,9.40172183674868,91.2
+8→7,step:15,flush,8,True,,15,False,,,True,,False,False,False,False,3,9.829355370898037,61.9
+8→7,step:15,flush,9,True,,15,False,,,False,시간 초과,False,False,False,False,4,8.036923364322867,90.9
+8→7,step:15,keep,0,True,,15,False,,,False,시간 초과,False,False,False,False,10,8.72875326350332,74.6
+8→7,step:15,keep,1,True,,15,False,,,True,,False,False,False,False,11,7.369927715595381,70.2
+8→7,step:15,keep,2,True,,15,False,,,False,시간 초과,False,False,False,False,10,8.621043716753144,92.0
+8→7,step:15,keep,3,True,,15,False,,,False,시간 초과,False,False,False,False,12,7.165087221075005,93.2
+8→7,step:15,keep,4,True,,15,False,,,True,,False,False,False,False,11,6.404802818178901,65.8
+8→7,step:15,keep,5,True,,15,False,,,False,시간 초과,False,False,False,False,10,8.571765063716787,90.0
+8→7,step:15,keep,6,True,,15,False,,,False,시간 초과,False,False,False,False,11,6.637163229476534,91.0
+8→7,step:15,keep,7,True,,15,False,,,False,시간 초과,False,False,False,False,11,9.004753914919844,90.4
+8→7,step:15,keep,8,True,,15,False,,,True,,False,False,False,False,10,10.581494992369187,64.2
+8→7,step:15,keep,9,True,,15,False,,,False,시간 초과,False,False,False,False,11,7.3997580470325115,91.6
+8→7,step:15,none,0,True,,15,False,,True,,,,,,False,,6.891253955497146,13.1
+8→7,step:15,none,1,True,,15,False,,True,,,,,,False,,7.463675335646579,11.2
+8→7,step:15,none,2,True,,15,False,,True,,,,,,False,,6.522251705263609,11.0
+8→7,step:15,none,3,True,,15,False,,True,,,,,,False,,6.963725487946914,11.0
+8→7,step:15,none,4,True,,15,False,,True,,,,,,False,,7.109955441796669,9.9
+8→7,step:15,none,5,True,,15,False,,True,,,,,,False,,7.123730499362049,9.4
+8→7,step:15,none,6,True,,15,False,,True,,,,,,False,,7.286415601748213,8.4
+8→7,step:15,none,7,True,,15,False,,True,,,,,,False,,7.869957927185617,9.3
+8→7,step:15,none,8,True,,15,False,,False,,,,,,False,,6.647675248236246,42.6
+8→7,step:15,none,9,True,,15,False,,True,,,,,,False,,6.743422784479555,10.7
+8→7,step:15,retreat,0,True,,15,False,,,True,,False,True,True,False,3,8.485808542600976,29.1
+8→7,step:15,retreat,1,True,,15,False,,,True,,False,True,True,False,3,7.8686011297430225,31.0
+8→7,step:15,retreat,2,True,,15,False,,,True,,False,False,False,False,3,8.480049584719128,44.0
+8→7,step:15,retreat,3,True,,15,False,,,False,시간 초과,False,False,False,False,3,8.811288547392124,87.2
+8→7,step:15,retreat,4,True,,15,False,,,True,,False,True,True,False,3,7.601571197456774,27.7
+8→7,step:15,retreat,5,True,,15,False,,,True,,False,True,True,False,3,7.75923913912968,26.3
+8→7,step:15,retreat,6,True,,15,False,,,True,,False,True,True,False,3,7.3619735789832905,29.3
+8→7,step:15,retreat,7,True,,15,False,,,True,,False,True,True,False,3,8.35742356898226,25.1
+8→7,step:15,retreat,8,True,,15,False,,,True,,False,False,False,False,3,8.659607965363351,57.9
+8→7,step:15,retreat,9,True,,15,False,,,True,,False,False,False,False,3,8.814269554643516,56.7
