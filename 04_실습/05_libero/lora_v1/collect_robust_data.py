@@ -15,6 +15,9 @@
            다른 태스크의 goal** 을 찾아, 그 태스크의 지시문을 붙여 저장한다 (hindsight relabeling).
            1차 학습에서 성공률이 낮은 쌍은 데이터가 하나도 안 모여 오히려 성능이 떨어졌기 때문에,
            실패에서도 배울 거리를 뽑아내는 방식이 필요하다.
+  chain  : 태스크를 연달아 시킨다. 하나가 끝나면 **리셋 없이 그 자리에서** 다음 지시를 주고,
+           성공한 구간을 저장한다 (실패하면 거기서 중단). "다른 일을 마친 자리에서 이어서 하기" 데이터로,
+           A 재개(B 를 끝낸 자리에서 A 로 돌아가기)와 같은 상태 분포를 만든다.
 
 둘 다 자기가 성공한 궤적을 다시 배우는 self-imitation 이라 사람 시연이 필요 없다.
 
@@ -43,7 +46,8 @@ import switch_experiment as sx
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--policy", default="HuggingFaceVLA/smolvla_libero")
-    p.add_argument("--mode", choices=["pose", "switch", "hindsight"], default="pose")
+    p.add_argument("--mode", choices=["pose", "switch", "hindsight", "chain"], default="pose")
+    p.add_argument("--chain-len", type=int, default=3, help="chain 모드: 한 에피소드에서 이어서 시킬 태스크 수")
     p.add_argument("--tasks", type=int, nargs="+", required=True, help="pose: 대상 태스크 / switch: 태스크 A 목록")
     p.add_argument("--task-b", type=int, nargs="+", default=None, help="switch 모드에서 끼어들 태스크 (A 와 짝지음)")
     p.add_argument("--switch-at", default="grasp:3", help="switch 모드 전환 시점")
@@ -157,6 +161,75 @@ def collect_switch(a, runner, task_a, task_b, out, stats):
         ep.env.close()
 
 
+# 서로 목표가 충돌하지 않는 조합 (물체를 집는 태스크 1개 + 고정물 태스크들)
+PICK_TASKS = [1, 2, 4, 8]      # bowl→stove, bottle→cabinet top, bowl→cabinet top, bowl→plate
+FIXTURE_TASKS = [0, 5, 7]      # open middle drawer, push plate, turn on stove
+CONFLICT = {8: {5}}            # 그릇을 접시에 놓은 뒤 접시를 밀면 앞 태스크가 깨짐
+
+
+def collect_chain(a, rng, out, stats):
+    """태스크를 리셋 없이 연달아 수행. 두 번째 태스크부터의 성공 구간을 저장."""
+    for i in range(a.start_episode, a.start_episode + a.episodes):
+        pick = int(rng.choice(PICK_TASKS))
+        fixtures = [f for f in FIXTURE_TASKS if f not in CONFLICT.get(pick, set())]
+        seq = [pick] + list(rng.permutation(fixtures))
+        rng.shuffle(seq)
+        seq = [int(x) for x in seq[: a.chain_len]]
+
+        rargs = SimpleNamespace(policy=a.policy, task_a=seq[0], task_b=None, switch_at="step:99999",
+                                strategy="flush", blend_steps=10, n_action_steps=a.n_action_steps,
+                                max_steps=a.max_steps, episodes=1, start_episode=i, video=False, out=a.out,
+                                seed=a.seed)
+        if not hasattr(collect_chain, "runner") or collect_chain.runner.args.task_a != seq[0]:
+            collect_chain.runner = sx.Runner(rargs)
+        runner = collect_chain.runner
+        runner.args = rargs
+        ep = sx.Episode(runner, i)
+        runner.policy.reset()
+        checkers = {tid: sx.GoalChecker(runner.suite, tid) for tid in seq}
+        log = {"mode": "chain", "episode": i, "sequence": seq, "done": []}
+
+        for k, tid in enumerate(seq):
+            chk = checkers[tid]
+            if chk(ep.env):
+                log["done"].append(f"{tid}:이미 만족")
+                continue
+            stats["tried"] += 1
+            ep.plan, ep.exec_left = np.zeros((0, 7)), 0  # 그 자리에서 새 지시 (리셋 없음)
+            frames = {"img": [], "wrist": [], "eef_pos": [], "eef_quat": [], "grip": [], "action": []}
+            success, n = False, 0
+            for t in range(a.max_steps):
+                o = ep.obs
+                frames["img"].append(jpeg(o["pixels"]["image"], a.jpeg_quality))
+                frames["wrist"].append(jpeg(o["pixels"]["image2"], a.jpeg_quality))
+                frames["eef_pos"].append(np.asarray(o["robot_state"]["eef"]["pos"], np.float32))
+                frames["eef_quat"].append(np.asarray(o["robot_state"]["eef"]["quat"], np.float32))
+                frames["grip"].append(np.asarray(o["robot_state"]["gripper"]["qpos"], np.float32))
+                action = ep.policy_action(chk.language)
+                frames["action"].append(np.asarray(action, np.float32))
+                ep.step(action, "A" if k == 0 else "B")
+                n = t + 1
+                if chk(ep.env):
+                    success = True
+                    break
+            # 앞 태스크를 망가뜨렸는지 (예: 그릇을 다시 치움)
+            broken = [p for p in seq[:k] if not checkers[p](ep.env)]
+            log["done"].append(f"{tid}:{'성공' if success else '실패'}({n})" + (f" 앞태스크 깨짐 {broken}" if broken else ""))
+            if not success:
+                break
+            if k > 0:  # 첫 태스크는 초기 자세에서 시작하는 일반 데이터라 제외
+                stats["reached"] += 1
+                np.savez(out / "episodes" / f"C{i}_{k}_T{tid}.npz",
+                         img=np.array(frames["img"], dtype=object), wrist=np.array(frames["wrist"], dtype=object),
+                         eef_pos=np.stack(frames["eef_pos"]), eef_quat=np.stack(frames["eef_quat"]),
+                         grip=np.stack(frames["grip"]), action=np.stack(frames["action"]),
+                         task=chk.language, mode="chain", previous=str(seq[:k]), broken=str(broken))
+                stats["saved"] += 1
+                stats["frames"] += n
+        print(json.dumps(log, ensure_ascii=False), flush=True)
+        ep.env.close()
+
+
 def main():
     a = parse_args()
     out = Path(a.out)
@@ -165,7 +238,11 @@ def main():
     stats = {"tried": 0, "reached": 0, "saved": 0, "frames": 0}
     t_start = time.time()
 
-    pairs = list(zip(a.tasks, a.task_b)) if a.mode in ("switch", "hindsight") else [(t, None) for t in a.tasks]
+    if a.mode == "chain":
+        collect_chain(a, rng, out, stats)
+        pairs = []
+    else:
+        pairs = list(zip(a.tasks, a.task_b)) if a.mode in ("switch", "hindsight") else [(t, None) for t in a.tasks]
     for task, task_b in pairs:
         rargs = SimpleNamespace(policy=a.policy, task_a=task, task_b=task_b,
                                 switch_at=a.switch_at if a.mode in ("switch", "hindsight") else "step:99999",

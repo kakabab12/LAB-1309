@@ -20,6 +20,8 @@ LIBERO-Goal + SmolVLA: 태스크 도중 지시 전환 실험 (연구주제.md / 
   release  내려놓기 + 그리퍼 열기까지만 (자세 복귀 없음)        ← retreat ablation
   ret_pos  내려놓기 + 위치만 초기값으로 복귀 (손목 회전은 그대로) ← retreat ablation
   ret_rot  내려놓기 + 손목 회전만 초기값으로 복귀 (위치는 그대로) ← retreat ablation
+  rtc      Real-Time Chunking (Black et al., NeurIPS 2025). 새 chunk 를 만들 때마다 이전 chunk 의 남은 동작을
+           guidance 로 주어 이어지게 생성(inpainting). 전환 순간에도 같은 방식 → 학습 없이 매끄러운 전환
 
 지표 (전환 시점 기준)
   b_success, a_resume_success, jerk, drop, b_failure_type  (+ 반응 시간은 analyze.py)
@@ -69,9 +71,12 @@ def parse_args():
     p.add_argument("--task-b", type=int, default=None)
     p.add_argument("--switch-at", default="grasp:3", help="step:N | grasp:K")
     p.add_argument("--strategy",
-                   choices=["none", "flush", "keep", "blend", "retreat", "release", "ret_pos", "ret_rot"],
+                   choices=["none", "flush", "keep", "blend", "retreat", "release", "ret_pos", "ret_rot", "rtc"],
                    default="flush")
     p.add_argument("--blend-steps", type=int, default=10)
+    p.add_argument("--rtc-horizon", type=int, default=10, help="rtc: 이전 chunk 를 따르도록 유도할 앞부분 길이")
+    p.add_argument("--rtc-delay", type=int, default=0, help="rtc: 완전히 고정할 앞부분 길이 (추론 지연 모사)")
+    p.add_argument("--rtc-guidance", type=float, default=10.0, help="rtc: 최대 guidance 가중치")
     p.add_argument("--n-action-steps", type=int, default=10, help="chunk 에서 몇 스텝 실행 후 재추론 (통제변수)")
     p.add_argument("--max-steps", type=int, default=300, help="각 단계(A, B, A2) 최대 스텝")
     p.add_argument("--episodes", type=int, default=10)
@@ -132,19 +137,29 @@ class Episode:
         self.inner = self.env._env.env
         self.home = (eef_pos(self.obs).copy(), self.obs["robot_state"]["eef"]["mat"].copy())
         self.plan = np.zeros((0, 7))  # 현재 chunk 에서 아직 실행 안 한 동작들
+        self.plan_norm = None  # 같은 동작의 정규화 값 (RTC guidance 에 필요)
         self.exec_left = 0  # 재추론 전까지 더 실행할 스텝 수
         self.frames = [] if a.video else None
         self.log = {"pos": [], "gq": [], "phase": [], "held_z": []}
         self.held = None  # 잡고 있는 물체 이름
 
     # ---------- 정책 ----------
-    @torch.inference_mode()
     def infer_chunk(self, instruction) -> np.ndarray:
         r = self.r
-        batch = preprocess_observation(add_batch_dim(self.obs))
-        batch["task"] = [instruction]
-        batch = r.pre(r.env_step(batch))
-        chunk = r.post(r.policy.predict_action_chunk(batch))  # (1, chunk_size, 7)
+        use_rtc = self.a.strategy == "rtc"
+        # RTC 는 guidance 계산에 autograd 를 쓰므로 inference_mode 대신 no_grad
+        ctx = torch.no_grad() if use_rtc else torch.inference_mode()
+        with ctx:
+            batch = preprocess_observation(add_batch_dim(self.obs))
+            batch["task"] = [instruction]
+            batch = r.pre(r.env_step(batch))
+            kwargs = {}
+            if use_rtc and self.plan_norm is not None and len(self.plan_norm) > 0:
+                kwargs = {"prev_chunk_left_over": self.plan_norm.unsqueeze(0),
+                          "inference_delay": self.a.rtc_delay, "execution_horizon": self.a.rtc_horizon}
+            norm = r.policy.predict_action_chunk(batch, **kwargs)  # (1, chunk_size, 7) 정규화 공간
+            chunk = r.post(norm.clone())
+        self.plan_norm = norm[0].detach()
         return chunk[0].float().cpu().numpy()
 
     def policy_action(self, instruction):
@@ -152,6 +167,8 @@ class Episode:
             self.plan = self.infer_chunk(instruction)
             self.exec_left = self.a.n_action_steps
         act, self.plan = self.plan[0], self.plan[1:]
+        if self.plan_norm is not None:
+            self.plan_norm = self.plan_norm[1:]
         self.exec_left -= 1
         return act
 
@@ -165,6 +182,9 @@ class Episode:
                 restore_pos, restore_rot = self.RETREAT_MODES[s]
                 rec[f"{key}_retreat_steps"] = self.retreat(restore_pos, restore_rot)
             self.plan, self.exec_left = np.zeros((0, 7)), 0
+        elif s == "rtc":
+            # 남은 동작(plan_norm)은 그대로 두고 즉시 새 지시로 재추론 → infer_chunk 가 guidance 로 이어붙임
+            self.exec_left = 0
         elif s == "keep":
             pass  # 남은 exec_left 스텝을 실행한 뒤 자연스럽게 새 지시로 재추론
         elif s == "blend":
@@ -276,6 +296,11 @@ class Runner:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.policy = SmolVLAPolicy.from_pretrained(args.policy)
         self.policy.config.device = self.device
+        if getattr(args, "strategy", None) == "rtc":
+            from lerobot.policies.rtc.configuration_rtc import RTCConfig
+            self.policy.config.rtc_config = RTCConfig(enabled=True, execution_horizon=args.rtc_horizon,
+                                                      max_guidance_weight=args.rtc_guidance)
+            self.policy.init_rtc_processor()
         self.policy.to(self.device).eval()
         self.pre, self.post = make_pre_post_processors(
             policy_cfg=self.policy.config, pretrained_path=args.policy,

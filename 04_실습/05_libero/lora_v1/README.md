@@ -64,6 +64,14 @@ python train_lora.py --data data/robust --steps 2000 --batch-size 4 --grad-accum
 
 A 재개는 학습 전후 모두 **0%** 였습니다.
 
+### 영상: 원본은 실패, LoRA 1차는 성공한 에피소드
+
+![원본 vs LoRA](results/lora_v1_base_vs_lora.gif)
+
+4→7(그릇을 캐비닛 위에 → 스토브 켜기), 잡은 직후 **그 자리에서** 전환(flush), 에피소드 4. 원본은 300스텝 안에 스토브를 못 켜고, LoRA 1차는 170스텝에 켭니다. 둘 다 초기 자세로 돌아가지 않습니다.
+
+> 이 에피소드는 **LoRA 가 나아진 경우를 골라** 보여주는 것입니다. 전체로는 32% → 32% 로 변화가 없었습니다 (위 표).
+
 ### 원래 잘하던 것을 잊음
 
 ![태스크 1](results/lora_v1_pose_task1.png)
