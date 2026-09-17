@@ -16,7 +16,12 @@ from pathlib import Path
 HERE = Path(__file__).parent
 HEAD = """# 일지
 
-한 번에 1쪽씩. [TEMPLATE.md](TEMPLATE.md)를 복사해서 `2026-09-15.md` 형식으로 저장하세요.
+두 종류로 나눠 씁니다.
+
+- **연구 일지** (`03_일지/YYYY-MM-DD.md`) — 전환 실험, 학습, 분석
+- **공부 일지** (`03_일지/공부/YYYY-MM-DD.md`) — 코랩 실습, 공부 순서 진도
+
+[TEMPLATE.md](TEMPLATE.md)를 복사해서 날짜 이름으로 저장하세요.
 쓰고 나면 `python 03_일지/make_index.py` 로 아래 목록을 갱신합니다.
 
 **왜 쓰나**
@@ -50,24 +55,42 @@ def parse(path):
             "nums": nums[:3], "todo": todo}
 
 
+def table(rows, base=""):
+    out = []
+    if not rows:
+        return ["_아직 없습니다._"]
+    span = f"{rows[-1]['date']} ~ {rows[0]['date']}"
+    out.append(f"{len(rows)}개, {span}\n")
+    out.append("| 날짜 | 제목 | 한 줄 요약 | 남은 할 일 |")
+    out.append("|---|---|---|---|")
+    for r in rows:
+        title = r["title"].replace("[공부] ", "")
+        out.append(f"| [{r['date']}]({base}{r['file']}) | {title} | {r['summary']} | {r['todo']}개 |")
+    return out
+
+
+def collect(folder):
+    logs = sorted((p for p in folder.glob("*.md") if re.fullmatch(r"\d{4}-\d{2}-\d{2}", p.stem)), reverse=True)
+    return [parse(p) for p in logs]
+
+
 def main():
-    logs = sorted((p for p in HERE.glob("*.md") if re.fullmatch(r"\d{4}-\d{2}-\d{2}", p.stem)), reverse=True)
-    rows = [parse(p) for p in logs]
-    span = f"{rows[-1]['date']} ~ {rows[0]['date']}" if rows else "-"
-    out = [HEAD, f"\n## 목록 (최신순) — 일지 {len(rows)}개, {span}\n"]
-    if rows:
-        out.append("| 날짜 | 제목 | 한 줄 요약 | 남은 할 일 |")
-        out.append("|---|---|---|---|")
-        for r in rows:
-            out.append(f"| [{r['date']}]({r['file']}) | {r['title']} | {r['summary']} | {r['todo']}개 |")
-        out.append("\n## 핵심 수치 모음\n")
-        for r in rows:
-            if r["nums"]:
-                out.append(f"- **{r['date']}** — " + " · ".join(r["nums"]))
-    else:
-        out.append("_아직 일지가 없습니다._")
+    research = collect(HERE)
+    study = collect(HERE / "공부")
+    out = [HEAD, "\n## 🔬 연구 일지 (최신순)\n"]
+    out += table(research)
+    out.append("\n## 📘 공부 일지 — 코랩 실습 (최신순)\n")
+    out += table(study, base="공부/")
+    out.append("\n## 핵심 수치 모음 (연구)\n")
+    for r in research:
+        if r["nums"]:
+            out.append(f"- **{r['date']}** — " + " · ".join(r["nums"]))
+    out.append("\n## 핵심 수치 모음 (공부)\n")
+    for r in study:
+        if r["nums"]:
+            out.append(f"- **{r['date']}** — " + " · ".join(r["nums"]))
     (HERE / "README.md").write_text("\n".join(out) + "\n")
-    print(f"일지 {len(rows)}개로 README.md 갱신")
+    print(f"연구 일지 {len(research)}개, 공부 일지 {len(study)}개로 README.md 갱신")
 
 
 if __name__ == "__main__":
