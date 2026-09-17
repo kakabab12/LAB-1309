@@ -18,6 +18,10 @@
 | [LAB 05](LAB05_libero_smolvla.md) | LIBERO + SmolVLA 실전 — 설치부터 첫 전환 실험까지 | 5단계 | 1~2주 | ✅ |
 | ↳ [실행방법](05_libero/실행방법.md) | **실제로 돌아간 설치·실행 명령** (2026-09-16 검증) | - | 20분 | ✅ |
 | ↳ [전환 실험](05_libero/switch_experiment/README.md) | 첫 전환 실험 결과 600 에피소드 | - | - | ✅ |
+| ↳ [자세 민감도](05_libero/pose_sensitivity/README.md) | 시작 자세를 틀면 성공률이 어떻게 되나 | - | - | ✅ |
+| ↳ [retreat ablation](05_libero/retreat_ablation/README.md) | 위치 vs 회전 복구 | - | - | ✅ |
+| ↳ [LoRA 1차](05_libero/lora_v1/README.md) | self-imitation 학습 (실패 분석) | - | - | ✅ |
+| ↳ [LoRA 2차](05_libero/lora_v2/README.md) | 균형 데이터 재학습 | - | - | 🔄 |
 | [LAB 06](LAB06_piper_실물.md) | PiPER 실물 로봇 — 안전, CAN, 데이터 수집, 정책 실행 | 6단계 | 2~4주 | ⬜ |
 
 ## 폴더 정리 방법

@@ -17,6 +17,9 @@ LIBERO-Goal + SmolVLA: 태스크 도중 지시 전환 실험 (연구주제.md / 
   keep     남은 chunk(최대 n_action_steps-1 스텝)를 끝까지 실행한 뒤 새 지시로 추론
   blend    새 지시 chunk 와 이전 chunk 의 겹치는 앞부분 k 스텝을 선형 가중평균
   retreat  전환 안전 처리: 쥔 물체 내려놓기 → 그리퍼 열기 → 들어올리기 → 초기 자세 복귀 → flush
+  release  내려놓기 + 그리퍼 열기까지만 (자세 복귀 없음)        ← retreat ablation
+  ret_pos  내려놓기 + 위치만 초기값으로 복귀 (손목 회전은 그대로) ← retreat ablation
+  ret_rot  내려놓기 + 손목 회전만 초기값으로 복귀 (위치는 그대로) ← retreat ablation
 
 지표 (전환 시점 기준)
   b_success, a_resume_success, jerk, drop, b_failure_type  (+ 반응 시간은 analyze.py)
@@ -65,7 +68,9 @@ def parse_args():
     p.add_argument("--task-a", type=int, required=True)
     p.add_argument("--task-b", type=int, default=None)
     p.add_argument("--switch-at", default="grasp:3", help="step:N | grasp:K")
-    p.add_argument("--strategy", choices=["none", "flush", "keep", "blend", "retreat"], default="flush")
+    p.add_argument("--strategy",
+                   choices=["none", "flush", "keep", "blend", "retreat", "release", "ret_pos", "ret_rot"],
+                   default="flush")
     p.add_argument("--blend-steps", type=int, default=10)
     p.add_argument("--n-action-steps", type=int, default=10, help="chunk 에서 몇 스텝 실행 후 재추론 (통제변수)")
     p.add_argument("--max-steps", type=int, default=300, help="각 단계(A, B, A2) 최대 스텝")
@@ -150,11 +155,15 @@ class Episode:
         self.exec_left -= 1
         return act
 
+    RETREAT_MODES = {"retreat": (True, True), "release": (False, False),
+                     "ret_pos": (True, False), "ret_rot": (False, True)}
+
     def apply_strategy(self, new_instruction, rec, key):
         s = self.a.strategy
-        if s in ("flush", "retreat"):
-            if s == "retreat":
-                rec[f"{key}_retreat_steps"] = self.retreat()
+        if s in ("flush",) or s in self.RETREAT_MODES:
+            if s in self.RETREAT_MODES:
+                restore_pos, restore_rot = self.RETREAT_MODES[s]
+                rec[f"{key}_retreat_steps"] = self.retreat(restore_pos, restore_rot)
             self.plan, self.exec_left = np.zeros((0, 7)), 0
         elif s == "keep":
             pass  # 남은 exec_left 스텝을 실행한 뒤 자연스럽게 새 지시로 재추론
@@ -205,8 +214,11 @@ class Episode:
                 return "trigger", t + 1
         return "timeout", max_steps
 
-    def retreat(self):
-        """쥔 물체 내려놓기 → 그리퍼 열기 → 들어올리기 → 초기 자세 복귀. 사용한 스텝 수 반환."""
+    def retreat(self, restore_pos=True, restore_rot=True):
+        """쥔 물체 내려놓기 → 그리퍼 열기 → (들어올리기 → 초기 위치/회전 복귀). 사용한 스텝 수 반환.
+
+        restore_pos / restore_rot 로 무엇을 복귀시킬지 나눌 수 있다 (ablation).
+        """
         home_pos, home_mat = self.home
         n0 = len(self.log["pos"])
         if gripper_closed(self.obs):
@@ -218,17 +230,20 @@ class Episode:
                     break
         for _ in range(15):
             self.step([0, 0, 0, 0, 0, 0, -1], "R")
-        for _ in range(30):
-            if eef_pos(self.obs)[2] >= home_pos[2] - 0.01:
-                break
-            self.step([0, 0, 0.6, 0, 0, 0, -1], "R")
-        for _ in range(100):
-            dp = home_pos - eef_pos(self.obs)
-            rot_err = Rotation.from_matrix(home_mat @ self.obs["robot_state"]["eef"]["mat"].T).as_rotvec()
-            if np.linalg.norm(dp) < 0.01 and np.linalg.norm(rot_err) < 0.05:
-                break
-            self.step(np.concatenate([np.clip(dp / POS_SCALE, -1, 1), np.clip(rot_err / ROT_SCALE, -1, 1), [-1]]),
-                      "R")
+        if restore_pos:  # 물체와 부딪히지 않게 먼저 들어올림
+            for _ in range(30):
+                if eef_pos(self.obs)[2] >= home_pos[2] - 0.01:
+                    break
+                self.step([0, 0, 0.6, 0, 0, 0, -1], "R")
+        if restore_pos or restore_rot:
+            for _ in range(100):
+                dp = (home_pos - eef_pos(self.obs)) if restore_pos else np.zeros(3)
+                rot_err = (Rotation.from_matrix(home_mat @ self.obs["robot_state"]["eef"]["mat"].T).as_rotvec()
+                           if restore_rot else np.zeros(3))
+                if np.linalg.norm(dp) < 0.01 and np.linalg.norm(rot_err) < 0.05:
+                    break
+                self.step(np.concatenate([np.clip(dp / POS_SCALE, -1, 1), np.clip(rot_err / ROT_SCALE, -1, 1), [-1]]),
+                          "R")
         for _ in range(5):
             self.step(get_libero_dummy_action(), "R")
         return len(self.log["pos"]) - n0

@@ -21,11 +21,13 @@ import numpy as np
 SRC = Path("outputs/switch")
 REPORT = Path("outputs/report")
 STRATS = ["flush", "keep", "blend", "retreat"]
+ABLATION = ["flush", "release", "ret_rot", "ret_pos", "retreat"]  # retreat 을 쪼갠 비교
 TIMINGS = ["step:15", "grasp:3", "grasp:20"]
 TIMING_KO = {"step:15": "접근 중", "grasp:3": "잡은 직후", "grasp:20": "들고 이동 중"}
 FAIL_TYPES = ["물체 낙하", "지시 무시", "얼어붙음", "시간 초과"]
 # dataviz 기본 팔레트 categorical slot 1~4 (고정 순서), 기준(none)은 회색
-COLORS = {"flush": "#2a78d6", "keep": "#eb6834", "blend": "#1baf7a", "retreat": "#eda100", "none": "#8a8984"}
+COLORS = {"flush": "#2a78d6", "keep": "#eb6834", "blend": "#1baf7a", "retreat": "#eda100",
+          "release": "#e87ba4", "ret_rot": "#008300", "ret_pos": "#6da7ec", "none": "#8a8984"}
 SURFACE, INK, INK2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3dd"
 DIVERGE_M = 0.02
 
@@ -119,9 +121,24 @@ def main():
     md.append(table(rows, ["시점", "전략", "전환 성립", "잡은 상태", "B 성공", "A 재개", "둘 다",
                            "낙하", "반응(스텝, 중앙값)", "저크(중앙값)"]))
 
+    md.append("\n\n### retreat ablation — 무엇이 핵심인가 (잡은 직후 + 들고 이동 중)\n")
+    rows = []
+    for s in ABLATION:
+        g = [e for e in sw if e["strategy"] == s and e["switch_at"] in ("grasp:3", "grasp:20")]
+        if not g:
+            continue
+        ret = [e.get("to_b_retreat_steps") for e in g if e.get("to_b_retreat_steps") is not None]
+        rows.append([s, len(g), rate_str([e.get("b_success") for e in g]),
+                     rate_str([e.get("a_resume_success") for e in g]),
+                     rate_str([e.get("both_success") for e in g]),
+                     rate_str([e.get("drop") for e in g]),
+                     med([e["reaction_steps"] for e in g]), med([e["jerk"] for e in g]),
+                     f"{np.median(ret):.0f}" if ret else "0"])
+    md.append(table(rows, ["전략", "n", "B 성공", "A 재개", "둘 다", "낙하", "반응(스텝)", "저크", "추가 스텝"]))
+
     md.append("\n\n### B 실패 유형 (전략별, 모든 시점 합산)\n")
     rows = []
-    for s in STRATS:
+    for s in STRATS + [x for x in ABLATION if x not in STRATS]:
         c = Counter(e["b_failure_type"] for e in sw if e["strategy"] == s and e.get("b_failure_type"))
         rows.append([s, sum(c.values())] + [c.get(ft, 0) for ft in FAIL_TYPES])
     md.append(table(rows, ["전략", "B 실패 수"] + FAIL_TYPES))
