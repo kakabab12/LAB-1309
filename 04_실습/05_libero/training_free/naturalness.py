@@ -98,7 +98,7 @@ def main():
     rows.update(lora)
     if Path("outputs/switch_lora_v2").exists():
         rows.update(collect("outputs/switch_lora_v2", lambda a: "LoRA 2차 flush"))
-    order = ["flush", "keep", "blend", "rtc", "bon", "release", "ret_rot", "ret_pos", "retreat", "LoRA 1차 flush", "LoRA 2차 flush"]
+    order = ["flush", "keep", "blend", "rtc", "flush_rtc", "bon", "release", "ret_rot", "ret_pos", "retreat", "LoRA 1차 flush", "LoRA 2차 flush"]
     md, table = summarize(rows, order)
     Path("outputs/report").mkdir(parents=True, exist_ok=True)
     Path("outputs/report/naturalness.md").write_text("(잡은 직후 + 들고 이동 중 전환, B 성공 에피소드만, 중앙값)\n\n" + md + "\n")

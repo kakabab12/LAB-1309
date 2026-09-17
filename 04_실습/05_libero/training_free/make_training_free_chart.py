@@ -23,8 +23,10 @@ def wilson(k, n, z=1.96):
 rates, los, his, labels, cols, ns = [], [], [], [], [], []
 for s, lab, col in STRATS:
     eps = []
-    for f in glob.glob(f"outputs/switch/A*_B*_grasp*_{s}.json"):
-        eps += [e for e in json.load(open(f))["episodes"] if e.get("switched")]
+    for f in glob.glob("outputs/switch/A*_B*_grasp*.json"):
+        d = json.load(open(f))
+        if d["args"]["strategy"] == s:  # 파일 이름 패턴은 rtc 가 flush_rtc 까지 잡으므로 인자로 거름
+            eps += [e for e in d["episodes"] if e.get("switched")]
     if not eps:
         continue
     k = sum(bool(e.get("b_success")) for e in eps); n = len(eps)

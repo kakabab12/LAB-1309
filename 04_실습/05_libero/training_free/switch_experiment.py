@@ -22,6 +22,7 @@ LIBERO-Goal + SmolVLA: 태스크 도중 지시 전환 실험 (연구주제.md / 
   ret_rot  내려놓기 + 손목 회전만 초기값으로 복귀 (위치는 그대로) ← retreat ablation
   rtc      Real-Time Chunking (Black et al., NeurIPS 2025). 새 chunk 를 만들 때마다 이전 chunk 의 남은 동작을
            guidance 로 주어 이어지게 생성(inpainting). 전환 순간에도 같은 방식 → 학습 없이 매끄러운 전환
+  rtc_all  처음부터 모든 chunk 경계에 RTC (전환 없는 평범한 수행에서 RTC 자체 영향 확인용, --switch-at step:9999 와 함께)
   flush_rtc 전환 순간엔 이전 chunk 를 버리고(flush), 새 지시의 첫 chunk 이후부터 RTC 로 이어붙임.
            rtc 가 전환 때 A 방향으로 끌려가는 문제(2026-09-17)를 피하면서 B 안에서는 매끄럽게
   bon      Best-of-N (Q-Planning, arXiv 2608.21204 의 축소판). 전환 이후 매 추론마다 후보 chunk N개를 뽑고,
@@ -87,7 +88,7 @@ def build_parser():
     p.add_argument("--task-b", type=int, default=None)
     p.add_argument("--switch-at", default="grasp:3", help="step:N | grasp:K")
     p.add_argument("--strategy",
-                   choices=["none", "flush", "keep", "blend", "retreat", "release", "ret_pos", "ret_rot", "rtc", "flush_rtc", "bon", "vbon"],
+                   choices=["none", "flush", "keep", "blend", "retreat", "release", "ret_pos", "ret_rot", "rtc", "flush_rtc", "rtc_all", "bon", "vbon"],
                    default="flush")
     p.add_argument("--blend-steps", type=int, default=10)
     p.add_argument("--rtc-horizon", type=int, default=10, help="rtc: 이전 chunk 를 따르도록 유도할 앞부분 길이")
@@ -176,7 +177,7 @@ class Episode:
     # ---------- 정책 ----------
     def infer_chunk(self, instruction) -> np.ndarray:
         r = self.r
-        use_rtc = self.a.strategy in ("rtc", "flush_rtc") and self.rtc_active  # 전환 이후에만
+        use_rtc = (self.a.strategy in ("rtc", "flush_rtc") and self.rtc_active) or self.a.strategy == "rtc_all"
         # RTC 는 guidance 계산에 autograd 를 쓰므로 inference_mode 대신 no_grad
         ctx = torch.no_grad() if use_rtc else torch.inference_mode()
         with ctx:
@@ -402,7 +403,7 @@ class Runner:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.policy = SmolVLAPolicy.from_pretrained(args.policy)
         self.policy.config.device = self.device
-        if getattr(args, "strategy", None) in ("rtc", "flush_rtc"):
+        if getattr(args, "strategy", None) in ("rtc", "flush_rtc", "rtc_all"):
             from lerobot.policies.rtc.configuration_rtc import RTCConfig
             self.policy.config.rtc_config = RTCConfig(enabled=True, execution_horizon=args.rtc_horizon,
                                                       max_guidance_weight=args.rtc_guidance)
