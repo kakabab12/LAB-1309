@@ -22,6 +22,9 @@ LIBERO-Goal + SmolVLA: 태스크 도중 지시 전환 실험 (연구주제.md / 
   ret_rot  내려놓기 + 손목 회전만 초기값으로 복귀 (위치는 그대로) ← retreat ablation
   rtc      Real-Time Chunking (Black et al., NeurIPS 2025). 새 chunk 를 만들 때마다 이전 chunk 의 남은 동작을
            guidance 로 주어 이어지게 생성(inpainting). 전환 순간에도 같은 방식 → 학습 없이 매끄러운 전환
+  bon      Best-of-N (Q-Planning, arXiv 2608.21204 의 축소판). 전환 이후 매 추론마다 후보 chunk N개를 뽑고,
+           "새 태스크를 성공한 궤적들이 지나간 곳"에 가장 가까이 가는 후보를 고른다. 초기 자세로 돌아가지 않고
+           성공 궤적의 길목으로 합류하게 하는 학습 없는 선택 (data/success_manifold.npz 필요)
 
 지표 (전환 시점 기준)
   b_success, a_resume_success, jerk, drop, b_failure_type  (+ 반응 시간은 analyze.py)
@@ -71,12 +74,16 @@ def parse_args():
     p.add_argument("--task-b", type=int, default=None)
     p.add_argument("--switch-at", default="grasp:3", help="step:N | grasp:K")
     p.add_argument("--strategy",
-                   choices=["none", "flush", "keep", "blend", "retreat", "release", "ret_pos", "ret_rot", "rtc"],
+                   choices=["none", "flush", "keep", "blend", "retreat", "release", "ret_pos", "ret_rot", "rtc", "bon"],
                    default="flush")
     p.add_argument("--blend-steps", type=int, default=10)
     p.add_argument("--rtc-horizon", type=int, default=10, help="rtc: 이전 chunk 를 따르도록 유도할 앞부분 길이")
     p.add_argument("--rtc-delay", type=int, default=0, help="rtc: 완전히 고정할 앞부분 길이 (추론 지연 모사)")
     p.add_argument("--rtc-guidance", type=float, default=10.0, help="rtc: 최대 guidance 가중치")
+    p.add_argument("--bon-n", type=int, default=8, help="bon: 후보 chunk 개수")
+    p.add_argument("--bon-horizon", type=int, default=20, help="bon: 점수 매길 때 내다볼 스텝 수")
+    p.add_argument("--bon-gain", type=float, default=0.6, help="bon: delta 동작 → 실제 이동 근사 배율")
+    p.add_argument("--manifold", default="data/success_manifold.npz")
     p.add_argument("--n-action-steps", type=int, default=10, help="chunk 에서 몇 스텝 실행 후 재추론 (통제변수)")
     p.add_argument("--max-steps", type=int, default=300, help="각 단계(A, B, A2) 최대 스텝")
     p.add_argument("--episodes", type=int, default=10)
@@ -138,15 +145,18 @@ class Episode:
         self.home = (eef_pos(self.obs).copy(), self.obs["robot_state"]["eef"]["mat"].copy())
         self.plan = np.zeros((0, 7))  # 현재 chunk 에서 아직 실행 안 한 동작들
         self.plan_norm = None  # 같은 동작의 정규화 값 (RTC guidance 에 필요)
+        self.bon_active = False  # bon: 전환 이후에만 후보 선택
+        self.rtc_active = False  # rtc: 전환 이후에만 guidance
         self.exec_left = 0  # 재추론 전까지 더 실행할 스텝 수
         self.frames = [] if a.video else None
         self.log = {"pos": [], "gq": [], "phase": [], "held_z": []}
+        self.bon_log = []
         self.held = None  # 잡고 있는 물체 이름
 
     # ---------- 정책 ----------
     def infer_chunk(self, instruction) -> np.ndarray:
         r = self.r
-        use_rtc = self.a.strategy == "rtc"
+        use_rtc = self.a.strategy == "rtc" and self.rtc_active  # 전환 이후에만 (전환 전 궤적은 다른 전략과 동일하게)
         # RTC 는 guidance 계산에 autograd 를 쓰므로 inference_mode 대신 no_grad
         ctx = torch.no_grad() if use_rtc else torch.inference_mode()
         with ctx:
@@ -157,10 +167,36 @@ class Episode:
             if use_rtc and self.plan_norm is not None and len(self.plan_norm) > 0:
                 kwargs = {"prev_chunk_left_over": self.plan_norm.unsqueeze(0),
                           "inference_delay": self.a.rtc_delay, "execution_horizon": self.a.rtc_horizon}
+            if self.bon_active:
+                return self.best_of_n(batch, instruction)
             norm = r.policy.predict_action_chunk(batch, **kwargs)  # (1, chunk_size, 7) 정규화 공간
             chunk = r.post(norm.clone())
         self.plan_norm = norm[0].detach()
         return chunk[0].float().cpu().numpy()
+
+    def best_of_n(self, batch, instruction):
+        """후보 N개 중 '성공 궤적 근처로 가는' 후보 선택. 점수 = 예상 끝단 위치와 성공 궤적 점들 사이 거리 평균."""
+        r, n = self.r, self.a.bon_n
+        rep = {k: (v.repeat(n, *([1] * (v.dim() - 1))) if torch.is_tensor(v) and v.shape[:1] == (1,) else
+                   (v * n if isinstance(v, list) and len(v) == 1 else v)) for k, v in batch.items()}
+        norm = r.policy.predict_action_chunk(rep)  # (N, T, 7) — 노이즈가 달라 후보가 서로 다름
+        chunks = r.post(norm.clone()).float().cpu().numpy()
+        tree = r.manifold.get(instruction)
+        if tree is None:
+            best = 0
+        else:
+            h = min(self.a.bon_horizon, chunks.shape[1])
+            p0 = eef_pos(self.obs)
+            scores = []
+            for c in chunks:
+                traj = p0 + np.cumsum(c[:h, :3], axis=0) * POS_SCALE * self.a.bon_gain
+                d, _ = tree.query(traj)
+                scores.append(float(d.mean()))
+            best = int(np.argmin(scores))
+            self.bon_log.append({"step": len(self.log["pos"]), "best": round(scores[best] * 100, 2),
+                                 "worst": round(max(scores) * 100, 2), "median": round(float(np.median(scores)) * 100, 2)})
+        self.plan_norm = norm[best].detach()
+        return chunks[best]
 
     def policy_action(self, instruction):
         if self.exec_left <= 0 or len(self.plan) == 0:
@@ -182,8 +218,12 @@ class Episode:
                 restore_pos, restore_rot = self.RETREAT_MODES[s]
                 rec[f"{key}_retreat_steps"] = self.retreat(restore_pos, restore_rot)
             self.plan, self.exec_left = np.zeros((0, 7)), 0
+        elif s == "bon":
+            self.plan, self.exec_left = np.zeros((0, 7)), 0
+            self.bon_active = True
         elif s == "rtc":
             # 남은 동작(plan_norm)은 그대로 두고 즉시 새 지시로 재추론 → infer_chunk 가 guidance 로 이어붙임
+            self.rtc_active = True
             self.exec_left = 0
         elif s == "keep":
             pass  # 남은 exec_left 스텝을 실행한 뒤 자연스럽게 새 지시로 재추론
@@ -308,6 +348,12 @@ class Runner:
         )
         self.env_step = PolicyProcessorPipeline(steps=[LiberoProcessorStep()])
         self.suite = benchmark.get_benchmark_dict()[SUITE]()
+        self.manifold = {}
+        if getattr(args, "strategy", None) == "bon":
+            from scipy.spatial import cKDTree
+            z = np.load(args.manifold, allow_pickle=True)
+            for i, task in enumerate(z["tasks"]):
+                self.manifold[str(task)] = cKDTree(z[f"t{i}"])
         self.chk_a = GoalChecker(self.suite, args.task_a)
         self.chk_b = GoalChecker(self.suite, args.task_b) if args.task_b is not None else None
         kind, val = args.switch_at.split(":")
@@ -400,6 +446,10 @@ class Runner:
 
     def finish(self, ep, rec, t0, ep_idx):
         rec["wall_sec"] = round(time.time() - t0, 1)
+        if ep.bon_log:
+            rec["bon_choices"] = len(ep.bon_log)
+            rec["bon_best_cm_median"] = float(np.median([b["best"] for b in ep.bon_log]))
+            rec["bon_median_cm_median"] = float(np.median([b["median"] for b in ep.bon_log]))
         out = Path(self.args.out)
         (out / "traj").mkdir(parents=True, exist_ok=True)
         np.savez_compressed(out / "traj" / f"{self.tag()}_ep{ep_idx}.npz", pos=np.asarray(ep.log["pos"]),

@@ -17,6 +17,7 @@
 | [LAB 04](LAB04_action_chunking.md) | **Action Chunking과 전환** — 연구의 심장 | 3단계 | 4~6시간 | ⬜ |
 | [LAB 05](LAB05_libero_smolvla.md) | LIBERO + SmolVLA 실전 — 설치부터 첫 전환 실험까지 | 5단계 | 1~2주 | ✅ |
 | ↳ [실행방법](05_libero/실행방법.md) | **실제로 돌아간 설치·실행 명령** (2026-09-16 검증) | - | 20분 | ✅ |
+| ↳ **[방법 총정리](05_libero/방법_총정리.md)** | 전환 전략·수집 모드·학습 설정 + 참고 논문 | - | - | ✅ |
 | ↳ [전환 실험](05_libero/switch_experiment/README.md) | 첫 전환 실험 결과 600 에피소드 | - | - | ✅ |
 | ↳ [자세 민감도](05_libero/pose_sensitivity/README.md) | 시작 자세를 틀면 성공률이 어떻게 되나 | - | - | ✅ |
 | ↳ [retreat ablation](05_libero/retreat_ablation/README.md) | 위치 vs 회전 복구 | - | - | ✅ |

@@ -18,6 +18,9 @@
   chain  : 태스크를 연달아 시킨다. 하나가 끝나면 **리셋 없이 그 자리에서** 다음 지시를 주고,
            성공한 구간을 저장한다 (실패하면 거기서 중단). "다른 일을 마친 자리에서 이어서 하기" 데이터로,
            A 재개(B 를 끝낸 자리에서 A 로 돌아가기)와 같은 상태 분포를 만든다.
+  noise  : DART (Laskey 외, CoRL 2017) 방식. 정책이 움직이는 동안 **실행하는 동작에만** 노이즈를 섞어
+           궤도를 벗어나게 하고, 저장하는 정답은 **노이즈 없는 정책 동작**으로 한다. 성공한 에피소드만 저장.
+           → "벗어난 상태에서 제자리로 돌아오는" 교정 동작 데이터. 노이즈는 구간(burst)으로 넣어 실제로 밀려나게 함
 
 둘 다 자기가 성공한 궤적을 다시 배우는 self-imitation 이라 사람 시연이 필요 없다.
 
@@ -46,7 +49,11 @@ import switch_experiment as sx
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--policy", default="HuggingFaceVLA/smolvla_libero")
-    p.add_argument("--mode", choices=["pose", "switch", "hindsight", "chain"], default="pose")
+    p.add_argument("--mode", choices=["pose", "switch", "hindsight", "chain", "noise"], default="pose")
+    p.add_argument("--noise-std", type=float, default=0.4, help="noise 모드: 위치 동작 노이즈 표준편차 (동작 단위, 1.0=5cm)")
+    p.add_argument("--noise-burst", type=int, default=6, help="noise 모드: 한 번 노이즈를 넣을 때 이어지는 스텝 수")
+    p.add_argument("--noise-prob", type=float, default=0.03, help="noise 모드: 매 스텝 노이즈 구간을 시작할 확률")
+    p.add_argument("--noise-max-bursts", type=int, default=2, help="noise 모드: 에피소드당 최대 노이즈 구간 수")
     p.add_argument("--chain-len", type=int, default=3, help="chain 모드: 한 에피소드에서 이어서 시킬 태스크 수")
     p.add_argument("--tasks", type=int, nargs="+", required=True, help="pose: 대상 태스크 / switch: 태스크 A 목록")
     p.add_argument("--task-b", type=int, nargs="+", default=None, help="switch 모드에서 끼어들 태스크 (A 와 짝지음)")
@@ -230,6 +237,54 @@ def collect_chain(a, rng, out, stats):
         ep.env.close()
 
 
+def collect_noise(a, rng, runner, task, out, stats):
+    """DART 방식: 실행 동작에만 노이즈, 저장 정답은 깨끗한 정책 동작. 성공 에피소드만 저장."""
+    chk = runner.chk_a
+    for i in range(a.start_episode, a.start_episode + a.episodes):
+        stats["tried"] += 1
+        stats["reached"] += 1
+        ep = sx.Episode(runner, i)
+        runner.policy.reset()
+        frames = {"img": [], "wrist": [], "eef_pos": [], "eef_quat": [], "grip": [], "action": []}
+        success, n, burst_left, noisy_steps, bursts = False, 0, 0, 0, 0
+        burst = np.zeros(7)
+        for t in range(a.max_steps):
+            o = ep.obs
+            frames["img"].append(jpeg(o["pixels"]["image"], a.jpeg_quality))
+            frames["wrist"].append(jpeg(o["pixels"]["image2"], a.jpeg_quality))
+            frames["eef_pos"].append(np.asarray(o["robot_state"]["eef"]["pos"], np.float32))
+            frames["eef_quat"].append(np.asarray(o["robot_state"]["eef"]["quat"], np.float32))
+            frames["grip"].append(np.asarray(o["robot_state"]["gripper"]["qpos"], np.float32))
+            clean = np.asarray(ep.policy_action(chk.language), np.float32)
+            frames["action"].append(clean)  # 정답 = 노이즈 없는 동작
+            if burst_left == 0 and bursts < a.noise_max_bursts and rng.random() < a.noise_prob:
+                burst_left = a.noise_burst
+                bursts += 1
+                burst = np.zeros(7)
+                burst[:3] = rng.normal(0, a.noise_std, 3)  # 위치만, 구간 동안 같은 방향으로 밀기
+            executed = clean.copy()
+            if burst_left > 0:
+                executed[:3] = np.clip(executed[:3] + burst[:3], -1, 1)
+                burst_left -= 1
+                noisy_steps += 1
+            ep.step(executed, "A")
+            n = t + 1
+            if chk(ep.env):
+                success = True
+                break
+        if success and noisy_steps > 0:
+            np.savez(out / "episodes" / f"N{task}_ep{i}.npz",
+                     img=np.array(frames["img"], dtype=object), wrist=np.array(frames["wrist"], dtype=object),
+                     eef_pos=np.stack(frames["eef_pos"]), eef_quat=np.stack(frames["eef_quat"]),
+                     grip=np.stack(frames["grip"]), action=np.stack(frames["action"]),
+                     task=chk.language, mode="noise", noisy_steps=noisy_steps)
+            stats["saved"] += 1
+            stats["frames"] += n
+        print(json.dumps({"mode": "noise", "task": task, "episode": i, "success": success, "steps": n,
+                          "noisy_steps": noisy_steps}, ensure_ascii=False), flush=True)
+        ep.env.close()
+
+
 def main():
     a = parse_args()
     out = Path(a.out)
@@ -253,6 +308,9 @@ def main():
         chk = runner.chk_a
         if a.mode in ("switch", "hindsight"):
             collect_switch(a, runner, task, task_b, out, stats)
+            continue
+        if a.mode == "noise":
+            collect_noise(a, rng, runner, task, out, stats)
             continue
 
         for i in range(a.start_episode, a.start_episode + a.episodes):
