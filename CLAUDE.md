@@ -60,16 +60,16 @@
 - [x] retreat ablation (2026-09-17) → **위치 복구가 핵심** (ret_pos 64%, ret_rot 12%, retreat 89%)
 - [x] LoRA 1차 (1080 Ti) → 실패, 데이터 편향 (32%→32%, 태스크 1 100%→60%)
 - [x] 가설 검증 (2026-09-17): 실제 전환에서 **팔 위치 거리로는 성공이 안 갈림** (r=+0.14). 장면이 16~31%, 나머지는 시도마다의 무작위성 → 학습한 판정기(V-GPS/Q-Planning)·노이즈 조종(DSRL)이 유망
-- [ ] LoRA 2차 (균형 데이터) ← 진행 중
+- [x] 학습 없는 전략 (2026-09-17): **rtc 18%** (A 방향으로 끌려감, 매끄럽지만 틀림), **bon 34%** (flush 32% 와 차이 없음)
+- [ ] LoRA 2차 (균형 데이터) ← 1차 실행이 버그로 데이터 누락 → 재실행 중
 - [ ] ⚠️ 선행 연구 [SwitchVLA](02_논문노트/SwitchVLA.md) 본문 정독 후 차별점 확정
 
 ## 진행 중 (자동 실행)
 
 연구실 PC `~/smolVLA/HANDOFF.md` 에 세부 상태가 있습니다.
 
-1. LoRA 2차 (정상 궤적 + 먼 교란 + hindsight + 균형 샘플링) → `outputs/pipeline_v2.log`
-2. 학습 없는 전환 전략 `rtc`(RTC), `bon`(Best-of-N) 평가 → `outputs/after_v2.log`
-3. 성공 판정기(V vs Q) 데이터 수집·학습 → `outputs/value_pipeline.log`
+1. `flush_rtc` 평가 (전환 순간 끊고 이후 RTC) → `outputs/flush_rtc.log`
+2. LoRA 2차 재실행 (빠진 먼 교란·hindsight 재수집 → 학습 → 평가) + 판정기 데이터·학습 → `outputs/pipeline_v2b.log`
 
 ## 문서 지도
 

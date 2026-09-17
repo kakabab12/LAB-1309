@@ -21,6 +21,7 @@
 | ↳ [전환 실험](05_libero/switch_experiment/README.md) | 첫 전환 실험 결과 600 에피소드 | - | - | ✅ |
 | ↳ [자세 민감도](05_libero/pose_sensitivity/README.md) | 시작 자세를 틀면 성공률이 어떻게 되나 | - | - | ✅ |
 | ↳ [retreat ablation](05_libero/retreat_ablation/README.md) | 위치 vs 회전 복구 | - | - | ✅ |
+| ↳ [학습 없는 전략 rtc·bon](05_libero/training_free/) | 둘 다 flush 를 못 넘음 | - | - | ✅ |
 | ↳ [가설 검증](05_libero/hypothesis_check/README.md) | 팔 위치가 전환 성공을 가르나 → 아니었음 | - | - | ✅ |
 | ↳ [자연스러움 지표](05_libero/naturalness/README.md) | 우회 비율·멈춤 횟수 | - | - | ✅ |
 | ↳ [LoRA 1차](05_libero/lora_v1/README.md) | self-imitation 학습 (실패 분석) | - | - | ✅ |
