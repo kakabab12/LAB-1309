@@ -13,7 +13,7 @@
 | "turn on the stove" 가 데이터의 40% | 지시문별 **균형 샘플링** (`WeightedRandomSampler`) |
 | 망각이 큼 | LoRA r 16 → 8, lr 1e-4 → 5e-5 |
 
-참고 논문: [LoRA Learns Less and Forgets Less](../../../02_논문노트/LoRA-Learns-Less-Forgets-Less.md) (r 을 낮추면 망각이 줄어든다), [HER](../../../02_논문노트/HER.md) (hindsight relabeling), [DART](../../../02_논문노트/DART.md) (교란된 상태에서의 회복 학습)
+참고 논문: [LoRA Learns Less and Forgets Less](../../../02_논문노트/LoRA-망각.md) (r 을 낮추면 망각이 줄어든다), [HER](../../../02_논문노트/HER.md) (hindsight relabeling), [DART](../../../02_논문노트/DART.md) (교란된 상태에서의 회복 학습)
 
 ## 학습 설정
 
