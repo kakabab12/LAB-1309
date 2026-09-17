@@ -1,0 +1,1 @@
+{"label": "GPU 단독", "infer_median_ms": 559.9, "infer_p90_ms": 562.8, "infer_steps_at_20Hz": 11.2, "sim_step_median_ms": 15.6, "vram_GB": 1.4, "gpu": "NVIDIA GeForce GTX 1080 Ti"}
