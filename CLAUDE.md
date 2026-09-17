@@ -62,15 +62,37 @@
 - [x] 가설 검증 (2026-09-17): 실제 전환에서 **팔 위치 거리로는 성공이 안 갈림** (r=+0.14). 장면이 16~31%, 나머지는 시도마다의 무작위성 → 학습한 판정기(V-GPS/Q-Planning)·노이즈 조종(DSRL)이 유망
 - [x] 학습 없는 전략 (2026-09-17): **rtc 18%** (A 방향으로 끌려감, 매끄럽지만 틀림), **bon 34%** (flush 32% 와 차이 없음)
 - [x] 추론 지연 실험 (2026-09-18): **0.5초 지연에 90%→12%**, RTC 는 지연 있을 때만 이득(12→28%). **1080 Ti 단독 추론 560ms = 11.2스텝 → 실측 지연이 무너지는 구간과 일치.** 지금까지 수치는 낙관적, 저사양 대응 필수
-- [ ] LoRA 2차 (균형 데이터) ← 재실행 후 평가 중
-- [ ] ⚠️ 선행 연구 [SwitchVLA](02_논문노트/SwitchVLA.md) 본문 정독 후 차별점 확정
+- [x] LoRA 2차 (2026-09-18): **망각은 회복**(태스크 1 60→100%, 기본 90%)했지만 **전환은 32→31%** (p≈0.80) — self-imitation 한계
+- [x] 판정기 V vs Q (2026-09-18): AUC 0.9318 vs 0.9321 → **동작을 알려줘도 예측이 안 나아짐.** bon 실패의 설명
+- [x] ⚠️ 선행 연구 [SwitchVLA](02_논문노트/SwitchVLA.md) **본문 정독 → 차별점 확정** ([연구주제.md](연구주제.md))
+  - advance 모드가 "기준 시작 자세로 선형 보간" = 우리 제약 위반 → 우리는 `rollback` 만 사용
+  - 부록 C: 전환 시연 50~100개 추가해도 효과 미미 → **우리 LoRA 정체를 설명**
+- [x] [ReSteer](02_논문노트/ReSteer.md) (2026-03) 발견 — 조종 가능성을 **CMI** 로 재는 방법. LIBERO-Goal 기준선 π0.5 0.403 / OpenVLA-OFT 0.252 / MolmoACT 0.295, **SmolVLA 는 미측정** (우리가 채울 자리)
+- [x] [기억·재개 조사](02_논문노트/기억과_재개_조사.md): MEMOBench(2026-09) 등 최신 기억 벤치마크에도 **중단 후 재개가 없음** → 우리 자리 확인
+- [ ] 오라클 Best-of-N — 후보 선택의 상한 (실행 중)
+- [ ] `rollback` 전략 — 최근 동작 역순으로 되돌려 놓기 (초기 자세 복귀 없음) (대기)
+- [ ] 실측 지연 11스텝을 넣은 최종 평가 (대기)
+- [ ] SmolVLA 조종 가능성(CMI) 측정 (대기)
 
-## 진행 중 (자동 실행)
+## 진행 중 (자동 실행, 2026-09-18)
 
-연구실 PC `~/smolVLA/HANDOFF.md` 에 세부 상태가 있습니다.
+연구실 PC `~/smolVLA/HANDOFF.md` 에 세부 상태가 있습니다. GPU 1개라 **순차 실행**으로 묶어 뒀습니다.
 
-1. `flush_rtc` 평가 (전환 순간 끊고 이후 RTC) → `outputs/flush_rtc.log`
-2. LoRA 2차 재실행 (빠진 먼 교란·hindsight 재수집 → 학습 → 평가) + 판정기 데이터·학습 → `outputs/pipeline_v2b.log`
+```
+oracle_bon.py  →  run_after_oracle.sh  →  run_chain2.sh
+(후보 상한)        (rollback 평가 →        (CMI 측정 →
+                    실측 지연 평가)          rollback 영상)
+```
+
+| 로그 | 내용 |
+|---|---|
+| `outputs/oracle_bon.log` | 오라클 Best-of-N (40 상태 × 후보 8개) |
+| `outputs/after_oracle.log` | rollback 전환 평가 + 실측 지연(11스텝) 평가 |
+| `outputs/chain2.log` | 조종 가능성(CMI) 측정 + rollback 영상 |
+
+분석: `analyze_oracle.py`, `analyze_steer.py`, `naturalness.py`, `analyze.py`
+
+⚠️ **돌아가는 동안 `switch_experiment.py` 를 수정하지 말 것** — 2026-09-18 에 이것 때문에 수집 작업이 조용히 죽었습니다 (지금은 `fill_defaults()` + "저장 0개면 실패 종료" 안전장치가 있음)
 
 ## 문서 지도
 
