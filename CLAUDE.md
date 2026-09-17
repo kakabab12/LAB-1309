@@ -63,6 +63,14 @@
 - [ ] LoRA 2차 (균형 데이터) ← 진행 중
 - [ ] ⚠️ 선행 연구 [SwitchVLA](02_논문노트/SwitchVLA.md) 본문 정독 후 차별점 확정
 
+## 진행 중 (자동 실행)
+
+연구실 PC `~/smolVLA/HANDOFF.md` 에 세부 상태가 있습니다.
+
+1. LoRA 2차 (정상 궤적 + 먼 교란 + hindsight + 균형 샘플링) → `outputs/pipeline_v2.log`
+2. 학습 없는 전환 전략 `rtc`(RTC), `bon`(Best-of-N) 평가 → `outputs/after_v2.log`
+3. 성공 판정기(V vs Q) 데이터 수집·학습 → `outputs/value_pipeline.log`
+
 ## 문서 지도
 
 | 필요할 때 | 문서 |
