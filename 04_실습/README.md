@@ -11,6 +11,7 @@
 |---|---|---|---|---|
 | [LAB 01](LAB01_pytorch기초.md) | PyTorch 기초 — 텐서, autograd, MNIST, 속도 측정 | 1단계 | 3~5시간 | ⬜ |
 | ↳ [실습 기록 2026-09-15](01_pytorch/2026-09-15_실습과제.md) | 과제 4개 코드·결과 (Colab) | - | - | 🟡 3·4 재실행 필요 |
+| ↳ **[실습 1-2 CNN·ViT 코랩 노트북](03_cnn_vit/README.md)** | CNN, skip connection, ViT 직접 구현, 사전학습 (코랩에서 바로 열기) | 1단계 | 25분 | ⬜ 준비됨 |
 | [LAB 02](LAB02_transformer.md) | Transformer 직접 만들기 — attention부터 미니 VLA까지 | 1단계 | 4~6시간 | ⬜ |
 | ↳ [실습 기록 2026-09-16](02_transformer/2026-09-16_실습과제.md) | 문자 단위 Transformer 직접 구현 (Colab) | - | - | ✅ |
 | [LAB 03](LAB03_로봇수학.md) | 로봇 수학 — 회전, FK/IK, **저크 계산**, 궤적 블렌딩 | 2단계 | 3~4시간 | ⬜ |
