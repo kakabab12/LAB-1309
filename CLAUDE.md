@@ -80,23 +80,22 @@
 
 ## 진행 중 (자동 실행, 2026-09-18)
 
-연구실 PC `~/smolVLA/HANDOFF.md` 에 세부 상태가 있습니다. GPU 1개라 **순차 실행**으로 묶어 뒀습니다.
+연구실 PC `~/smolVLA/HANDOFF.md` 에 세부 상태가 있습니다. GPU 1개라 **하나의 큐 스크립트**로 순차 실행합니다.
 
 ```
-oracle_bon.py  →  run_after_oracle.sh  →  run_chain2.sh
-(후보 상한)        (rollback 평가 →        (CMI 측정 →
-                    실측 지연 평가)          rollback 영상)
+oracle_bon.py  →  run_queue.sh   (로그: outputs/queue.log)
 ```
 
-| 로그 | 내용 |
-|---|---|
-| `outputs/oracle_bon.log` | 오라클 Best-of-N (40 상태 × 후보 8개) |
-| `outputs/after_oracle.log` | rollback 전환 평가 + 실측 지연(11스텝) 평가 |
-| `outputs/chain2.log` | 조종 가능성(CMI) 측정 + rollback 영상 |
+| # | 내용 | 무엇을 정하나 |
+|---|---|---|
+| 1 | `rollback` 평가 | 어려운 쌍에서 retreat(75%)에 가까운가 + 제약 준수(`home_dist_after_cm`) |
+| 2 | **흔들기 4방향** (lift/reverse/random/home) | **초기 자세 참조 없이 idling 을 깰 수 있는가** ← 우리 고유 기여 |
+| 3 | 노이즈 시드 검증 | 좋은 시드가 미사용 에피소드에서도 좋은가 |
+| 4 | 조종 가능성 CMI | 쥐면 지시가 안 들리는가 |
+| 5 | 실측 지연 11스텝 | 공정한 최종 조건 |
+| 6~8 | 영상 / 잦은 재추론 / A재개 통제 | 보조 |
 
-분석: `analyze_oracle.py`, `analyze_steer.py`, `naturalness.py`, `analyze.py`
-
-⚠️ **돌아가는 동안 `switch_experiment.py` 를 수정하지 말 것** — 2026-09-18 에 이것 때문에 수집 작업이 조용히 죽었습니다 (지금은 `fill_defaults()` + "저장 0개면 실패 종료" 안전장치가 있음)
+⚠️ **돌아가는 동안 `switch_experiment.py` 를 수정하지 말 것** (2026-09-18 교훈)
 
 ## 문서 지도
 
