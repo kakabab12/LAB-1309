@@ -98,11 +98,13 @@ def main():
         a = d["args"]
         ns = a.get("switch_noise_seed", -1)
         label = name(a)
+        # 전환 실험이면 b_success, 태스크 단독(strategy none)이면 a_success 로 본다
+        switching = a.get("task_b") is not None and a["strategy"] != "none"
         for e in d["episodes"]:
-            if not e.get("switched"):
+            if switching and not e.get("switched"):
                 continue
             key = (a["task_a"], a["task_b"], e["episode"])
-            eps[key][label] = bool(e.get("b_success"))
+            eps[key][label] = bool(e.get("b_success") if switching else e.get("a_success"))
             sn = f"_ns{ns}" if ns >= 0 else ""
             if a.get("switch_noise_reseed"):
                 sn += "r"
@@ -110,7 +112,7 @@ def main():
                 sn += "f"
             tag = (f"A{a['task_a']}_B{a['task_b']}_{a['switch_at'].replace(':', '')}"
                    f"_{a['strategy']}{sn}_ep{e['episode']}")
-            b = behavior(src, tag, e["a_steps_before_switch"])
+            b = behavior(src, tag, e.get("a_steps_before_switch", 0)) if switching else None
             if b:
                 beh[label].append({**b, "b_success": bool(e.get("b_success")),
                                    "a_resume": bool(e.get("a_resume_success"))})
