@@ -35,8 +35,9 @@ def parse(path):
     t = path.read_text()
     title = next((l[2:].strip() for l in t.splitlines() if l.startswith("# ")), path.stem)
     title = re.sub(r"^\d{4}-\d{2}-\d{2}\s*[—-]\s*", "", title)
-    m = re.search(r">\s*\*\*한 줄 요약\*\*:\s*(.+)", t)
-    summary = m.group(1).strip() if m else ""
+    # 요약이 여러 줄에 걸쳐 있으면(인용문이 이어지면) 이어 붙인다
+    m = re.search(r">\s*\*\*한 줄 요약\*\*:\s*(.+(?:\n>.*)*)", t)
+    summary = re.sub(r"\s*\n>\s*", " ", m.group(1)).strip() if m else ""
     nums, last_label = [], ""
     sec = re.search(r"## 측정한 수치\n(.*?)(?=\n## |\Z)", t, re.S)
     if sec:
