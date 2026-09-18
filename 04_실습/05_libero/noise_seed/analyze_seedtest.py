@@ -51,7 +51,8 @@ def behavior(src, tag, ts):
 
 
 def main():
-    src = "outputs/seedtest"
+    import sys
+    src = sys.argv[1] if len(sys.argv) > 1 else "outputs/seedtest"
     best = worst = None
     rep = Path("outputs/report/oracle_bon.json")
     if rep.exists():
@@ -150,7 +151,7 @@ def main():
     out = {"best_seed": best, "worst_seed": worst,
            "rate": {k: {"k": v[0], "n": v[1]} for k, v in rate.items()}, "behavior": bsum}
     Path("outputs/report").mkdir(parents=True, exist_ok=True)
-    json.dump(out, open("outputs/report/seedtest.json", "w"), ensure_ascii=False, indent=2)
+    json.dump(out, open(f"outputs/report/{src.rstrip('/').split('/')[-1]}.json", "w"), ensure_ascii=False, indent=2)
 
     # ---- 그래프 ----
     fig, axs = plt.subplots(1, 2, figsize=(10.5, 4), dpi=150, facecolor=SURF)
@@ -177,8 +178,9 @@ def main():
     fig.text(0.01, 0.005, "시드는 에피소드 0~9(오라클)에서 골랐고, 여기 결과는 에피소드 10~19. 조건당 1회라 실행 순서 효과 없음",
              color=INK2, fontsize=8)
     fig.tight_layout(rect=[0, 0.03, 1, 0.93])
-    fig.savefig("outputs/report/seedtest.png", facecolor=SURF)
-    print("\n저장: outputs/report/seedtest.png, seedtest.json")
+    name = src.rstrip("/").split("/")[-1]
+    fig.savefig(f"outputs/report/{name}.png", facecolor=SURF)
+    print(f"\n저장: outputs/report/{name}.png, {name}.json")
 
 
 if __name__ == "__main__":
