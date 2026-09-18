@@ -1,0 +1,1116 @@
+{
+  "args": {
+    "pairs": "8:7,4:7,1:5,2:5",
+    "switch_at": "grasp:3",
+    "episodes": 10,
+    "n": 8,
+    "max_steps": 300,
+    "out": "outputs/oracle_bon",
+    "policy": "HuggingFaceVLA/smolvla_libero"
+  },
+  "summary": {
+    "states": 36,
+    "N": 8,
+    "p_base": 0.28125,
+    "oracle": 0.5833333333333334,
+    "indep_pred": 0.9287765737963127,
+    "never": 0.4166666666666667,
+    "always": 0.0,
+    "var_obs": 5.409722222222222,
+    "var_binomial": 1.6171875,
+    "overdispersion": 3.3451422436929685,
+    "hist": {
+      "0": 15,
+      "1": 4,
+      "2": 0,
+      "3": 5,
+      "4": 2,
+      "5": 7,
+      "6": 2,
+      "7": 1,
+      "8": 0
+    }
+  },
+  "rows": [
+    {
+      "task_a": 8,
+      "task_b": 7,
+      "episode": 0,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true
+      ],
+      "steps": [
+        300,
+        147,
+        122,
+        126,
+        300,
+        286,
+        142,
+        147
+      ],
+      "n_success": 6,
+      "sec": 123.9
+    },
+    {
+      "task_a": 8,
+      "task_b": 7,
+      "episode": 1,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true
+      ],
+      "steps": [
+        136,
+        156,
+        300,
+        300,
+        168,
+        300,
+        119,
+        135
+      ],
+      "n_success": 5,
+      "sec": 126.3
+    },
+    {
+      "task_a": 8,
+      "task_b": 7,
+      "episode": 2,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        true,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false,
+        true
+      ],
+      "steps": [
+        177,
+        157,
+        300,
+        121,
+        172,
+        300,
+        300,
+        143
+      ],
+      "n_success": 5,
+      "sec": 131.4
+    },
+    {
+      "task_a": 8,
+      "task_b": 7,
+      "episode": 3,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        true
+      ],
+      "steps": [
+        300,
+        300,
+        265,
+        141,
+        300,
+        300,
+        300,
+        122
+      ],
+      "n_success": 3,
+      "sec": 158.4
+    },
+    {
+      "task_a": 8,
+      "task_b": 7,
+      "episode": 4,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        true,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true
+      ],
+      "steps": [
+        300,
+        154,
+        300,
+        300,
+        173,
+        96,
+        125,
+        137
+      ],
+      "n_success": 5,
+      "sec": 122.9
+    },
+    {
+      "task_a": 8,
+      "task_b": 7,
+      "episode": 5,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        140,
+        165,
+        300,
+        119,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 3,
+      "sec": 150.1
+    },
+    {
+      "task_a": 8,
+      "task_b": 7,
+      "episode": 6,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "steps": [
+        140,
+        176,
+        300,
+        122,
+        169,
+        293,
+        123,
+        128
+      ],
+      "n_success": 7,
+      "sec": 115.8
+    },
+    {
+      "task_a": 8,
+      "task_b": 7,
+      "episode": 7,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        true,
+        true,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true
+      ],
+      "steps": [
+        145,
+        187,
+        300,
+        300,
+        197,
+        300,
+        177,
+        149
+      ],
+      "n_success": 5,
+      "sec": 134.9
+    },
+    {
+      "task_a": 8,
+      "task_b": 7,
+      "episode": 8,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        true,
+        false,
+        true,
+        true,
+        false,
+        false,
+        true,
+        false
+      ],
+      "steps": [
+        114,
+        300,
+        155,
+        112,
+        300,
+        300,
+        99,
+        300
+      ],
+      "n_success": 4,
+      "sec": 131.9
+    },
+    {
+      "task_a": 8,
+      "task_b": 7,
+      "episode": 9,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        true
+      ],
+      "steps": [
+        300,
+        191,
+        300,
+        131,
+        196,
+        300,
+        268,
+        151
+      ],
+      "n_success": 5,
+      "sec": 143.8
+    },
+    {
+      "task_a": 4,
+      "task_b": 7,
+      "episode": 0,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true
+      ],
+      "steps": [
+        300,
+        177,
+        161,
+        125,
+        191,
+        300,
+        300,
+        136
+      ],
+      "n_success": 5,
+      "sec": 135.3
+    },
+    {
+      "task_a": 4,
+      "task_b": 7,
+      "episode": 1,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true
+      ],
+      "steps": [
+        147,
+        300,
+        300,
+        300,
+        165,
+        300,
+        165,
+        129
+      ],
+      "n_success": 4,
+      "sec": 139.8
+    },
+    {
+      "task_a": 4,
+      "task_b": 7,
+      "episode": 2,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+        true
+      ],
+      "steps": [
+        300,
+        179,
+        300,
+        125,
+        198,
+        300,
+        89,
+        134
+      ],
+      "n_success": 5,
+      "sec": 129.4
+    },
+    {
+      "task_a": 4,
+      "task_b": 7,
+      "episode": 3,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        true
+      ],
+      "steps": [
+        300,
+        300,
+        253,
+        176,
+        300,
+        300,
+        300,
+        123
+      ],
+      "n_success": 3,
+      "sec": 158.4
+    },
+    {
+      "task_a": 4,
+      "task_b": 7,
+      "episode": 4,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        false,
+        true
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        118,
+        300,
+        300,
+        300,
+        125
+      ],
+      "n_success": 3,
+      "sec": 157.7
+    },
+    {
+      "task_a": 4,
+      "task_b": 7,
+      "episode": 5,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        252,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 1,
+      "sec": 180.6
+    },
+    {
+      "task_a": 4,
+      "task_b": 7,
+      "episode": 6,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        true
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        111,
+        300,
+        300,
+        123,
+        128
+      ],
+      "n_success": 3,
+      "sec": 145.6
+    },
+    {
+      "task_a": 4,
+      "task_b": 7,
+      "episode": 7,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        141,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 1,
+      "sec": 170.3
+    },
+    {
+      "task_a": 4,
+      "task_b": 7,
+      "episode": 8,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        123
+      ],
+      "n_success": 1,
+      "sec": 171.4
+    },
+    {
+      "task_a": 4,
+      "task_b": 7,
+      "episode": 9,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        true
+      ],
+      "steps": [
+        147,
+        186,
+        300,
+        133,
+        199,
+        291,
+        300,
+        163
+      ],
+      "n_success": 6,
+      "sec": 133.6
+    },
+    {
+      "task_a": 1,
+      "task_b": 5,
+      "episode": 0,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 186.8
+    },
+    {
+      "task_a": 1,
+      "task_b": 5,
+      "episode": 1,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "cream_cheese_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 187.8
+    },
+    {
+      "task_a": 1,
+      "task_b": 5,
+      "episode": 2,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "cream_cheese_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 185.5
+    },
+    {
+      "task_a": 1,
+      "task_b": 5,
+      "episode": 3,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 184.7
+    },
+    {
+      "task_a": 1,
+      "task_b": 5,
+      "episode": 4,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 183.6
+    },
+    {
+      "task_a": 1,
+      "task_b": 5,
+      "episode": 5,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 185.3
+    },
+    {
+      "task_a": 1,
+      "task_b": 5,
+      "episode": 6,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 182.8
+    },
+    {
+      "task_a": 1,
+      "task_b": 5,
+      "episode": 7,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 181.3
+    },
+    {
+      "task_a": 1,
+      "task_b": 5,
+      "episode": 8,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "cream_cheese_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 184.0
+    },
+    {
+      "task_a": 1,
+      "task_b": 5,
+      "episode": 9,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "akita_black_bowl_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 184.7
+    },
+    {
+      "task_a": 2,
+      "task_b": 5,
+      "episode": 0,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "wine_bottle_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 182.9
+    },
+    {
+      "task_a": 2,
+      "task_b": 5,
+      "episode": 1,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "wine_bottle_1",
+      "success": [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        138,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 1,
+      "sec": 176.4
+    },
+    {
+      "task_a": 2,
+      "task_b": 5,
+      "episode": 3,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "wine_bottle_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 185.8
+    },
+    {
+      "task_a": 2,
+      "task_b": 5,
+      "episode": 7,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "wine_bottle_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 185.9
+    },
+    {
+      "task_a": 2,
+      "task_b": 5,
+      "episode": 8,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "wine_bottle_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 186.1
+    },
+    {
+      "task_a": 2,
+      "task_b": 5,
+      "episode": 9,
+      "switch_at": "grasp:3",
+      "holding": true,
+      "held_object": "wine_bottle_1",
+      "success": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "steps": [
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300,
+        300
+      ],
+      "n_success": 0,
+      "sec": 184.8
+    }
+  ]
+}
