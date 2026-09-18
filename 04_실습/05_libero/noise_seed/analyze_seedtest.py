@@ -39,15 +39,22 @@ def behavior(src, tag, ts):
         return None
     z = np.load(f)
     gq, pos, ph = z["gripper_qpos"], z["pos"], z["phase"].astype(str)
-    idx = np.where(ph != "A")[0]
+    # B 구간만 본다. A2(재개) 구간은 어차피 거의 실패라서 섞이면 전부 idling 으로 잡힌다.
+    idx = np.where(ph == "B")[0]
     if len(idx) == 0:
         return None
-    s = idx[0]
+    s, e_ = idx[0], idx[-1] + 1
+    gq, pos = gq[:e_], pos[:e_]
     post = gq[s:]
     opened = np.where(post > OPEN_Q)[0]
     move = float(np.linalg.norm(np.diff(pos[s:s + 21], axis=0), axis=1).sum() * 100) if len(pos) > s + 2 else 0.0
+    # 제자리 맴돌기(idling): 전환 이후 2초 동안 끝단 이동 범위가 3cm 미만인 구간이 있는가
+    seg = pos[s:] * 100
+    idle = any(float(np.linalg.norm(seg[k - 40:k].max(axis=0) - seg[k - 40:k].min(axis=0))) < 3.0
+               for k in range(40, len(seg) + 1))
     return {"release_step": int(opened[0]) if len(opened) else None,
-            "released": bool(len(opened)), "move20_cm": move}
+            "released": bool(len(opened)), "move20_cm": move, "idle": bool(idle),
+            "b_steps": int(len(seg))}
 
 
 def main():
@@ -133,7 +140,7 @@ def main():
         print(f"짝 비교 {a_} vs {b_}: {a_} 만 성공 {w}, {b_} 만 성공 {l}, p = {sign_test(w, l):.3f}")
 
     print("\n== 무엇을 다르게 하나 (전환 이후)")
-    print(f"{'조건':12s}{'물체를 놓음':>12s}{'놓기까지 스텝':>14s}{'초기 20스텝 이동':>16s}")
+    print(f"{'조건':12s}{'idling':>9s}{'놓기까지 스텝':>14s}{'B 길이':>9s}{'초기 20스텝':>13s}")
     bsum = {}
     for lab in labels:
         r = beh.get(lab, [])
@@ -142,11 +149,13 @@ def main():
         rel = [x["release_step"] for x in r if x["release_step"] is not None]
         bsum[lab] = {"released": float(np.mean([x["released"] for x in r])),
                      "release_step": float(np.median(rel)) if rel else None,
-                     "move20_cm": float(np.median([x["move20_cm"] for x in r])), "n": len(r)}
+                     "move20_cm": float(np.median([x["move20_cm"] for x in r])),
+                     "idle": float(np.mean([x["idle"] for x in r])),
+                     "b_steps": float(np.median([x["b_steps"] for x in r])), "n": len(r)}
         v = bsum[lab]
-        print(f"{lab:12s}{100 * v['released']:11.0f}%"
+        print(f"{lab:12s}{100 * v['idle']:8.0f}%"
               f"{(v['release_step'] if v['release_step'] is not None else float('nan')):14.0f}"
-              f"{v['move20_cm']:16.1f}")
+              f"{v['b_steps']:9.0f}{v['move20_cm']:13.1f}")
 
     out = {"best_seed": best, "worst_seed": worst,
            "rate": {k: {"k": v[0], "n": v[1]} for k, v in rate.items()}, "behavior": bsum}
@@ -168,11 +177,11 @@ def main():
     axs[0].set_xticks(x, labels, fontsize=9, color=INK); axs[0].set_ylim(0, 100)
     axs[0].set_ylabel("B 성공률 (%)", color=INK2)
     axs[0].set_title("미사용 에피소드에서의 B 성공률", color=INK, loc="left", fontsize=11)
-    axs[1].bar(x, [100 * bsum.get(l, {}).get("released", np.nan) for l in labels],
+    axs[1].bar(x, [100 * bsum.get(l, {}).get("idle", np.nan) for l in labels],
                0.55, color=[cols.get(l, "#2a78d6") for l in labels], zorder=2)
     axs[1].set_xticks(x, labels, fontsize=9, color=INK); axs[1].set_ylim(0, 105)
-    axs[1].set_ylabel("물체를 놓은 비율 (%)", color=INK2)
-    axs[1].set_title("전환 이후 물체를 놓았는가", color=INK, loc="left", fontsize=11)
+    axs[1].set_ylabel("제자리 맴돌기가 있었던 비율 (%)", color=INK2)
+    axs[1].set_title("idling 에 빠졌는가", color=INK, loc="left", fontsize=11)
     fig.suptitle(f"노이즈 시드 검증 — 좋은 시드 {best}, 나쁜 시드 {worst}",
                  x=0.01, ha="left", color=INK, fontsize=12)
     fig.text(0.01, 0.005, "시드는 에피소드 0~9(오라클)에서 골랐고, 여기 결과는 에피소드 10~19. 조건당 1회라 실행 순서 효과 없음",
