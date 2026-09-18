@@ -1,0 +1,62 @@
+{
+  "flush": {
+    "n": 72,
+    "b": 0.3194444444444444,
+    "resume": 0.0,
+    "resume_k": 0,
+    "resume_n": 23,
+    "both": 0.0,
+    "home_cm": null,
+    "rollback_steps": null
+  },
+  "rollback": {
+    "n": 72,
+    "b": 0.19444444444444445,
+    "resume": 0.0,
+    "resume_k": 0,
+    "resume_n": 14,
+    "both": 0.0,
+    "home_cm": 21.2,
+    "rollback_steps": 35.5
+  },
+  "release": {
+    "n": 72,
+    "b": 0.08333333333333333,
+    "resume": 0.0,
+    "resume_k": 0,
+    "resume_n": 6,
+    "both": 0.0,
+    "home_cm": null,
+    "rollback_steps": null
+  },
+  "ret_rot": {
+    "n": 74,
+    "b": 0.12162162162162163,
+    "resume": 0.0,
+    "resume_k": 0,
+    "resume_n": 9,
+    "both": 0.0,
+    "home_cm": null,
+    "rollback_steps": null
+  },
+  "ret_pos": {
+    "n": 73,
+    "b": 0.6438356164383562,
+    "resume": 0.0851063829787234,
+    "resume_k": 4,
+    "resume_n": 47,
+    "both": 0.0547945205479452,
+    "home_cm": null,
+    "rollback_steps": null
+  },
+  "retreat": {
+    "n": 72,
+    "b": 0.8888888888888888,
+    "resume": 0.625,
+    "resume_k": 40,
+    "resume_n": 64,
+    "both": 0.5555555555555556,
+    "home_cm": null,
+    "rollback_steps": null
+  }
+}
