@@ -35,7 +35,9 @@ def stats(counts, N):
 
 
 def main():
-    d = json.load(open("outputs/oracle_bon/oracle.json"))
+    import sys
+    src = sys.argv[1] if len(sys.argv) > 1 else "outputs/oracle_bon"
+    d = json.load(open(f"{src}/oracle.json"))
     N = d["args"]["n"]
     rows = d["rows"]
     groups = {}
@@ -47,11 +49,13 @@ def main():
     o = out["overall"]
     print(f"== 오라클 Best-of-N (상태 {o['states']}개 × 후보 {N}개, {d['args']['switch_at']})\n")
     print(f"{'조건':10s}{'상태':>5s}{'기본 p':>9s}{'오라클':>9s}{'독립예측':>9s}{'전부실패':>9s}{'과분산':>8s}")
+    def od(v):
+        return "-" if v is None else f"{v:.2f}"
     for k, s in out["by_pair"].items():
         print(f"{k:10s}{s['states']:5d}{100 * s['p_base']:8.0f}%{100 * s['oracle']:8.0f}%"
-              f"{100 * s['indep']:8.0f}%{100 * s['never']:8.0f}%{s['overdispersion']:8.2f}")
+              f"{100 * s['indep']:8.0f}%{100 * s['never']:8.0f}%{od(s['overdispersion']):>8s}")
     print(f"{'합계':10s}{o['states']:5d}{100 * o['p_base']:8.0f}%{100 * o['oracle']:8.0f}%"
-          f"{100 * o['indep']:8.0f}%{100 * o['never']:8.0f}%{o['overdispersion']:8.2f}")
+          f"{100 * o['indep']:8.0f}%{100 * o['never']:8.0f}%{od(o['overdispersion']):>8s}")
 
     print("\n성공 개수 분포 (0~N 중 몇 개 성공했나)")
     hist = np.bincount(allc, minlength=N + 1)
@@ -64,11 +68,14 @@ def main():
     gain = o2["oracle"] - o2["p_base"]
     print(f"완벽한 선택기가 있으면 {100 * o2['p_base']:.0f}% → {100 * o2['oracle']:.0f}% "
           f"(+{100 * gain:.0f}%p) 까지 오를 수 있다")
-    if o2["overdispersion"] is not None and o2["overdispersion"] > 1.5:
+    if o2["overdispersion"] is None:
+        print("과분산을 계산할 수 없음 (기본 성공률이 0 또는 1)")
+    elif o2["overdispersion"] > 1.5:
         print(f"과분산 {o2['overdispersion']:.2f} > 1.5 → 성공/실패가 **상태에서 갈린다**. "
               f"전부 실패한 상태 {100 * o2['never']:.0f}% 는 선택으로 못 고친다")
     else:
         print(f"과분산 {o2['overdispersion']:.2f} → 결과가 상당 부분 **생성 노이즈 운**. 선택이 통할 여지가 있다")
+    print(f"완전히 실패한 상태 {100 * o2['never']:.0f}% 는 어떤 선택으로도 못 고친다")
 
     # ---- 시드(노이즈) 효과: 모든 상태에 같은 8개 시드를 썼으므로 비교 가능 ----
     S = np.array([r["success"] for r in rows], dtype=float)  # (상태, 시드)
@@ -130,9 +137,10 @@ def main():
                           f"시뮬레이터 상태를 저장/복원해 같은 지점에서 다시 시작", color=INK2, fontsize=8)
     fig.tight_layout(rect=[0, 0.03, 1, 0.93])
     Path("outputs/report").mkdir(parents=True, exist_ok=True)
-    fig.savefig("outputs/report/oracle_bon.png", facecolor=SURF)
-    json.dump(out, open("outputs/report/oracle_bon.json", "w"), ensure_ascii=False, indent=2)
-    print("\n저장: outputs/report/oracle_bon.png, oracle_bon.json")
+    name = "oracle_bon" if src.endswith("oracle_bon") else src.rstrip("/").split("/")[-1]
+    fig.savefig(f"outputs/report/{name}.png", facecolor=SURF)
+    json.dump(out, open(f"outputs/report/{name}.json", "w"), ensure_ascii=False, indent=2)
+    print(f"\n저장: outputs/report/{name}.png, {name}.json")
 
 
 if __name__ == "__main__":
