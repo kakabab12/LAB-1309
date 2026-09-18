@@ -85,6 +85,22 @@ def main():
             print("→ 쉬운 쌍은 예측과 거의 같다: 전환의 어려움은 팔 위치가 거의 전부")
         print("→ 9→7 만 0% 로 크게 벗어난다: 그 쌍에는 **위치 말고 다른 어려움**이 있다")
 
+    # ---- 위치 vs 회전 비대칭 ----
+    print("\n== 위치 vs 회전: 어느 쪽이 더 치명적인가")
+    ycurve0 = {**KNOWN_YAW, **{r["yaw"]: r["rate"] for r in yaw_only}}
+    pos_ok = [k for k, v in curve.items() if v >= 0.25]
+    yaw_ok = [k for k, v in ycurve0.items() if v >= 0.25]
+    if pos_ok and yaw_ok:
+        print(f"성공률 25% 이상을 유지하는 한계:  위치 **{max(pos_ok):.0f}cm**  /  회전 **{max(yaw_ok):.0f}도**")
+    yzero = sorted(k for k, v in ycurve0.items() if v < 0.05)
+    if yzero:
+        print(f"회전은 **{min(yzero):.0f}도부터 계속 0%** — 완만히 줄지 않고 절벽처럼 떨어진다")
+    print("전환 시점의 실제 이탈: 위치 27cm(한계 근처) + 회전 8도(안전 구간)")
+    print("→ **전환 자체는 회전이 문제가 아니다. 위치가 문제다**")
+    print("→ 그런데 A 재개는 반대다: ret_pos(위치만 복귀) 7% vs retreat(위치+회전) 62%")
+    print("   ⇒ 예측: **B 를 끝낸 시점의 손목 회전은 30도를 넘어 있다** (그래서 위치만 되돌려선 안 된다)")
+    print("     검증: eef_rotvec 이 기록된 새 궤적에서 A2 시작 시점의 회전 이탈을 잰다")
+
     print("\n== 역커리큘럼에 쓸 수 있는 범위")
     ok = [r for r in off_only if r["rate"] >= 0.2]
     if ok:
