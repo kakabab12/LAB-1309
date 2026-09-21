@@ -70,10 +70,23 @@ def label(name):
 
 def main():
     tim = sys.argv[1] if len(sys.argv) > 1 else "grasp3"
-    rows = {}
+
+    # ⚠️ 교란 주의: **성공한 에피소드는 일찍 끝난다.**
+    #   성공이 늘면 B 구간이 짧아지고 → 2초 창이 적게 들어가고 → 맴돌기가 '저절로' 낮아진다.
+    #   그러면 "맴돌기가 줄어서 성공했다" 와 "성공해서 맴돌기가 낮게 보인다" 를 구분할 수 없다.
+    #   그래서 **실패한 에피소드만** 따로 다시 본다 (전부 시간 초과라 길이가 같다).
+    succ = {}
+    for d in ("outputs/switch", "outputs/cfg", "outputs/nscale"):
+        for f in glob.glob(f"{d}/A*_{tim}_flush*.json"):
+            for e in json.load(open(f))["episodes"]:
+                if e.get("switched"):
+                    succ[(Path(f).stem, e["episode"])] = bool(e.get("b_success"))
+
+    rows, rows_fail = {}, {}
     for d in ("outputs/switch", "outputs/cfg", "outputs/nscale"):
         for f in glob.glob(f"{d}/traj/*_{tim}_*.npz"):
-            lab = label(Path(f).stem)
+            stem = Path(f).stem
+            lab = label(stem)
             if lab is None:
                 continue
             z = np.load(f, allow_pickle=True)
@@ -81,6 +94,9 @@ def main():
                 continue
             did, frac = idled(z["pos"], z["phase"])
             rows.setdefault(lab, []).append((did, frac))
+            m = re.match(r"(.*)_ep(\d+)$", stem)
+            if m and succ.get((m.group(1), int(m.group(2)))) is False:
+                rows_fail.setdefault(lab, []).append((did, frac))
 
     if not rows:
         print(f"'{tim}' 궤적이 없습니다.")
@@ -114,6 +130,32 @@ def main():
         print(f"  {k:<14}{d:+5.0f}%p   {note}")
     print("\n맴돌기는 에피소드마다 연속적으로 재므로, 성공률보다 적은 표본에서도 신호가 보인다.")
     print("성공률이 안 움직여도 맴돌기가 줄었다면 표본을 늘려 볼 가치가 있다.")
+
+    # ---- 교란 제거: 실패한 에피소드만 ----
+    if rows_fail:
+        print("\n== ⭐ 교란을 뺀 비교 — **실패한 에피소드만** (전부 시간 초과라 길이가 같다)")
+        print("   성공하면 일찍 끝나 맴돌 기회가 줄어든다. 그 효과를 빼고 본다.\n")
+        print(f"{'조건':<14}{'n':>5}{'맴돈 에피소드':>14}{'맴돈 시간 비중':>16}")
+        fbase = None
+        for k in order:
+            if k not in rows_fail:
+                continue
+            v = rows_fail[k]
+            pct = 100 * float(np.mean([a for a, _ in v]))
+            frac = 100 * float(np.mean([b for _, b in v]))
+            if k == "기준(w=1)":
+                fbase = pct
+            print(f"{k:<14}{len(v):5d}{pct:13.0f}%{frac:15.0f}%")
+        if fbase is not None:
+            print()
+            for k in order:
+                if k == "기준(w=1)" or k not in rows_fail:
+                    continue
+                d = 100 * float(np.mean([a for a, _ in rows_fail[k]])) - fbase
+                note = ("✅ 실패 안에서도 맴돌기가 줄었다 — 교란이 아니다" if d <= -10 else
+                        "❌ 늘었다" if d >= 10 else
+                        "⚠️ 실패 안에서는 차이가 없다 — 앞의 감소는 **성공해서 짧아진 탓**일 수 있다")
+                print(f"  {k:<14}{d:+5.0f}%p   {note}")
 
     ctrl = [k for k in order if k.startswith("[대조]")]
     if ctrl:
