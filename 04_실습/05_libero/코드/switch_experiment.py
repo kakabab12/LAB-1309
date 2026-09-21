@@ -138,6 +138,9 @@ def build_parser():
                         "노이즈를 고정하는 게 아니라 분포 중심만 옮기므로 변화는 유지된다 "
                         "— 매 추론마다 같은 노이즈를 쓰면 0% 가 되기 때문 (2026-09-18 측정)")
     p.add_argument("--noise-shift-scale", type=float, default=1.0, help="노이즈 평균 이동의 세기 배율")
+    p.add_argument("--b-text", default=None,
+                   help="B 구간에서 실제로 넣을 지시문을 직접 지정한다 (성공 판정은 --task-b 그대로). "
+                        "뜻 없는 글자를 넣어 '정책이 지시 내용을 듣는가, 바뀐 것만 아는가'를 가른다")
     p.add_argument("--instr-repeat", type=int, default=1,
                    help="지시문을 몇 번 반복해 넣을지. 언어 토큰 수를 늘려 주의를 끄는 "
                         "가장 단순한 증폭. 1 이면 원래대로")
@@ -778,6 +781,8 @@ class Runner:
         cf = f"_cfg{a.cfg_w:g}" if getattr(a, "cfg_w", 1.0) != 1.0 else ""
         if getattr(a, "instr_repeat", 1) > 1:
             cf += f"_rep{a.instr_repeat}"
+        if getattr(a, "b_text", None):
+            cf += "_btext"
         if cf and getattr(a, "cfg_from", "switch") == "always":
             cf += "a"
         sn = f"_sn{a.switch_n_action_steps}" if getattr(a, "switch_n_action_steps", 0) > 0 else ""
@@ -850,11 +855,15 @@ class Runner:
                 a_during_b["v"] = True
 
         home_before = float(np.linalg.norm(eef_pos(ep.obs) - ep.home[0]))
-        ep.apply_strategy(self.chk_b.language, rec, "to_b")
+        # --b-text 를 주면 그 글자를 넣는다. 성공 판정은 chk_b 그대로라
+        # "지시를 못 알아들었는데도 B 가 이뤄지는가" 까지 같이 보인다.
+        b_lang = a.b_text if a.b_text else self.chk_b.language
+        rec["b_instruction_given"] = b_lang
+        ep.apply_strategy(b_lang, rec, "to_b")
         # 초기 자세로 돌아갔는지 확인 (제약: 돌아가면 안 됨)
         rec["home_dist_before_cm"] = round(100 * home_before, 1)
         rec["home_dist_after_cm"] = round(100 * float(np.linalg.norm(eef_pos(ep.obs) - ep.home[0])), 1)
-        why, n_b = ep.run_policy(self.chk_b.language, "B", a.max_steps, self.chk_b, watch_fn=watch_b)
+        why, n_b = ep.run_policy(b_lang, "B", a.max_steps, self.chk_b, watch_fn=watch_b)
         b_end = len(ep.log["pos"])
         rec.update(b_success=why == "success", b_steps=n_b, a_completed_during_b=a_during_b["v"],
                    escape_count=ep.escape_count, escape_at=list(ep.escape_at))
