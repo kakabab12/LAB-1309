@@ -135,6 +135,26 @@ def main():
                 "⚠️ 눈에 띄게 거칠어짐" if r < 1.5 else "❌ 크게 거칠어짐 — 제약 위반")
         print(f"  w={w:g}: 기준 대비 jerk {r:.2f}배 — {note}")
 
+    # ---- 맴돌기: 성공률보다 민감한 1차 지표 ----
+    print("\n== ⭐ 맴돌기 비율 (B 구간, 2초 동안 이동 범위 3cm 미만)")
+    print("   실패의 80% 가 맴돌기다. 성공률은 0/1 이라 둔하지만 이건 연속적으로 재므로")
+    print("   **같은 표본에서 더 민감하다.** 성공률이 안 움직여도 여기가 움직이면 방향은 맞다.")
+    try:
+        import subprocess
+        out = subprocess.run([sys.executable, "idling_by_cond.py", tim],
+                             capture_output=True, text=True, timeout=300)
+        body = out.stdout.split("\n")
+        start = next((i for i, l in enumerate(body) if l.startswith("조건")), None)
+        if start is not None:
+            print()
+            for l in body[start:]:
+                if l.strip():
+                    print("  " + l)
+        else:
+            print("  (궤적이 없어 계산하지 못했습니다)")
+    except Exception as e:
+        print(f"  (계산 실패: {type(e).__name__}: {e})")
+
     print("\n== 실패 유형")
     for w in [0] + ws:
         cnt = {}
