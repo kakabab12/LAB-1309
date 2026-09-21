@@ -120,8 +120,23 @@ def main():
                     own = s[own_idx].mean(axis=0)
                     others = np.delete(s, own_idx, axis=0).reshape(-1, s.shape[-1])
                     d_own_other = float(np.linalg.norm(own - others.mean(axis=0)))
+                # ⭐ 쌍별 조종 가능성 — "이 상태에서 A 대신 B 를 시키면 동작이 달라지는가"
+                # 전체 CMI 는 모든 지시문을 뭉뚱그린 값이라, 쌍마다 왜 난이도가 다른지 못 본다.
+                # 여기서는 **A 의 동작과 각 B 의 동작이 얼마나 떨어져 있는지**를
+                # 같은 지시 안의 흔들림(생성 노이즈)으로 나눠 잰다. 1 에 가까우면
+                # "노이즈만큼도 안 달라진다" = 그 쌍은 지시를 바꿔도 소용이 없다.
+                pair_sep = {}
+                if own_idx is not None:
+                    within = float(np.sqrt(s.var(axis=1, ddof=1).mean()))
+                    own_m = s[own_idx].mean(axis=0)
+                    for j, lang_j in enumerate(langs):
+                        if j == own_idx:
+                            continue
+                        d = float(np.linalg.norm(s[j].mean(axis=0) - own_m))
+                        pair_sep[str(j)] = round(d / max(within * np.sqrt(s.shape[-1]), 1e-9), 4)
                 row = {"task_a": task, "episode": ep_idx, "probe": name, "cmi_nats": c,
-                       "sep_ratio": r, "dist_own_vs_others": d_own_other, **extra}
+                       "sep_ratio": r, "dist_own_vs_others": d_own_other,
+                       "pair_sep": pair_sep, **extra}
                 rows.append(row)
                 print(f"T{task} ep{ep_idx} {name:8s} CMI {c:.4f} nats, 분리비 {r:.2f}, "
                       f"자기지시-타지시 거리 {d_own_other:.3f}", flush=True)
