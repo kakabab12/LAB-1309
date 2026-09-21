@@ -59,13 +59,19 @@ def label(name):
     m3 = re.match(r"^_rep(\d+)$", s)
     if m3:
         return f"반복 k={m3.group(1)}"
-    return None  # 다른 설정(지연·노이즈 등)은 섞지 않는다
+    # ⭐ 대조군: 노이즈 크기는 **언어를 전혀 안 건드리고** 동작 크기만 바꾼다.
+    #    증폭이 맴돌기를 줄인 것이 '지시문 채널' 때문인지 '동작이 커져서'인지 가른다.
+    m4 = re.match(r"^_ns_sc([0-9.]+)$|^_sc([0-9.]+)$", s)
+    if m4:
+        v = m4.group(1) or m4.group(2)
+        return f"[대조] 노이즈 σ={float(v):g}"
+    return None  # 다른 설정(지연 등)은 섞지 않는다
 
 
 def main():
     tim = sys.argv[1] if len(sys.argv) > 1 else "grasp3"
     rows = {}
-    for d in ("outputs/switch", "outputs/cfg"):
+    for d in ("outputs/switch", "outputs/cfg", "outputs/nscale"):
         for f in glob.glob(f"{d}/traj/*_{tim}_*.npz"):
             lab = label(Path(f).stem)
             if lab is None:
@@ -80,7 +86,7 @@ def main():
         print(f"'{tim}' 궤적이 없습니다.")
         return
 
-    order = sorted(rows, key=lambda k: (k != "기준(w=1)", k))
+    order = sorted(rows, key=lambda k: (k != "기준(w=1)", k.startswith("[대조]"), k))
     print(f"== B 구간 맴돌기 비율 — 전환 시점 {tim}")
     print(f"   (판정: {WIN / 20:.0f}초 동안 이동 범위 {RANGE_CM}cm 미만)\n")
     print(f"{'조건':<14}{'n':>5}{'맴돈 에피소드':>14}{'맴돈 시간 비중':>16}")
@@ -108,6 +114,23 @@ def main():
         print(f"  {k:<14}{d:+5.0f}%p   {note}")
     print("\n맴돌기는 에피소드마다 연속적으로 재므로, 성공률보다 적은 표본에서도 신호가 보인다.")
     print("성공률이 안 움직여도 맴돌기가 줄었다면 표본을 늘려 볼 가치가 있다.")
+
+    ctrl = [k for k in order if k.startswith("[대조]")]
+    if ctrl:
+        print("\n== ⭐ 대조군 해석 — 지시문 때문인가, 동작이 커져서인가")
+        print("   노이즈 크기(σ)는 **언어를 전혀 안 건드리고** 동작만 흔든다.")
+        best_c = min(100 * float(np.mean([a for a, _ in rows[k]])) for k in ctrl)
+        amp = [k for k in order if k.startswith("증폭")]
+        best_a = min((100 * float(np.mean([a for a, _ in rows[k]])) for k in amp), default=None)
+        if best_a is None:
+            print("   증폭 결과가 없어 비교할 수 없다.")
+        elif best_c <= base - 10:
+            print(f"   ❌ 대조군도 맴돌기가 준다 ({base:.0f}% → {best_c:.0f}%).")
+            print("      → 증폭의 효과를 **지시문 채널로 설명할 수 없다.** 그냥 동작이 커진 것일 수 있다")
+        else:
+            print(f"   ✅ 대조군은 맴돌기가 안 준다 ({base:.0f}% → {best_c:.0f}%) 는데")
+            print(f"      증폭은 준다 ({best_a:.0f}%). → **동작 크기만으로는 설명이 안 된다**")
+            print("      지시문 채널을 건드린 것이 다르다는 뜻이다")
 
 
 if __name__ == "__main__":
