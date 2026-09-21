@@ -73,6 +73,8 @@ def main():
     p.add_argument("--policy", default="HuggingFaceVLA/smolvla_libero")
     p.add_argument("--cfg-w", type=float, default=1.0,
                    help="지시문 증폭을 켜고 CMI 를 잰다. 증폭이 정말 '귀를 열어주는지' 확인용")
+    p.add_argument("--instr-repeat", type=int, default=1,
+                   help="지시문을 몇 번 반복해 넣을지 (대안 증폭). 1 이면 원래대로")
     p.add_argument("--exclude-own", action="store_true",
                    help="수행 중인 태스크 A 의 지시문을 M 집합에서 뺀다. "
                         "증폭을 켜면 자동으로 켜지며, **기준선도 같은 조건으로 재야** 비교가 된다")
@@ -87,6 +89,10 @@ def main():
     runner = sx.Runner(rargs)
     all_langs = [sx.GoalChecker(runner.suite, t).language for t in range(args.n_instructions)]
     runner.args.cfg_w, runner.args.cfg_from = args.cfg_w, "always"
+    runner.args.instr_repeat = args.instr_repeat
+    runner.args.instr_repeat_from = "always"
+    if args.instr_repeat > 1:
+        print(f"지시문을 {args.instr_repeat}번 반복해 넣는다 (토큰 비중 증폭)", flush=True)
     amp = args.cfg_w != 1.0
     if amp:
         args.exclude_own = True   # 증폭은 A 지시문만 다르게 대하므로 빼는 수밖에 없다
@@ -192,7 +198,8 @@ def main():
                              "cmi_nats": float(np.mean([r["cmi_nats"] for r in sel])),
                              "sep_ratio": float(np.mean([r["sep_ratio"] for r in sel])),
                              "dist_own_vs_others": float(np.nanmean([r["dist_own_vs_others"] for r in sel])),
-                             "cfg_w": args.cfg_w, "exclude_own": bool(args.exclude_own),
+                             "cfg_w": args.cfg_w, "instr_repeat": args.instr_repeat,
+                             "exclude_own": bool(args.exclude_own),
                              "n_instructions_used": args.n_instructions - int(args.exclude_own)}
     json.dump({"args": vars(args), "summary": summary, "rows": rows},
               open(Path(args.out) / "steer.json", "w"), ensure_ascii=False, indent=2)
