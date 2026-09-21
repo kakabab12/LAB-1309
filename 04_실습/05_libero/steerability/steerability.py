@@ -65,7 +65,10 @@ def main():
     p.add_argument("--n-instructions", type=int, default=10, help="지시문 개수 M (LIBERO-Goal 은 10)")
     p.add_argument("--k", type=int, default=8, help="지시문당 후보 개수 K")
     p.add_argument("--horizon", type=int, default=10, help="chunk 앞 몇 스텝을 볼지")
-    p.add_argument("--probes", default="start,grasp3,grasp20")
+    p.add_argument("--probes", default="start,grasp3,grasp20",
+                   help="측정 지점. start 와 grasp<N>(잡고 N스텝 뒤)을 쉼표로 나열한다. "
+                        "예: start,grasp0,grasp3,grasp6,grasp10,grasp20,grasp40 "
+                        "→ 귀가 언제 닫히고 언제 열리는지 곡선을 그릴 수 있다")
     p.add_argument("--max-steps", type=int, default=300)
     p.add_argument("--policy", default="HuggingFaceVLA/smolvla_libero")
     p.add_argument("--cfg-w", type=float, default=1.0,
@@ -145,9 +148,11 @@ def main():
                 if grasp["t"] is None and ep.holding():
                     grasp["t"] = len(ep.log["pos"])
 
-            for target, name in [(3, "grasp3"), (20, "grasp20")]:
-                if name not in probes:
-                    continue
+            # grasp<N> 를 N 오름차순으로 — 한 번 달리면서 차례로 잰다
+            grasp_probes = sorted(
+                ((int(x[5:]), x) for x in probes if x.startswith("grasp") and x[5:].isdigit()),
+                key=lambda z: z[0])
+            for target, name in grasp_probes:
 
                 # 주의: run_policy 의 t 는 **그 호출 안에서의** 스텝 수다.
                 # grasp3 를 재고 나서 grasp20 까지 이어 달릴 때는 전체 스텝 수로 비교해야 한다.
