@@ -138,6 +138,10 @@ def build_parser():
                         "노이즈를 고정하는 게 아니라 분포 중심만 옮기므로 변화는 유지된다 "
                         "— 매 추론마다 같은 노이즈를 쓰면 0% 가 되기 때문 (2026-09-18 측정)")
     p.add_argument("--noise-shift-scale", type=float, default=1.0, help="노이즈 평균 이동의 세기 배율")
+    p.add_argument("--wrist-bias", type=float, default=0.0,
+                   help="⚠️ **진단용.** 전환 이후 손목 회전을 초기 방향 쪽으로 매 스텝 조금씩 당긴다 "
+                        "(0=끔, 0.05~0.2 권장). 정렬 붕괴가 집기 실패의 **원인인지** 가르는 용도다. "
+                        "회전을 건드리므로 제약(초기자세 복귀 금지)과 회색지대 — 방법으로 쓰기 전에 논의 필요")
     p.add_argument("--grip-latch", type=int, default=0,
                    help="전환 이후 N 스텝 동안 그리퍼를 닫힌 채로 유지한다. "
                         "'지시가 바뀌면 일단 놓는' 반사를 막는다. 0 이면 끔")
@@ -480,7 +484,35 @@ class Episode:
         if self.plan_norm is not None:
             self.plan_norm = self.plan_norm[1:]
         self.exec_left -= 1
-        return self.latch_grip(act)
+        return self.latch_grip(self.bias_wrist(act))
+
+    def bias_wrist(self, act):
+        """⚠️ 진단용 — 손목 회전을 초기 방향 쪽으로 **조금씩** 당긴다.
+
+        왜 (2026-09-23 측정)
+          그리퍼가 닫히는 순간의 손목 이탈:
+              교란 없이 성공한 집기  6.6도
+              교란 27cm             22~28도 (3~4배)
+          정렬이 무너지는 만큼 성공률이 떨어진다 (100→0%).
+
+        이 실험이 답하는 것
+          **정렬이 원인인가, 아니면 같이 나빠지는 증상일 뿐인가.**
+          손목만 되돌려 집기가 살아나면 원인이고, 안 살아나면 증상이다.
+
+        ⚠️ 회전을 건드리므로 `ret_rot`(회전 복귀) 과 성질이 겹친다.
+           **스크립트 복귀가 아니라 매 스텝 조금씩 당기는 것**이라 동작은 끊기지 않지만,
+           제약(초기 자세 복귀 금지)과 회색지대다. 진단 결과로만 쓰고,
+           방법으로 삼으려면 자연스러움 지표(jerk·초기자세 거리)를 따로 봐야 한다.
+        """
+        k = self.a.wrist_bias
+        if k <= 0 or not self.value_active:
+            return act
+        cur = Rotation.from_matrix(self.obs["robot_state"]["eef"]["mat"])
+        home = Rotation.from_matrix(self.home[1])
+        err = (home * cur.inv()).as_rotvec()          # 초기 방향까지 남은 회전 (rad)
+        act = np.asarray(act, dtype=np.float32).copy()
+        act[3:6] = np.clip(act[3:6] + k * err / ROT_SCALE, -1, 1)
+        return act
 
     def latch_grip(self, act):
         """전환 직후 **놓지 말고 계속 쥐게** 한다.
@@ -811,6 +843,8 @@ class Runner:
             cf += "_btext"
         if getattr(a, "grip_latch", 0) > 0:
             cf += f"_gl{a.grip_latch}"
+        if getattr(a, "wrist_bias", 0.0) > 0:
+            cf += f"_wb{a.wrist_bias:g}"
         if cf and getattr(a, "cfg_from", "switch") == "always":
             cf += "a"
         sn = f"_sn{a.switch_n_action_steps}" if getattr(a, "switch_n_action_steps", 0) > 0 else ""
