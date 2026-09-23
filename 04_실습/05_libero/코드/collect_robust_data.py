@@ -58,8 +58,12 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--policy", default="HuggingFaceVLA/smolvla_libero")
     p.add_argument("--mode",
-                   choices=["pose", "switch", "hindsight", "chain", "noise", "rollback", "strategy"],
+                   choices=["pose", "switch", "hindsight", "chain", "noise", "rollback",
+                            "strategy", "dropped"],
                    default="pose")
+    p.add_argument("--obj-displace-cm", type=float, default=8.0,
+                   help="dropped 모드: 쥔 물체를 원래 자리에서 이만큼 옮겨 놓고 시작한다. "
+                        "작게 시작해 넓혀 가는 **역커리큘럼**에 쓴다 (한 번에 크게 주면 데이터가 안 모인다)")
     p.add_argument("--collect-strategy", default="ret_part",
                    help="strategy 모드: 전환 순간에 적용할 전략 (ret_part / rollback / finish_a / flush 등). "
                         "그 전략이 만드는 **스크립트 구간까지 학습 데이터에 포함**된다")
@@ -112,6 +116,110 @@ def move_to(ep, target_pos, target_mat, max_steps=150):
         ep.step(sx.get_libero_dummy_action(), "R")
     err = float(np.linalg.norm(target_pos - sx.eef_pos(ep.obs)))
     return err < 0.02, err
+
+
+
+
+def collect_dropped(a, runner, task, out, stats):
+    """⭐ **물체가 낯선 자리에 놓여 있을 때** 그 태스크를 해내는 데이터를 모은다.
+
+    왜 필요한가 (2026-09-23 측정)
+      전환하면 로봇이 물체를 놓는데, **놓인 자리는 학습에서 본 적 없는 곳**이다:
+          정상 그릇 위치의 퍼짐  ±1.4cm
+          놓인 뒤 위치          정상에서 8.3cm 떨어짐 = **6 표준편차 밖**
+      그런데 `pose` 모드는 **팔만 교란하고 물체는 제자리**에 둔다.
+      실제 전환은 **팔도 교란 + 물체도 낯선 자리**다 → 그대로 학습하면 빈틈이 남는다.
+      (LoRA 2차가 '학습한 상황과 실제 상황이 다른' 같은 실수로 실패했다)
+
+    어떻게 하나
+      ① 태스크를 하다 물체를 쥐면
+      ② **그 물체를 지정한 거리만큼 옮겨 놓고 그리퍼를 연다** (놓기 — 정책이 어차피 하는 동작)
+      ③ 그 자리에서 **같은 태스크를 다시** 시킨다 — 물체가 낯선 자리에 있는 상태로
+      ④ 성공하면 **놓은 뒤 구간만** 저장한다 (옮기는 구간은 스크립트라 저장하지 않는다)
+
+    ⚠️ 옮기는 거리를 크게 주면 성공률이 0 이 되어 데이터가 안 모인다.
+       작게 시작해 넓혀 가야 한다 (`--obj-displace-cm`).
+    """
+    chk = sx.GoalChecker(runner.suite, task)
+    for i in range(a.start_episode, a.start_episode + a.episodes):
+        stats["tried"] += 1
+        ep = sx.Episode(runner, i)
+        runner.policy.reset()
+
+        # ① 물체를 쥘 때까지
+        grasp = {"t": None}
+
+        def watch():
+            if grasp["t"] is None and ep.holding():
+                grasp["t"] = len(ep.log["pos"])
+
+        def trigger(t):
+            return grasp["t"] is not None and t >= grasp["t"] + 3
+
+        why, _ = ep.run_policy(chk.language, "A", a.max_steps, chk, trigger, watch)
+        if why != "trigger" or not sx.gripper_closed(ep.obs):
+            ep.env.close()
+            continue
+        stats["reached"] += 1
+
+        # ② 지정 거리만큼 옮기고 놓는다 (이 구간은 저장하지 않는다)
+        rng = np.random.default_rng(3000 + 17 * i + task)
+        d = rng.normal(size=3)
+        d[2] = abs(d[2]) * 0.3          # 위로 던지지 않게
+        d /= np.linalg.norm(d)
+        tgt = sx.eef_pos(ep.obs) + d * (a.obj_displace_cm / 100.0)
+        move_to(ep, tgt, ep.obs["robot_state"]["eef"]["mat"].copy())
+        for _ in range(15):             # 그리퍼를 열어 놓는다
+            ep.step(np.array([0, 0, 0, 0, 0, 0, -1.0], dtype=np.float32), "R")
+        for _ in range(10):             # 물체가 안정될 시간
+            ep.step(sx.get_libero_dummy_action(), "R")
+
+        # ③ 그 자리에서 같은 태스크를 다시 — 이제부터가 학습 데이터다
+        frames = {"img": [], "wrist": [], "eef_pos": [], "eef_quat": [], "grip": [], "action": []}
+        state0 = ep.env._env.get_sim_state().copy() if a.tries > 1 else None
+        success, n_step, used = False, 0, 0
+        for attempt in range(max(a.tries, 1)):
+            used = attempt + 1
+            if attempt > 0:
+                ep.inner.timestep = 0
+                ep.inner.done = False
+                raw = ep.env._env.regenerate_obs_from_state(state0)
+                ep.obs = ep.env._format_raw_obs(raw)
+                ep.plan, ep.exec_left, ep.plan_norm, ep.pending = np.zeros((0, 7)), 0, None, None
+                runner.policy.reset()
+                torch.manual_seed(20_000 + 97 * attempt + i)
+            frames = {k: [] for k in frames}
+            success, n_step = False, 0
+            for s in range(a.max_steps):
+                o = ep.obs
+                frames["img"].append(jpeg(o["pixels"]["image"], a.jpeg_quality))
+                frames["wrist"].append(jpeg(o["pixels"]["image2"], a.jpeg_quality))
+                frames["eef_pos"].append(np.asarray(o["robot_state"]["eef"]["pos"], np.float32))
+                frames["eef_quat"].append(np.asarray(o["robot_state"]["eef"]["quat"], np.float32))
+                frames["grip"].append(np.asarray(o["robot_state"]["gripper"]["qpos"], np.float32))
+                action = ep.policy_action(chk.language)
+                frames["action"].append(np.asarray(action, np.float32))
+                ep.step(action, "A")
+                n_step = s + 1
+                if chk(ep.env):
+                    success = True
+                    break
+            if success:
+                break
+
+        if success:
+            np.savez(out / "episodes" / f"D{task}_ep{i}.npz",
+                     img=np.array(frames["img"], dtype=object),
+                     wrist=np.array(frames["wrist"], dtype=object),
+                     eef_pos=np.stack(frames["eef_pos"]), eef_quat=np.stack(frames["eef_quat"]),
+                     grip=np.stack(frames["grip"]), action=np.stack(frames["action"]),
+                     task=chk.language, obj_displace_cm=a.obj_displace_cm)
+            stats["saved"] += 1
+            stats["frames"] += n_step
+        print(json.dumps({"mode": "dropped", "task": task, "episode": i,
+                          "obj_displace_cm": a.obj_displace_cm,
+                          "success": success, "steps": n_step, "tries_used": used}), flush=True)
+        ep.env.close()
 
 
 def collect_switch(a, runner, task_a, task_b, out, stats):
@@ -362,6 +470,9 @@ def main():
             continue
         if a.mode == "noise":
             collect_noise(a, rng, runner, task, out, stats)
+            continue
+        if a.mode == "dropped":
+            collect_dropped(a, runner, task, out, stats)
             continue
 
         for i in range(a.start_episode, a.start_episode + a.episodes):
