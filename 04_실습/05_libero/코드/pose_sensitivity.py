@@ -111,6 +111,9 @@ def main():
                 pos=np.asarray(ep.log["pos"], dtype=np.float32),
                 phase=np.asarray(ep.log["phase"]),          # R=스크립트 이동, A=정책
                 eef_rotvec=np.asarray(ep.log["rot"], dtype=np.float32),
+                # 그리퍼가 **닫히는 순간의 오차**를 학습 전후로 비교하려면 이게 있어야 한다.
+                # 성공률만 보면 "왜 좋아졌는지"를 알 수 없다 (2026-09-23)
+                gripper_qpos=np.asarray(ep.log["gq"], dtype=np.float32),
                 home_rotvec=Rotation.from_matrix(home_mat).as_rotvec().astype(np.float32),
                 home_pos=np.asarray(home_pos, dtype=np.float32),
                 target_rotvec=Rotation.from_matrix(target_mat).as_rotvec().astype(np.float32),
