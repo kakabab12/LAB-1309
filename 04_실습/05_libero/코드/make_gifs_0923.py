@@ -42,7 +42,8 @@ def side_by_side(items, out, title, note, stride=6, size=240, fps=10):
     loaded = [(*load(v, t, stride), cap, res) for v, t, cap, res in items]
     n = max(len(v) for v, _, _, _ in loaded)
     W = size * len(loaded) + 12 * (len(loaded) - 1)
-    H = size + 78
+    # 아래에 3줄(단계·결과·설명)이 들어가므로 충분히 띄운다 (겹침 방지)
+    H = size + 100
     frames = []
     for i in range(n):
         c = Image.new("RGB", (W, H), "#fcfcfb")
@@ -55,11 +56,11 @@ def side_by_side(items, out, title, note, stride=6, size=240, fps=10):
             lab, col = PH.get(str(ph[j]), ("", "#8a8984"))
             d.text((x + 2, 22), cap, font=FS, fill="#0b0b0b")
             d.rectangle([x, 38, x + size, 41], fill=col)
-            d.text((x + 2, size + 44), f"{lab}  ·  {j * stride}스텝", font=FS, fill="#52514e")
-            d.text((x + 2, size + 60), res, font=FB,
+            d.text((x + 2, size + 46), f"{lab}  ·  {j * stride}스텝", font=FS, fill="#52514e")
+            d.text((x + 2, size + 63), res, font=FB,
                    fill="#1baf7a" if "성공" in res else "#eb6834")
         if note:
-            d.text((2, H - 15), note, font=FS, fill="#52514e")
+            d.text((2, size + 85), note, font=FS, fill="#52514e")
         frames.append(c.quantize(colors=64, method=Image.MEDIANCUT))
     frames[0].save(out, save_all=True, append_images=frames[1:],
                    duration=int(1000 / fps), loop=0, optimize=True)
