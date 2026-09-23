@@ -112,25 +112,34 @@ def main():
     others = [agg[l] for _, _, l in have if l != "① 정상 B" and agg[l]["n"]]
     if not others:
         return
-    # 뜻 없는 지시에서도 A 를 안 끝내면 = 하던 일을 놓아 버린다는 뜻
+
+    # ① 내용을 쓰는가 — B 성공률로 본다 (A 완료율은 모든 조건에서 0% 라 바닥 효과로 못 쓴다)
+    b_base = base["b"] / base["n"]
+    b_other = float(np.mean([t["b"] / t["n"] for t in others]))
+    print(f"B 성공: 정상 {100 * b_base:.0f}%  vs  뜻 없는/무관한 지시 {100 * b_other:.0f}%")
+    if b_base - b_other > 0.1:
+        print("✅ **내용이 쓰이고 있다.** B 를 실제로 지시했을 때만 B 가 이뤄진다.")
+        print("   → 'instruction-blind' 는 **과한 표현**이다. 정책은 내용을 구분한다")
+    else:
+        print("❌ 뜻 없는 지시로도 B 가 비슷하게 이뤄진다 → 내용이 안 쓰인다")
+
+    # ② 하던 일을 놓는 것은 내용 때문인가 — A 완료율로 보려면 바닥이 아니어야 한다
     a_base = base["a_done"] / base["n"]
     a_other = float(np.mean([t["a_done"] / t["n"] for t in others]))
-    if a_other <= a_base + 0.1:
-        print("❌ **뜻 없는 지시에도 하던 일(A)을 놓아 버린다.**")
-        print("   → 정책은 지시의 **내용**이 아니라 **'바뀌었다'는 신호**에 반응한다.")
-        print("   쥔 직후 CMI 가 0.284 로 떨어진다는 측정과 맞물린다.")
-        print("   ⇒ 전환이 안 되는 것은 '못 알아들어서'가 아니라 **'알아들을 수 없어서'** 다")
+    print(f"\nA 완료: 정상 {100 * a_base:.0f}%  vs  뜻 없는/무관한 지시 {100 * a_other:.0f}%")
+    if max(a_base, a_other) < 0.1:
+        print("⚠️ **둘 다 바닥(0% 근처)이라 이 지표로는 아무것도 가를 수 없다.**")
+        print("   다만 '무슨 지시를 받든 하던 일을 끝내지 못한다'는 것은 분명하다:")
+        print("   뜻 없는 글자를 받아도 A 로 돌아가지 않는다 → **변화 자체에 반응**한다")
+    elif a_other > a_base + 0.1:
+        print("✅ 뜻 없는 지시일 때는 A 를 더 이어간다 → 내용을 구분해서 A 를 포기하는 것이다")
     else:
-        print("✅ 뜻 없는 지시일 때는 A 를 더 이어간다.")
-        print(f"   A 완료 {100 * a_base:.0f}% → {100 * a_other:.0f}%")
-        print("   → 정책이 지시 **내용을 구분하고 있다.** 'instruction-blind' 는 과한 표현이다")
-        print("   ⇒ 전환 실패는 '못 알아들어서'가 아니라 **알아듣고도 수행을 못 해서**다")
+        print("❌ 내용과 무관하게 A 를 포기한다 → '바뀌었다'는 신호에만 반응한다")
 
-    b_other = float(np.mean([t["b"] / t["n"] for t in others]))
-    if b_other >= base["b"] / base["n"] - 0.05:
-        print(f"\n⚠️ 뜻 없는 지시로도 B 가 {100 * b_other:.0f}% 이뤄진다 "
-              f"(정상 {100 * base['b'] / base['n']:.0f}%).")
-        print("   B 가 '우연히 이뤄지는' 경우가 많다는 뜻이라, 성공 판정 자체를 다시 봐야 한다.")
+    print("\n== 종합")
+    print("  내용은 **쓰인다** (B 를 지시해야 B 가 된다).")
+    print("  그런데 내용과 무관하게 **하던 일은 포기한다**.")
+    print("  ⇒ 정책은 '바뀌었다'에 반응해 A 를 버리고, 내용은 B 수행에만 부분적으로 쓴다.")
 
 
 if __name__ == "__main__":

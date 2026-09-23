@@ -138,6 +138,9 @@ def build_parser():
                         "노이즈를 고정하는 게 아니라 분포 중심만 옮기므로 변화는 유지된다 "
                         "— 매 추론마다 같은 노이즈를 쓰면 0% 가 되기 때문 (2026-09-18 측정)")
     p.add_argument("--noise-shift-scale", type=float, default=1.0, help="노이즈 평균 이동의 세기 배율")
+    p.add_argument("--grip-latch", type=int, default=0,
+                   help="전환 이후 N 스텝 동안 그리퍼를 닫힌 채로 유지한다. "
+                        "'지시가 바뀌면 일단 놓는' 반사를 막는다. 0 이면 끔")
     p.add_argument("--b-text", default=None,
                    help="B 구간에서 실제로 넣을 지시문을 직접 지정한다 (성공 판정은 --task-b 그대로). "
                         "뜻 없는 글자를 넣어 '정책이 지시 내용을 듣는가, 바뀐 것만 아는가'를 가른다")
@@ -250,6 +253,7 @@ class Episode:
         self.grasp_t = None  # 그리퍼가 마지막으로 닫힌 시점 (rollback 되돌림 범위 제한용)
         self.was_closed = False  # 그리퍼 열림→닫힘 전이 감지용
         self.escape_left = 0  # 남은 흔들기 스텝
+        self.latch_left = 0  # 남은 그리퍼 유지 스텝
         self.escape_act = None  # 흔들 때 내보낼 동작
         self.escape_cool = 0  # 흔들기 쿨다운
         self.escape_count = 0  # 몇 번 흔들었나
@@ -476,6 +480,26 @@ class Episode:
         if self.plan_norm is not None:
             self.plan_norm = self.plan_norm[1:]
         self.exec_left -= 1
+        return self.latch_grip(act)
+
+    def latch_grip(self, act):
+        """전환 직후 **놓지 말고 계속 쥐게** 한다.
+
+        왜 (2026-09-23 측정)
+          "그릇을 서랍에 넣어라" 를 **그릇을 쥔 채** 받아도 정책은 그릇을 놓는다 (10/10).
+          B 가 바로 그 물체를 요구하는데도 놓는다 → **'지시가 바뀌면 일단 놓는다'가 학습된 반사**다.
+          B 의 목표가 물체인 쌍은 전환 성공 1.4%, 가구·기구인 쌍은 44.6% 로 30배 차이가 난다.
+
+        무엇을 하나
+          전환 이후 N 스텝 동안 동작의 그리퍼 차원만 **닫힘(+1)** 으로 덮어쓴다.
+          팔의 움직임은 정책이 낸 그대로다 → 초기 자세 복귀도, 스크립트 동작도 없다.
+        """
+        k = self.a.grip_latch
+        if k <= 0 or not self.value_active or self.latch_left <= 0:
+            return act
+        self.latch_left -= 1
+        act = np.asarray(act, dtype=np.float32).copy()
+        act[6] = 1.0  # +1 = 닫기 (열기는 -1)
         return act
 
     RETREAT_MODES = {"retreat": (True, True), "release": (False, False),
@@ -484,6 +508,8 @@ class Episode:
     def apply_strategy(self, new_instruction, rec, key):
         s = self.a.strategy
         self.value_active = True
+        if key == "to_b" and self.a.grip_latch > 0 and gripper_closed(self.obs):
+            self.latch_left = self.a.grip_latch  # 쥐고 있을 때만 건다
         if self.a.switch_n_action_steps > 0:
             self.n_act = self.a.switch_n_action_steps  # 전환 이후로는 더 자주 재추론
         if self.a.switch_noise_seed >= 0:
@@ -783,6 +809,8 @@ class Runner:
             cf += f"_rep{a.instr_repeat}"
         if getattr(a, "b_text", None):
             cf += "_btext"
+        if getattr(a, "grip_latch", 0) > 0:
+            cf += f"_gl{a.grip_latch}"
         if cf and getattr(a, "cfg_from", "switch") == "always":
             cf += "a"
         sn = f"_sn{a.switch_n_action_steps}" if getattr(a, "switch_n_action_steps", 0) > 0 else ""
