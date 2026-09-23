@@ -922,7 +922,14 @@ class Runner:
             ep.apply_strategy(self.chk_a.language, rec, "to_a2")
             why, n_a2 = ep.run_policy(self.chk_a.language, "A2", a.max_steps, self.chk_a)
             ok = why == "success"
-        rec.update(a_resume_success=ok, a_resume_steps=n_a2, b_still_satisfied_at_end=self.chk_b(ep.env))
+        # ⚠️ '재개' 와 '우연' 을 반드시 나눠 센다 (2026-09-23 발견).
+        #   A1='그릇을 스토브 위에' + B7='스토브 켜기' 처럼 장소가 겹치면,
+        #   B 를 하는 동안 A 의 목표가 **저절로** 달성된다 (9/10 이 0스텝 성공).
+        #   그걸 재개로 세면 90% 가 나오지만 **돌아가서 다시 해낸 것이 아니다.**
+        rec.update(a_resume_success=ok, a_resume_steps=n_a2,
+                   a_resume_incidental=bool(ok and n_a2 == 0),
+                   a_resume_genuine=bool(ok and n_a2 > 0),
+                   b_still_satisfied_at_end=self.chk_b(ep.env))
         rec["both_success"] = rec["b_success"] and ok and rec["b_still_satisfied_at_end"]
         return self.finish(ep, rec, t0, ep_idx)
 
@@ -972,7 +979,8 @@ def summarize(recs):
     out = {"n": len(recs), "n_switched": len(sw)}
     # 전환이 한 번도 없는 실행(태스크 단독 평가)에서는 전체 에피소드로 집계한다
     base = sw if sw else recs
-    for k in ["holding_at_switch", "a_success", "b_success", "a_resume_success", "both_success", "drop"]:
+    for k in ["holding_at_switch", "a_success", "b_success", "a_resume_success",
+              "a_resume_genuine", "a_resume_incidental", "both_success", "drop"]:
         vals = [r[k] for r in base if r.get(k) is not None]
         if vals:
             out[k + "_rate"] = round(float(np.mean(vals)), 3)
