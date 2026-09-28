@@ -54,31 +54,20 @@ eval_switch(){   # $1 정책, $2 태그, $3.. 쌍
   done
 }
 
-# ═══ 줄 1: 전문가 시범 → 방향 틀기 시범 ══════════════════════════════════
-(
-  log "[1/5] 하이브리드 시범 — 쌍 15개 × 에피소드 0~14, DART 0.15, 정책 2번 + 재생 전문가 1번"
-  $PY collect_expert.py --mode hybrid --fallback-replay --tries 3 --dart 0.15 --pairs "$PAIRS" \
-    --episodes 15 --out data/expert_v5 2>&1 | grep -E "$F"
-  log "[2/5] 방향 틀기 시범 — '계속 쥐는' 행동을 잃지 않게"
-  $PY collect_expert.py --mode redirect --dart 0.15 --pairs "8:1,8:4,1:8,1:4,4:8,4:1" \
-    --episodes 8 --tries 1 --out data/redirect_v5 2>&1 | grep -E "$F"
-  log "줄 1 끝"
-) &
-L1=$!
+# 재개 시범도 모을지 (test_resume.py 결과로 정한다): RESUME=1 ./run_lora_v5.sh
+RES_FLAG=""
+[ "${RESUME:-0}" = "1" ] && RES_FLAG="--resume"
 
-# ═══ 줄 2: 리허설 → 원래 정책 평가 (5차와 무관하므로 미리) ═════════════════
-(
-  log "[3/5] 리허설 — 10개 태스크 전부, 교란 없음, 에피소드 0~19"
-  $PY collect_expert.py --mode normal --tasks 0 1 2 3 4 5 6 7 8 9 --episodes 20 \
-    --out data/rehearsal_v5 2>&1 | grep -E "$F|저장"
-  log "[5a/5] ⭐ 망각 기준 — 원래 정책, 10개 태스크"
-  eval_forget HuggingFaceVLA/smolvla_libero base 0 1 2 3 4 5 6 7 8 9
-  log "[5b/5] 전환 기준 — 원래 정책"
-  eval_switch HuggingFaceVLA/smolvla_libero base $FAIL $OK
-  log "줄 2 끝"
-) &
-L2=$!
-wait $L1 $L2
+# ═══ 줄 1: 전문가 시범 → 방향 틀기 시범 ══════════════════════════════════
+# (줄 2 — 리허설 + 원래 정책 평가 — 는 run_v5_lane2.sh 로 먼저 돌고 있다)
+log "[1/5] 하이브리드 시범 — 쌍 15개 × 에피소드 0~14, DART 0.15, 정책 2번 + 재생 전문가 1번 $RES_FLAG"
+$PY collect_expert.py --mode hybrid --fallback-replay --tries 3 --dart 0.15 --pairs "$PAIRS" \
+  --episodes 15 $RES_FLAG --out data/expert_v5 2>&1 | grep -E "$F"
+log "[2/5] 방향 틀기 시범 — '계속 쥐는' 행동을 잃지 않게"
+$PY collect_expert.py --mode redirect --dart 0.15 --pairs "8:1,8:4,1:8,1:4,4:8,4:1" \
+  --episodes 8 --tries 1 --out data/redirect_v5 2>&1 | grep -E "$F"
+log "줄 1 끝 — 리허설(run_v5_lane2.sh 앞부분) 기다림. 학습은 2.6GB 라 원래 정책 평가와 같이 돌아도 된다"
+while [ ! -f outputs/v5_rehearsal.done ]; do sleep 60; done
 
 log "[4/5] 학습 — LoRA 랭크 16"
 $PY train_lora.py --data data/expert_v5 data/redirect_v5 data/rehearsal_v5 --balance --rehearsal-frac 0.5 \

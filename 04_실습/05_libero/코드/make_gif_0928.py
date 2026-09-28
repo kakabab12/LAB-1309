@@ -50,25 +50,28 @@ def run(runner, i, at, bt, helped, approach_src="fixed"):
     return why == "success", fr, np.array(ph)
 
 
-def compose(items, out, title, stride=4, size=240, fps=12, hold=15):
+def compose(items, out, title, sub="", stride=4, size=240, fps=12, hold=15):
     n = max(len(v) for v, _, _, _ in items) // stride + hold
     W = size * len(items) + 12 * (len(items) - 1)
-    H = size + 100
+    H = size + 118
+    top = 18 if sub else 0
     frames = []
     for i in range(n):
         c = Image.new("RGB", (W, H), "#fcfcfb")
         d = ImageDraw.Draw(c)
         d.text((2, 2), title, font=FB, fill="#0b0b0b")
+        if sub:
+            d.text((2, 20), sub, font=FS, fill="#52514e")
         for k, (v, ph, cap, res) in enumerate(items):
             j = min(i * stride, len(v) - 1)
             x = k * (size + 12)
-            c.paste(Image.fromarray(v[j]).resize((size, size), Image.LANCZOS), (x, 42))
+            c.paste(Image.fromarray(v[j]).resize((size, size), Image.LANCZOS), (x, 42 + top))
             lab, col = PH.get(str(ph[min(j, len(ph) - 1)]), ("", "#8a8984"))
-            d.text((x + 2, 22), cap, font=FS, fill="#0b0b0b")
-            d.rectangle([x, 38, x + size, 41], fill=col)
-            d.text((x + 2, size + 46), f"{lab}  ·  {j}스텝", font=FS, fill="#52514e")
+            d.text((x + 2, 22 + top), cap, font=FS, fill="#0b0b0b")
+            d.rectangle([x, 38 + top, x + size, 41 + top], fill=col)
+            d.text((x + 2, size + 46 + top), f"{lab}  ·  {j}스텝", font=FS, fill="#52514e")
             if j >= len(v) - 1:
-                d.text((x + 2, size + 66), res, font=FB, fill="#1baf7a" if "성공" in res else "#d03b3b")
+                d.text((x + 2, size + 66 + top), res, font=FB, fill="#1baf7a" if "성공" in res else "#d03b3b")
         frames.append(c)
     frames[0].save(out, save_all=True, append_images=frames[1:], duration=int(1000 / fps), loop=0)
     print("저장:", out, len(frames), "프레임")
@@ -95,9 +98,9 @@ def main():
         if o is None or o[0]:
             print(f"ep{i}: 원래 정책도 성공 — 다음", flush=True)
             continue
-        compose([(o[1], o[2], "원래 정책 혼자", "✗ 실패"),
-                 (h[1], h[2], "전문가가 내려놓기+접근만 → 정책", "✓ 성공")],
-                a.out, f"A{at}→B{bt}  \"{lang}\"  (ep{i}, 같은 장면)")
+        compose([(o[1], o[2], "원래 정책 혼자", "B 실패"),
+                 (h[1], h[2], "전문가가 내려놓기+접근만 → 정책", "B 성공")],
+                a.out, f"A{at}→B{bt}  같은 장면(ep{i}), 같은 전환 순간", f"새 지시: \"{lang}\"")
         return
     print("조건에 맞는 에피소드를 못 찾음")
 
