@@ -29,6 +29,22 @@ from scipy.spatial.transform import Rotation
 
 import switch_experiment as sx
 
+# ── DART (Laskey et al., 2017): 시범 중 **실행하는 동작에만** 잡음을 섞는다 ─────────
+#   기록하는 동작은 전문가의 원래 의도 그대로다. 그러면 로봇이 조금 틀어진 상태가 데이터에 들어가고,
+#   그 상태에서 **전문가가 어떻게 바로잡는지**가 함께 기록된다 → 학습된 정책이 작은 실수에서 복구한다.
+#   0 이면 끔. 그리퍼(7번째)에는 섞지 않는다.
+DART_SIGMA = 0.0
+_rng = np.random.default_rng(0)
+
+
+def _exec(a):
+    """실제로 실행할 동작 = 전문가 동작 + DART 잡음 (위치·회전만)."""
+    if DART_SIGMA <= 0:
+        return a
+    b = a.copy()
+    b[:6] = np.clip(b[:6] + _rng.normal(0, DART_SIGMA, 6), -1, 1)
+    return b
+
 # 원래 정책이 성공할 때 그릇을 집는 자세 (2026-09-28 실측, n=8)
 BOWL_GRASP_OFFSET = np.array([0.006, 0.040, 0.046])
 
@@ -59,7 +75,7 @@ def servo(ep, target_pos, target_mat, grip, max_steps=120, tol=0.008, vmax=0.5, 
                             np.clip(rerr / sx.ROT_SCALE, -vmax, vmax), [grip]]).astype(np.float32)
         if record is not None:
             record(ep.obs, a)
-        ep.step(a, phase)
+        ep.step(_exec(a), phase)
     return False
 
 
@@ -69,7 +85,7 @@ def hold(ep, grip, n, record=None, phase="E"):
         a = np.array([0, 0, 0, 0, 0, 0, grip], dtype=np.float32)
         if record is not None:
             record(ep.obs, a)
-        ep.step(a, phase)
+        ep.step(_exec(a), phase)
 
 
 def obj_rot(ep, name):
@@ -317,3 +333,134 @@ def approach(ep, b_task, record=None, clear=0.06):
     mid[2] = max(here[2], pos[2]) + clear            # 넘어가는 길에 물체를 치지 않게
     servo(ep, mid, mat, -1.0, tol=0.04, record=record)
     return servo(ep, pos, mat, -1.0, tol=0.015, vmax=0.4, record=record)
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# ⭐ 궤적 재생 전문가 — 정책이 **원래 성공한 조작**을 어디서든 재생한다
+# ───────────────────────────────────────────────────────────────────────────
+_DEMOS = None
+
+
+def load_demos(path="outputs/expert/demos.pkl"):
+    global _DEMOS
+    if _DEMOS is None:
+        import pickle
+        _DEMOS = pickle.load(open(path, "rb"))
+    return _DEMOS
+
+
+def demo_structure(d):
+    """녹화 궤적의 구조를 읽는다.
+
+    obj  : 가장 많이 움직인 물체 (조작 대상). 거의 안 움직이면 None → 가구 조작 (서랍·스토브)
+    kind : 'fixture'(가구) · 'push'(밀기, 들리지 않음) · 'pick'(집어 옮기기, 들림)
+    g    : 'pick' 이면 물체가 처음 들린 스텝
+    c    : 첫 **접촉** 스텝 — 그리퍼가 처음 닫히거나 물체가 처음 움직인 때 중 이른 것
+    """
+    moves = {k: float(np.linalg.norm(v[-1] - v[0])) for k, v in d["objs"].items()}
+    obj = max(moves, key=moves.get)
+    grip = d["action"][:, 6]
+    closes = np.nonzero((grip[:-1] <= 0) & (grip[1:] > 0))[0]
+    first_close = int(closes[0] + 1) if len(closes) else len(grip) - 1
+    if moves[obj] < 0.02:
+        return {"obj": None, "kind": "fixture", "g": None, "c": first_close}
+    o = d["objs"][obj]
+    moved = np.nonzero(np.linalg.norm(o - o[0], axis=1) > 0.01)[0]
+    first_move = int(moved[0]) if len(moved) else len(o) - 1
+    lifted = np.nonzero(o[:, 2] > o[0, 2] + 0.02)[0]
+    if len(lifted):
+        return {"obj": obj, "kind": "pick", "g": int(lifted[0]), "c": min(first_close, first_move)}
+    return {"obj": obj, "kind": "push", "g": None, "c": min(first_close, first_move)}
+
+
+def pick_demo(ep, task):
+    """지금 장면과 가장 비슷한 녹화 — 조작 대상의 시작 위치가 가장 가까운 것 (옮길 거리가 최소)."""
+    ds = load_demos()[task]
+    best, bd = None, 1e9
+    for d in ds:
+        s = demo_structure(d)
+        if s["obj"] is None:
+            return d, s                          # 가구 조작은 아무 녹화나 같다
+        dist = float(np.linalg.norm(ep.obj_pos(s["obj"]) - d["objs"][s["obj"]][0]))
+        if dist < bd:
+            best, bd = (d, s), dist
+    return best
+
+
+def replay_offsets(d, s, delta):
+    """스텝마다 녹화 궤적을 얼마나 옮길지.
+
+    'push'    : 전체를 물체 기준으로 옮긴다 (밀어낸 뒤 위치도 물체 기준)
+    'pick'    : 집기 전 — 손이 물체에 가까울수록 물체 기준 (멀면 0: 그 전에 하는 가구 조작은 그대로)
+                집은 뒤 — 목적지에 가까울수록 0 으로 (목적지는 고정이므로)
+    'fixture' : 옮기지 않는다
+    """
+    n = len(d["pos"])
+    off = np.zeros((n, 3))
+    if s["kind"] == "fixture":
+        return off
+    if s["kind"] == "push":
+        off[:] = delta
+        return off
+    o = d["objs"][s["obj"]]
+    end = d["pos"][-1]
+    for t in range(n):
+        if t < s["g"]:
+            dn = np.linalg.norm(d["pos"][t] - o[t])
+            w = np.clip(1 - (dn - 0.05) / 0.15, 0, 1)
+        else:
+            de = np.linalg.norm(d["pos"][t] - end)
+            w = np.clip((de - 0.05) / 0.15, 0, 1)
+        off[t] = w * delta
+    return off
+
+
+def replay(ep, task, record=None, lead=3, lag_tol=0.03, max_steps=400):
+    """⭐ 정책이 원래 성공한 조작을 **지금 자리에서** 재생한다.
+
+    ① 녹화 중 지금 장면과 가장 비슷한 것을 고른다
+    ② 첫 접촉점 근처(15cm 안)에 처음 들어온 스텝 s 를 찾는다
+    ③ 지금 손에서 그 점까지 **들어 올려 넘어가며** 부드럽게 이동 (초기 자세를 거치지 않는다)
+    ④ 거기서부터 녹화 궤적을 **닫힌 고리로 따라간다** (lead 스텝 앞을 목표로 P 제어).
+       팔이 3cm 넘게 뒤처지면 기다린다 → 그리퍼 명령이 팔 위치와 어긋나지 않는다
+    """
+    chk = sx.GoalChecker(ep.r.suite, task)
+    d, s = pick_demo(ep, task)
+    delta = np.zeros(3) if s["obj"] is None else ep.obj_pos(s["obj"]) - d["objs"][s["obj"]][0]
+    off = replay_offsets(d, s, delta)
+    P = d["pos"] + off
+    R = [Rotation.from_rotvec(r).as_matrix() for r in d["rotvec"]]
+    grip = d["action"][:, 6]
+    n = len(P)
+    cpos = d["pos"][s["c"]]
+    near = np.nonzero(np.linalg.norm(d["pos"] - cpos, axis=1) < 0.15)[0]
+    st = int(near[0]) if len(near) else max(0, s["c"] - 10)
+
+    # ③ 시작점까지 — 물체를 치지 않게 한 번 올라갔다 내려온다
+    here = sx.eef_pos(ep.obs)
+    mid = (here + P[st]) / 2
+    mid[2] = max(here[2], P[st][2]) + 0.05
+    servo(ep, mid, R[st], -1.0, tol=0.04, record=record)
+    servo(ep, P[st], R[st], -1.0, tol=0.015, vmax=0.4, record=record)
+
+    # ④ 따라간다
+    t, used = st, 0
+    while t < n and used < max_steps:
+        k = min(t + lead, n - 1)
+        cur = sx.eef_pos(ep.obs)
+        rerr = Rotation.from_matrix(R[k] @ ep.obs["robot_state"]["eef"]["mat"].T).as_rotvec()
+        a = np.concatenate([np.clip((P[k] - cur) / sx.POS_SCALE, -1, 1),
+                            np.clip(rerr / sx.ROT_SCALE, -1, 1), [grip[t]]]).astype(np.float32)
+        if record is not None:
+            record(ep.obs, a)
+        ep.step(_exec(a), "E")
+        used += 1
+        if chk(ep.env):
+            return True, used
+        if np.linalg.norm(P[t] - sx.eef_pos(ep.obs)) < lag_tol:
+            t += 1
+    for _ in range(20):
+        if chk(ep.env):
+            return True, used
+        ep.step(np.array([0, 0, 0, 0, 0, 0, grip[-1]], dtype=np.float32), "E")
+    return bool(chk(ep.env)), used

@@ -82,15 +82,20 @@ def run_policy_rec(ep, rec, instruction, chk, max_steps):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--mode", choices=["putdown", "redirect", "normal"], required=True)
+    p.add_argument("--mode", choices=["putdown", "redirect", "normal", "replay"], required=True)
+    p.add_argument("--dart", type=float, default=0.0,
+                   help="DART 잡음 크기 (실행 동작에만, 기록은 전문가 의도). 0 이면 끔. 0.1~0.2 권장")
     p.add_argument("--pairs", default="8:5,8:7,8:0,4:5,4:7,4:0,1:5,1:0")
     p.add_argument("--tasks", type=int, nargs="+", default=list(range(10)), help="normal 모드")
     p.add_argument("--episodes", type=int, default=20)
     p.add_argument("--start-episode", type=int, default=0)
     p.add_argument("--tries", type=int, default=3, help="정책 구간(B)을 다시 뽑는 횟수")
     p.add_argument("--max-steps", type=int, default=300)
+    p.add_argument("--approach", action="store_true",
+                   help="putdown 모드: 내려놓은 뒤 B 의 작업 대상 근처(정책 궤적 위의 한 점)까지 데려간다")
     p.add_argument("--out", required=True)
     a = p.parse_args()
+    se.DART_SIGMA = a.dart
 
     out = Path(a.out) / "episodes"
     out.mkdir(parents=True, exist_ok=True)
@@ -145,9 +150,16 @@ def main():
                     rec = Rec()
                     if a.mode == "redirect":
                         ok, _ = se.redirect(ep, bt, record=rec)
+                    elif a.mode == "replay":
+                        # ⭐ 전문가가 B 를 끝까지: 바로 세워 내려놓기 → 정책의 성공 궤적 재생
+                        if not se.put_down(ep, record=rec):
+                            continue
+                        ok, _ = se.replay(ep, bt, record=rec)
                     else:
                         if not se.put_down(ep, record=rec):
                             continue  # 바로 세우지 못한 시범은 쓰지 않는다
+                        if a.approach:
+                            se.approach(ep, bt, record=rec)
                         ep.plan, ep.exec_left, ep.plan_norm = np.zeros((0, 7)), 0, None
                         runner.policy.reset()
                         ok = run_policy_rec(ep, rec, chk_b.language, chk_b, a.max_steps)
