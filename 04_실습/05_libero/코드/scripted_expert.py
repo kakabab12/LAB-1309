@@ -415,6 +415,45 @@ def replay_offsets(d, s, delta):
     return off
 
 
+MIN_HOME = 0.10   # ⛔ 시작점은 초기 자세에서 10cm 이상 (9/18: 7cm 안이면 리셋과 구분 안 됨)
+
+
+def replay_plan(ep, task, radius=0.15):
+    """재생할 궤적(물체 위치에 맞게 옮긴 것)과 시작 스텝 st.
+
+    st = 첫 접촉점 반경 안에 처음 들어오면서 **초기 자세에서 MIN_HOME 이상** 떨어진 스텝.
+    ⚠️ 와인병(T9)은 초기 자세에서 17~19cm 밖에 안 떨어져 있어, 반경 조건만 쓰면
+       초기 자세 4~7cm 안의 점을 고른다 (= 리셋, 제약 위반). 2026-09-28 에 잡았다
+    """
+    d, s = pick_demo(ep, task)
+    delta = np.zeros(3) if s["obj"] is None else ep.obj_pos(s["obj"]) - d["objs"][s["obj"]][0]
+    P = d["pos"] + replay_offsets(d, s, delta)
+    R = [Rotation.from_rotvec(r).as_matrix() for r in d["rotvec"]]
+    grip = d["action"][:, 6]
+    c = s["c"]
+    near = np.linalg.norm(P - P[c], axis=1) < radius
+    far = np.linalg.norm(P - ep.home[0], axis=1) >= MIN_HOME
+    ok = np.nonzero((near & far)[:c + 1])[0]
+    st = int(ok[0]) if len(ok) else c
+    return P, R, grip, st
+
+
+def _go_to_start(ep, pos, mat, record=None, clear=0.05):
+    here = sx.eef_pos(ep.obs)
+    mid = (here + pos) / 2
+    mid[2] = max(here[2], pos[2]) + clear
+    servo(ep, mid, mat, -1.0, tol=0.04, record=record)
+    return servo(ep, pos, mat, -1.0, tol=0.015, vmax=0.4, record=record)
+
+
+def demo_approach(ep, task, record=None, radius=0.15):
+    """재생 전문가의 **앞부분만** — 녹화 궤적 위, 첫 접촉점 근처까지 데려가고 멈춘다.
+    그 뒤는 정책이 한다. 고정 접근 자세(approach.json)와 달리 **물체가 있는 곳 기준**이라
+    집어 옮기는 태스크(와인병)에도 쓸 수 있다."""
+    P, R, grip, st = replay_plan(ep, task, radius)
+    return _go_to_start(ep, P[st], R[st], record)
+
+
 def replay(ep, task, record=None, lead=3, lag_tol=0.03, max_steps=400):
     """⭐ 정책이 원래 성공한 조작을 **지금 자리에서** 재생한다.
 
@@ -425,23 +464,11 @@ def replay(ep, task, record=None, lead=3, lag_tol=0.03, max_steps=400):
        팔이 3cm 넘게 뒤처지면 기다린다 → 그리퍼 명령이 팔 위치와 어긋나지 않는다
     """
     chk = sx.GoalChecker(ep.r.suite, task)
-    d, s = pick_demo(ep, task)
-    delta = np.zeros(3) if s["obj"] is None else ep.obj_pos(s["obj"]) - d["objs"][s["obj"]][0]
-    off = replay_offsets(d, s, delta)
-    P = d["pos"] + off
-    R = [Rotation.from_rotvec(r).as_matrix() for r in d["rotvec"]]
-    grip = d["action"][:, 6]
+    P, R, grip, st = replay_plan(ep, task)
     n = len(P)
-    cpos = d["pos"][s["c"]]
-    near = np.nonzero(np.linalg.norm(d["pos"] - cpos, axis=1) < 0.15)[0]
-    st = int(near[0]) if len(near) else max(0, s["c"] - 10)
 
     # ③ 시작점까지 — 물체를 치지 않게 한 번 올라갔다 내려온다
-    here = sx.eef_pos(ep.obs)
-    mid = (here + P[st]) / 2
-    mid[2] = max(here[2], P[st][2]) + 0.05
-    servo(ep, mid, R[st], -1.0, tol=0.04, record=record)
-    servo(ep, P[st], R[st], -1.0, tol=0.015, vmax=0.4, record=record)
+    _go_to_start(ep, P[st], R[st], record)
 
     # ④ 따라간다
     t, used = st, 0
@@ -464,3 +491,9 @@ def replay(ep, task, record=None, lead=3, lag_tol=0.03, max_steps=400):
             return True, used
         ep.step(np.array([0, 0, 0, 0, 0, 0, grip[-1]], dtype=np.float32), "E")
     return bool(chk(ep.env)), used
+
+
+def min_home_dist(ep, since=0):
+    """since 스텝 이후 손이 초기 자세에 가장 가까이 간 거리 (m). ⛔ 제약 점검용 — 7cm 안이면 리셋과 구분 안 됨."""
+    P = np.array(ep.log["pos"][since:])
+    return float(np.linalg.norm(P - ep.home[0], axis=1).min()) if len(P) else float("nan")

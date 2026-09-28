@@ -80,6 +80,35 @@ chmod +x ~/smolVLA/*.sh
 | `rotation_at_resume.py` | A 재개 시점의 손목 회전 (84도가 여기서 나왔습니다) |
 | `rotation_vs_travel.py` | 손목 회전이 시간에 따라 어떻게 변하는가 |
 
+### ⭐ 전문가 시범 · LoRA 5차 (2026-09-28~)
+
+1~4차 LoRA 는 **정책 자신의 성공을 따라하게** 해서 실패했습니다 (self-imitation).
+5차부터는 시뮬레이터가 아는 물체 위치로 움직이는 **스크립트 전문가**가 시범을 보입니다.
+
+| 파일 | 내용 |
+|---|---|
+| **`scripted_expert.py`** | 전문가 동작 모음. `put_down`(바로 세워 내려놓기) · `approach`(B 작업 대상 근처로) · `demo_approach`(녹화 궤적의 첫 접촉점 근처로, 물체 기준) · `replay`(정책의 성공 궤적 재생) · `redirect`(쥔 채 새 목적지로) · `min_home_dist`(⛔ 제약 점검) |
+| `record_demos.py` | 정책이 **교란 없이 성공한** 궤적 녹화 → `outputs/expert/demos.pkl` (재생 전문가의 재료) |
+| `test_putdown.py` | 내려놓기(+`--approach`) 뒤 **원래 정책**이 B 를 하는가 |
+| `test_replay.py` | 재생 전문가가 B 를 끝까지 하는가 |
+| `test_redirect.py` / `test_expert.py` | 방향 틀기 / 정상·교란 조건 전문가 성능 |
+| **`collect_expert.py`** | 시범 수집. `--mode hybrid`(⭐ 내려놓기+접근은 전문가, 그 뒤는 정책) · `replay` · `redirect` · `normal`(리허설) |
+| `train_lora.py` | LoRA 학습. `--balance --rehearsal-frac 0.5` = 지시문마다 정상 리허설이 절반 (4차 망각 방지) |
+| **`run_lora_v5.sh`** | 5차 전체: 수집(두 줄 병렬) → 학습 → 원래 정책과 같은 에피소드 20~29 에서 평가 |
+| `analyze_v5.py` | 5차 판정 — ① 망각 → ② 실패하던 전환 → ③ 잘 되던 전환, 짝 비교 |
+| `make_gif_0928.py` | 같은 장면에서 원래 정책 vs 전문가 도움 GIF |
+
+⛔ **제약 점검**: 전문가 궤적이 초기 자세 **10cm 안**의 점을 목표로 삼지 않게 했고(`MIN_HOME`),
+수집할 때 전환 뒤 손이 초기 자세 **7cm 안**으로 들어간 시범은 버립니다(`--min-home`).
+와인병(T9)은 초기 자세 가까이에 있어서, 이 검사가 없으면 초기 자세 4~7cm 까지 가는 궤적을 골랐습니다.
+
+```bash
+.venv/bin/python record_demos.py                       # 약 30분
+.venv/bin/python test_putdown.py --pairs 8:7,8:3 --approach
+nohup ./run_lora_v5.sh > outputs/lora_v5.log 2>&1 &    # 밤새
+.venv/bin/python analyze_v5.py
+```
+
 ### 닫힌 길 (기록용, 다시 열지 마세요)
 
 | 파일 | 왜 닫혔나 |

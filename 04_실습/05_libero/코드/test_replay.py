@@ -30,6 +30,7 @@ def main():
         ra.task_a, ra.task_b, ra.strategy = at, bt, "flush"
         runner = sx.Runner(ra)
         ok_n = tried = 0
+        mins = []
         for i in range(a.start_episode, a.start_episode + a.episodes):
             ep = sx.Episode(runner, i)
             runner.policy.reset()
@@ -37,15 +38,20 @@ def main():
                 ep.env.close()
                 continue
             tried += 1
+            t_sw = len(ep.log["pos"])
             up = se.put_down(ep)
             ok, n = se.replay(ep, bt)
             ok_n += int(ok)
-            print(f"A{at}→B{bt} ep{i}: 내려놓기 {'바로 섬' if up else '기울어짐'} → 재생 {'성공' if ok else '실패'} ({n}스텝)",
-                  flush=True)
+            mh = se.min_home_dist(ep, t_sw)
+            mins.append(mh)
+            print(f"A{at}→B{bt} ep{i}: 내려놓기 {'바로 섬' if up else '기울어짐'} → 재생 {'성공' if ok else '실패'} ({n}스텝)"
+                  f"  (초기 자세 최소 {100 * mh:.1f}cm)", flush=True)
             ep.env.close()
-        res[pr] = {"success": int(ok_n), "tried": int(tried)}
-        print(f"  == A{at}→B{bt}: {ok_n}/{tried}", flush=True)
-    json.dump(res, open(a.out, "w"), indent=2)
+        res[pr] = {"success": int(ok_n), "tried": int(tried),
+                   "min_home_cm": round(100 * min(mins), 1) if mins else None}
+        print(f"  == A{at}→B{bt}: {ok_n}/{tried}  (초기 자세 최소 {100 * min(mins) if mins else float('nan'):.1f}cm)",
+              flush=True)
+    json.dump(res, open(a.out, "w"), indent=2, default=int)
 
 
 if __name__ == "__main__":

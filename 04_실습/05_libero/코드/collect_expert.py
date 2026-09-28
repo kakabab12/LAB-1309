@@ -20,6 +20,10 @@
                  전체(내려놓기 + B)를 B 의 지시문으로 저장. 정책은 "내려놓기"를 배운다.
   mode=redirect  전환 순간 → 전문가가 그릇을 **쥔 채** 새 목적지로 가져간다
   mode=normal    교란 없이 정책이 스스로 성공한 것 (리허설, 10개 태스크 전부)
+  mode=hybrid    ⭐ 전환 순간 → 전문가가 **내려놓고 + B 의 작업 대상 근처로 데려간다** → 정책이 B 를 한다.
+                 (9/28 시험: 이렇게만 해 주면 스토브 50→100%, 서랍+그릇 0→60%)
+                 정책 구간이 tries 번 모두 실패하면 마지막엔 **재생 전문가가 끝까지** 한다 (--fallback-replay)
+                 → 정책에게 가르치는 것은 "내려놓기 → 다음 작업 근처로 가기", 그 뒤는 정책이 원래 하던 것
 
 ⚠️ 제약: 전문가는 초기 자세로 돌아가지 않는다. 물체를 내려놓는 것은 허용 범위('아무 데나').
 """
@@ -82,7 +86,7 @@ def run_policy_rec(ep, rec, instruction, chk, max_steps):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--mode", choices=["putdown", "redirect", "normal", "replay"], required=True)
+    p.add_argument("--mode", choices=["putdown", "redirect", "normal", "replay", "hybrid"], required=True)
     p.add_argument("--dart", type=float, default=0.0,
                    help="DART 잡음 크기 (실행 동작에만, 기록은 전문가 의도). 0 이면 끔. 0.1~0.2 권장")
     p.add_argument("--pairs", default="8:5,8:7,8:0,4:5,4:7,4:0,1:5,1:0")
@@ -93,6 +97,14 @@ def main():
     p.add_argument("--max-steps", type=int, default=300)
     p.add_argument("--approach", action="store_true",
                    help="putdown 모드: 내려놓은 뒤 B 의 작업 대상 근처(정책 궤적 위의 한 점)까지 데려간다")
+    p.add_argument("--min-home", type=float, default=0.07,
+                   help="⛔ 전환 뒤 손이 초기 자세에서 이 거리(m) 안으로 들어간 시범은 버린다 (리셋과 구분 안 됨)")
+    p.add_argument("--fallback-replay", action="store_true",
+                   help="hybrid 모드: 정책 구간이 모두 실패하면 마지막 시도는 재생 전문가가 끝까지")
+    p.add_argument("--demo-src", type=int, nargs="*", default=[5, 9],
+                   help="hybrid 모드: 이 B 들은 고정 접근 자세 대신 녹화 궤적의 첫 접촉점 근처로 (물체 기준)")
+    p.add_argument("--approach-src", choices=["fixed", "demo"], default="fixed",
+                   help="fixed: approach.json 의 고정 자세 / demo: 녹화 궤적 위 첫 접촉점 근처 (물체 기준)")
     p.add_argument("--out", required=True)
     a = p.parse_args()
     se.DART_SIGMA = a.dart
@@ -148,8 +160,19 @@ def main():
                         ep.plan, ep.exec_left, ep.plan_norm, ep.pending = np.zeros((0, 7)), 0, None, None
                         torch.manual_seed(30_000 + 97 * attempt + i)
                     rec = Rec()
+                    t_sw = len(ep.log["pos"])
                     if a.mode == "redirect":
                         ok, _ = se.redirect(ep, bt, record=rec)
+                    elif a.mode == "hybrid":
+                        if not se.put_down(ep, record=rec):
+                            continue
+                        if a.fallback_replay and attempt == max(a.tries, 1) - 1 and attempt > 0:
+                            ok, _ = se.replay(ep, bt, record=rec)       # 마지막: 전문가가 끝까지
+                        else:
+                            (se.demo_approach if bt in a.demo_src else se.approach)(ep, bt, record=rec)
+                            ep.plan, ep.exec_left, ep.plan_norm = np.zeros((0, 7)), 0, None
+                            runner.policy.reset()
+                            ok = run_policy_rec(ep, rec, chk_b.language, chk_b, a.max_steps)
                     elif a.mode == "replay":
                         # ⭐ 전문가가 B 를 끝까지: 바로 세워 내려놓기 → 정책의 성공 궤적 재생
                         if not se.put_down(ep, record=rec):
@@ -159,12 +182,18 @@ def main():
                         if not se.put_down(ep, record=rec):
                             continue  # 바로 세우지 못한 시범은 쓰지 않는다
                         if a.approach:
-                            se.approach(ep, bt, record=rec)
+                            (se.demo_approach if a.approach_src == "demo" else se.approach)(ep, bt, record=rec)
                         ep.plan, ep.exec_left, ep.plan_norm = np.zeros((0, 7)), 0, None
                         runner.policy.reset()
                         ok = run_policy_rec(ep, rec, chk_b.language, chk_b, a.max_steps)
+                    mh = se.min_home_dist(ep, t_sw)
+                    if ok and mh < a.min_home:
+                        stats["home_reject"] = stats.get("home_reject", 0) + 1
+                        print(f"  ⛔ ep{i} 시도{attempt}: 초기 자세 {100 * mh:.1f}cm 까지 감 — 버림", flush=True)
+                        ok = False
                     if ok:
                         rec.save(out / f"{a.mode[0].upper()}{at}{bt}_ep{i}.npz", chk_b.language,
+                                 min_home_cm=round(100 * mh, 1),
                                  source=a.mode, pair=pr, tries_used=attempt + 1)
                         stats["saved"] += 1
                         stats["frames"] += len(rec)
