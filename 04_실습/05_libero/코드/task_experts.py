@@ -207,3 +207,79 @@ def open_middle_hook(ep, record=None, pull=0.15):
         se.servo(ep, g + [0, pull * k / 8, 0], mat, -1.0, tol=0.006, vmax=0.3, max_steps=12, record=record)
     se.servo(ep, sx.eef_pos(ep.obs) + [0, 0.03, 0.07], mat, -1.0, tol=0.02, max_steps=30, record=record)
     return -drawer_qpos(ep, "middle")
+
+
+# T3 "위 서랍을 열고 그릇을 넣어라": 위 서랍 열기 → 그릇 집기 → 서랍 안(앞쪽, 캐비닛 윗판 밖)에 놓기
+TOP_FLOOR_Z = 1.064      # 위 서랍 바닥 윗면 (geom g16: 중심 1.060, 두께 반 0.004)
+BOWL_REST_DZ = -0.002    # 탁자 위 그릇 몸체 높이 0.898 − 탁자면 0.900
+
+
+def region_pos(ep, site):
+    m, d = ep.inner.sim.model, ep.inner.sim.data
+    return np.array(d.site_xpos[m.site_name2id(site)])
+
+
+def drawer_bowl(ep, record=None, y_front=0.05, pull=0.10):
+    """pull: 서랍을 얼마나 열까. 끝까지(16cm) 열면 앞판이 그릇 위로 와서 손이 내려가지 못한다 (0/10)."""
+    opened = open_top_to(ep, pull, record=record)
+    if opened < pull - 0.03:
+        return False
+    # 열린 서랍 앞판·손잡이(이제 y≈0.02)에 걸리지 않게: 앞쪽 높은 곳을 거쳐 그릇 위에서 수직으로
+    b = ep.obj_pos("akita_black_bowl_1")
+    mat = ep.home[1].copy()
+    se.servo(ep, np.array([sx.eef_pos(ep.obs)[0], 0.12, 1.19]), mat, -1.0, tol=0.03, record=record)
+    se.servo(ep, np.array([b[0], 0.10, 1.19]), mat, -1.0, tol=0.03, record=record)
+    if not grasp_front(ep, "akita_black_bowl_1", se.BOWL_GRASP_OFFSET, record=record):
+        return False
+    c = region_pos(ep, "wooden_cabinet_1_top_region")
+    P = np.array([c[0], c[1] + y_front, TOP_FLOOR_Z + BOWL_REST_DZ])
+    se.carry_place(ep, P, record=record, above=0.06)
+    return True
+
+
+def grasp_front(ep, obj, off, record=None, above=0.08):
+    """se.grasp_obj 와 같지만 **앞쪽(+y, 서랍 반대편) 테두리부터** 잡는다.
+    열린 위 서랍이 그릇 위로 튀어나와, 뒤쪽 테두리로는 손이 내려가지 못한다 (T3 첫 시도 0/10)."""
+    down = ep.home[1].copy()
+    se.hold(ep, -1.0, 6, record)
+    for g, gmat in sorted(se.grasp_candidates(ep, obj, off, down), key=lambda c: -c[0][1])[:2]:
+        if not se.servo(ep, g + [0, 0, above], gmat, -1.0, tol=0.025, record=record):
+            continue
+        if not se.servo(ep, g, gmat, -1.0, tol=0.008, vmax=0.3, record=record):
+            se.servo(ep, g + [0, 0, above], gmat, -1.0, tol=0.03, max_steps=30, record=record)
+            continue
+        se.hold(ep, 1.0, 12, record)
+        z0 = ep.obj_pos(obj)[2]
+        se.servo(ep, g + [0, 0, 0.10], gmat, 1.0, tol=0.02, record=record)
+        if ep.obj_pos(obj)[2] > z0 + 0.04:
+            return True
+    return False
+
+
+def open_top_to(ep, target, record=None, press=0.006, above=0.07):
+    """위 서랍을 target(m)까지만 연다 — 서랍 위치를 보면서 도달하면 바로 누르기를 멈추고 손을 든다.
+    그냥 당기면 미끄러져 14~16cm 까지 나가 T3 에서 손이 다시 막혔다 (30회 중 5회)."""
+    mat = ep.home[1].copy()
+    h = handle_pos(ep, "top")
+    rel = np.array(PRESS["top"])
+    se.hold(ep, -1.0, 3, record)
+    here = sx.eef_pos(ep.obs)
+    pre = h + rel + [0, 0, above]
+    mid = (here + pre) / 2
+    mid[2] = max(here[2], pre[2]) + 0.02
+    se.servo(ep, mid, mat, -1.0, tol=0.04, record=record)
+    se.servo(ep, pre, mat, -1.0, tol=0.01, vmax=0.4, record=record)
+    se.servo(ep, h + rel, mat, -1.0, tol=0.006, vmax=0.2, max_steps=60, record=record)
+    g = h + rel - [0, 0, press]
+    for _ in range(80):
+        opened = -drawer_qpos(ep, "top")
+        if opened >= target - 0.005:
+            break
+        dp = g + [0, opened + 0.02, 0] - sx.eef_pos(ep.obs)     # 서랍보다 2cm 앞을 목표로 천천히
+        a = np.concatenate([np.clip(dp / sx.POS_SCALE, -0.25, 0.25), [0, 0, 0], [-1.0]]).astype(np.float32)
+        if record is not None:
+            record(ep.obs, a)
+        ep.step(se._exec(a), "E")
+    # 손을 **똑바로 위로** 뺀다 (살짝 뒤로). 대각선으로 빼면 손끝이 막대를 한 번 더 끌어 14~16cm 까지 열렸다
+    se.servo(ep, sx.eef_pos(ep.obs) + [0, -0.005, 0.05], mat, -1.0, tol=0.008, vmax=0.3, max_steps=30, record=record)
+    return -drawer_qpos(ep, "top")
