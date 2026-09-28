@@ -96,7 +96,7 @@ def collect_resume(ep, runner, a, at, bt, i, out, stats):
     """B 를 마친 상태에서 지시를 A 로 되돌린다 → 전문가가 A 의 물체 근처로 → 정책이 A 를 마무리."""
     chk_a = sx.GoalChecker(runner.suite, at)
     state_b = ep.env._env.get_sim_state().copy()
-    for attempt in range(max(a.tries, 1)):
+    for attempt in range(max(a.resume_tries, 1)):
         restore(ep, state_b)
         torch.manual_seed(70_000 + 97 * attempt + i)
         rec = Rec()
@@ -133,6 +133,7 @@ def main():
     p.add_argument("--resume", action="store_true",
                    help="hybrid 모드: B 성공 뒤 지시를 A 로 되돌려 **재개 시범**도 모은다 "
                         "(전문가가 A 의 물체 근처로 접근 → 정책). A 의 지시문으로 R*.npz 에 저장")
+    p.add_argument("--resume-tries", type=int, default=1, help="재개 시범 시도 횟수 (실패하면 정책 300스텝을 통째로 쓰므로 적게)")
     p.add_argument("--fallback-replay", action="store_true",
                    help="hybrid 모드: 정책 구간이 모두 실패하면 마지막 시도는 재생 전문가가 끝까지")
     p.add_argument("--demo-src", type=int, nargs="*", default=[5, 9],
