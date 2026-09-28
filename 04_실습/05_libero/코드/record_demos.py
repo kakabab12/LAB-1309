@@ -27,9 +27,11 @@ def main():
     p.add_argument("--episodes", type=int, default=15)
     p.add_argument("--start-episode", type=int, default=100, help="평가 에피소드와 겹치지 않게")
     p.add_argument("--out", default="outputs/expert/demos.pkl")
+    p.add_argument("--append", action="store_true", help="기존 파일에 태스크를 더한다")
     a = p.parse_args()
 
-    demos = {}
+    import os
+    demos = pickle.load(open(a.out, "rb")) if a.append and os.path.exists(a.out) else {}
     for task in a.tasks:
         ra = sx.default_args()
         ra.task_a, ra.strategy = task, "none"
@@ -60,7 +62,8 @@ def main():
             print(f"T{task} ep{i}: {'성공 — 녹화' if ok else '실패'}", flush=True)
             ep.env.close()
         print(f"  == T{task}: 성공 궤적 {len(demos[task])}개", flush=True)
-    pickle.dump(demos, open(a.out, "wb"))
+    pickle.dump(demos, open(a.out + ".tmp", "wb"))
+    os.replace(a.out + ".tmp", a.out)      # 다른 실험이 읽는 중이어도 깨지지 않게
     print("저장:", a.out)
 
 

@@ -73,6 +73,14 @@ class Rec:
                  task=task, **meta)
 
 
+def restore(ep, state):
+    """저장한 시뮬레이터 상태로 되돌린다 (에피소드 길이 제한·done 도 초기화)."""
+    ep.inner.timestep = 0
+    ep.inner.done = False
+    ep.obs = ep.env._format_raw_obs(ep.env._env.regenerate_obs_from_state(state))
+    ep.plan, ep.exec_left, ep.plan_norm, ep.pending = np.zeros((0, 7)), 0, None, None
+
+
 def run_policy_rec(ep, rec, instruction, chk, max_steps):
     """정책을 돌리며 기록한다. 성공하면 True."""
     for _ in range(max_steps):
@@ -80,6 +88,29 @@ def run_policy_rec(ep, rec, instruction, chk, max_steps):
         rec(ep.obs, a)
         ep.step(a, "B")
         if chk(ep.env):
+            return True
+    return False
+
+
+def collect_resume(ep, runner, a, at, bt, i, out, stats):
+    """B 를 마친 상태에서 지시를 A 로 되돌린다 → 전문가가 A 의 물체 근처로 → 정책이 A 를 마무리."""
+    chk_a = sx.GoalChecker(runner.suite, at)
+    state_b = ep.env._env.get_sim_state().copy()
+    for attempt in range(max(a.tries, 1)):
+        restore(ep, state_b)
+        torch.manual_seed(70_000 + 97 * attempt + i)
+        rec = Rec()
+        t0 = len(ep.log["pos"])
+        se.demo_approach(ep, at, record=rec)
+        ep.plan, ep.exec_left, ep.plan_norm = np.zeros((0, 7)), 0, None
+        runner.policy.reset()
+        ok = run_policy_rec(ep, rec, chk_a.language, chk_a, a.max_steps)
+        mh = se.min_home_dist(ep, t0)
+        if ok and mh >= a.min_home:
+            rec.save(out / f"R{at}{bt}_ep{i}.npz", chk_a.language, min_home_cm=round(100 * mh, 1),
+                     source="resume", pair=f"{at}:{bt}", tries_used=attempt + 1)
+            stats["resume_saved"] = stats.get("resume_saved", 0) + 1
+            stats["frames"] += len(rec)
             return True
     return False
 
@@ -99,6 +130,9 @@ def main():
                    help="putdown 모드: 내려놓은 뒤 B 의 작업 대상 근처(정책 궤적 위의 한 점)까지 데려간다")
     p.add_argument("--min-home", type=float, default=0.07,
                    help="⛔ 전환 뒤 손이 초기 자세에서 이 거리(m) 안으로 들어간 시범은 버린다 (리셋과 구분 안 됨)")
+    p.add_argument("--resume", action="store_true",
+                   help="hybrid 모드: B 성공 뒤 지시를 A 로 되돌려 **재개 시범**도 모은다 "
+                        "(전문가가 A 의 물체 근처로 접근 → 정책). A 의 지시문으로 R*.npz 에 저장")
     p.add_argument("--fallback-replay", action="store_true",
                    help="hybrid 모드: 정책 구간이 모두 실패하면 마지막 시도는 재생 전문가가 끝까지")
     p.add_argument("--demo-src", type=int, nargs="*", default=[5, 9],
@@ -200,7 +234,10 @@ def main():
                         k += 1
                         saved = True
                         break
-                print(f"A{at}→B{bt} ep{i}: {'저장' if saved else '실패'}", flush=True)
+                resumed = ""
+                if saved and a.resume and a.mode == "hybrid" and bt != 3:   # B3 은 그릇을 서랍에 넣는다 — A 와 충돌
+                    resumed = " + 재개 " + ("저장" if collect_resume(ep, runner, a, at, bt, i, out, stats) else "실패")
+                print(f"A{at}→B{bt} ep{i}: {'저장' if saved else '실패'}{resumed}", flush=True)
                 ep.env.close()
             stats["per"][pr] = k
             print(f"  == A{at}→B{bt}: {k}/{a.episodes} 저장", flush=True)
