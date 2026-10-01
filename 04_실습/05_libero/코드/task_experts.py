@@ -219,8 +219,15 @@ def region_pos(ep, site):
     return np.array(d.site_xpos[m.site_name2id(site)])
 
 
-def drawer_bowl(ep, record=None, y_front=0.05, pull=0.10):
+def drawer_bowl(ep, record=None, y_front=0.05, pull=0.10, clear_y=-1.0, move_y=0.10, carry_above=0.12):
     """pull: 서랍을 얼마나 열까. 끝까지(16cm) 열면 앞판이 그릇 위로 와서 손이 내려가지 못한다 (0/10)."""
+    # 그릇이 캐비닛 쪽에 가까이 있으면(앞쪽 테두리 y < clear_y) 먼저 앞으로 옮겨 둔다.
+    # 그대로 두면 열린 서랍 앞판에 손이 걸리거나(5회), 그릇이 서랍 길을 막는다(3회) → 30회 중 22회
+    b0 = ep.obj_pos("akita_black_bowl_1")
+    handle0 = handle_pos(ep, "top")
+    if b0[1] < clear_y:
+        if grasp_front(ep, "akita_black_bowl_1", se.BOWL_GRASP_OFFSET, record=record):
+            se.carry_place(ep, np.array([b0[0], b0[1] + move_y, b0[2]]), record=record, above=0.05)
     opened = open_top_to(ep, pull, record=record)
     if opened < pull - 0.03:
         return False
@@ -229,20 +236,38 @@ def drawer_bowl(ep, record=None, y_front=0.05, pull=0.10):
     mat = ep.home[1].copy()
     se.servo(ep, np.array([sx.eef_pos(ep.obs)[0], 0.12, 1.19]), mat, -1.0, tol=0.03, record=record)
     se.servo(ep, np.array([b[0], 0.10, 1.19]), mat, -1.0, tol=0.03, record=record)
+    close = (b0 - handle0)[1] < 0.135
+    if close:
+        # 가까운 그릇: 옆 테두리로 집어 앞쪽(+10cm) 빈 자리에 내려놓고, 앞 테두리로 다시 잡는다.
+        # 옆으로 쥔 채 서랍에 넣으면 손이 x 로 길어져 서랍 옆벽에 걸렸다
+        if grasp_front(ep, "akita_black_bowl_1", se.BOWL_GRASP_OFFSET, record=record, side_first=True):
+            b1 = ep.obj_pos("akita_black_bowl_1")
+            se.carry_place(ep, np.array([b0[0], b0[1] + move_y, b0[2]]), record=record, above=0.04)
     if not grasp_front(ep, "akita_black_bowl_1", se.BOWL_GRASP_OFFSET, record=record):
         return False
     c = region_pos(ep, "wooden_cabinet_1_top_region")
     P = np.array([c[0], c[1] + y_front, TOP_FLOOR_Z + BOWL_REST_DZ])
-    se.carry_place(ep, P, record=record, above=0.06)
+    # 높이 들고 넘어간다: 고쳐 잡은 그릇은 기울어 손 아래로 더 처지는데, 낮게 넘어가면
+    # 서랍 앞판(윗면 1.12)에 부딪혀 서랍을 도로 닫아 버렸다 (ep13: 서랍 0.4cm)
+    se.carry_place(ep, P, record=record, above=carry_above)
     return True
 
 
-def grasp_front(ep, obj, off, record=None, above=0.08):
+def grasp_front(ep, obj, off, record=None, above=0.08, side_first=False):
     """se.grasp_obj 와 같지만 **앞쪽(+y, 서랍 반대편) 테두리부터** 잡는다.
     열린 위 서랍이 그릇 위로 튀어나와, 뒤쪽 테두리로는 손이 내려가지 못한다 (T3 첫 시도 0/10)."""
     down = ep.home[1].copy()
     se.hold(ep, -1.0, 6, record)
-    for g, gmat in sorted(se.grasp_candidates(ep, obj, off, down), key=lambda c: -c[0][1])[:2]:
+    cands = se.grasp_candidates(ep, obj, off, down)
+    if side_first:
+        # 그릇이 캐비닛에 가까우면(손잡이보다 13cm 안쪽) 옆쪽 테두리, 그중 서랍에서 먼(−x) 쪽부터.
+        # 손가락이 x 로 벌어져 손 폭이 y 로 좁아져서 서랍 앞판에 걸리지 않는다
+        o = ep.obj_pos(obj)
+        side = [c for c in cands if abs(c[0][0] - o[0]) > abs(c[0][1] - o[1])]
+        cands = sorted(side, key=lambda c: c[0][0]) + [c for c in cands if not any(c is s for s in side)]
+    else:
+        cands = sorted(cands, key=lambda c: -c[0][1])
+    for g, gmat in cands[:2]:
         if not se.servo(ep, g + [0, 0, above], gmat, -1.0, tol=0.025, record=record):
             continue
         if not se.servo(ep, g, gmat, -1.0, tol=0.008, vmax=0.3, record=record):
@@ -283,3 +308,265 @@ def open_top_to(ep, target, record=None, press=0.006, above=0.07):
     # 손을 **똑바로 위로** 뺀다 (살짝 뒤로). 대각선으로 빼면 손끝이 막대를 한 번 더 끌어 14~16cm 까지 열렸다
     se.servo(ep, sx.eef_pos(ep.obs) + [0, -0.005, 0.05], mat, -1.0, tol=0.008, vmax=0.3, max_steps=30, record=record)
     return -drawer_qpos(ep, "top")
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# T7 스토브 켜기 (diag_policy_contact.py, T7 ep20)
+#   원래 모델: 손잡이 몸체 기준 [-0.004, 0.026, 0.024] 에서 그리퍼를 닫아 손잡이(g5)를 감싸고,
+#   손목을 z 축으로 약 +32도 돌린다 → 관절 0.52 rad 에서 켜짐 판정
+# ───────────────────────────────────────────────────────────────────────────
+STOVE_REL = np.array([-0.004, 0.026, 0.024])
+
+
+def body_pos(ep, name):
+    m, d = ep.inner.sim.model, ep.inner.sim.data
+    return np.array(d.body_xpos[m.body_name2id(name)])
+
+
+def turn_on_stove(ep, record=None, turn_deg=60, above=0.08):
+    """손목 40도로는 손잡이가 27~29도(0.47~0.51 rad)만 돌아 켜짐 기준(약 0.5)에 걸렸다 (7/20) → 60도."""
+    mat = ep.home[1].copy()
+    k = body_pos(ep, "flat_stove_1_button")
+    g = k + STOVE_REL
+    se.hold(ep, -1.0, 3, record)
+    here = sx.eef_pos(ep.obs)
+    pre = g + [0, 0, above]
+    mid = (here + pre) / 2
+    mid[2] = max(here[2], pre[2]) + 0.02
+    se.servo(ep, mid, mat, -1.0, tol=0.04, record=record)
+    se.servo(ep, pre, mat, -1.0, tol=0.01, vmax=0.4, record=record)
+    se.servo(ep, g, mat, -1.0, tol=0.006, vmax=0.2, max_steps=60, record=record)
+    se.hold(ep, 1.0, 6, record)
+    m0 = ep.obs["robot_state"]["eef"]["mat"].copy()
+    for frac in np.linspace(0.25, 1.0, 4):
+        tgt = Rotation.from_euler("z", turn_deg * frac, degrees=True).as_matrix() @ m0
+        se.servo(ep, g, tgt, 1.0, tol=0.01, vmax=0.3, max_steps=15, record=record)
+    se.hold(ep, -1.0, 5, record)
+    se.servo(ep, sx.eef_pos(ep.obs) + [0, 0, 0.07], ep.obs["robot_state"]["eef"]["mat"].copy(), -1.0,
+             tol=0.02, max_steps=25, record=record)
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# T5 접시를 스토브 앞으로 밀기 (diag_policy_contact.py, T5 ep100)
+#   원래 모델: 벌린 그리퍼를 접시 안쪽(중심 기준 [0.014, 0.019, 0.015])까지 내리고,
+#   살짝 누르며 목표 쪽으로 끈다. 접시가 손을 따라온다 (손보다 약 5cm 뒤처짐)
+#   여기에 접시 위치 되먹임을 더한다: 매 스텝 "접시 → 목표" 방향으로 손을 움직인다
+# ───────────────────────────────────────────────────────────────────────────
+PLATE_REL = np.array([0.014, 0.019, 0.015])
+
+
+def site_pos(ep, name):
+    m, d = ep.inner.sim.model, ep.inner.sim.data
+    return np.array(d.site_xpos[m.site_name2id(name)])
+
+
+def push_plate(ep, record=None, press=0.006, speed=0.8, tol=0.012, max_steps=160, above=0.08, lead=0.07):
+    """lead: 손이 접시보다 얼마나 앞서 끌까. 원래 모델은 5~7cm 앞서 안쪽 테두리를 걸어 끈다.
+    처음에 3cm 로 했더니 손이 테두리에 걸리지 못하고 혼자 미끄러져 0/20 이었다."""
+    mat = ep.home[1].copy()
+    goal = site_pos(ep, "main_table_stove_front_region")
+    p0 = ep.obj_pos("plate_1")
+    g = p0 + PLATE_REL
+    se.hold(ep, -1.0, 3, record)
+    here = sx.eef_pos(ep.obs)
+    pre = g + [0, 0, above]
+    mid = (here + pre) / 2
+    mid[2] = max(here[2], pre[2]) + 0.02
+    se.servo(ep, mid, mat, -1.0, tol=0.04, record=record)
+    se.servo(ep, pre, mat, -1.0, tol=0.01, vmax=0.4, record=record)
+    se.servo(ep, g - [0, 0, press], mat, -1.0, tol=0.006, vmax=0.25, max_steps=50, record=record)
+    for _ in range(max_steps):
+        p = ep.obj_pos("plate_1")
+        err = goal[:2] - p[:2]
+        if np.linalg.norm(err) < tol:
+            break
+        hand = sx.eef_pos(ep.obs)
+        # 손은 "접시 위치 + 집는 오프셋 + 목표 방향으로 조금 앞" 을 목표로, 높이는 접시 기준으로 눌러 둔다
+        dirn = err / (np.linalg.norm(err) + 1e-6)
+        # 원래 모델처럼 목표 방향으로 **일정한 속도**로 누르며 끈다 (P 제어만 쓰면 손이 앞선 간격에
+        # 도달하는 순간 힘이 0 이 되어 목표 5.7cm 앞에서 멈췄다). 옆으로 벗어나면 바로잡는 항을 더한다
+        tgt = p[:2] + PLATE_REL[:2] + dirn * lead
+        v = dirn * speed * np.clip(np.linalg.norm(err) / 0.05, 0.4, 1.0)
+        v = v + np.clip((tgt - hand[:2]) / sx.POS_SCALE, -0.3, 0.3) * 0.5
+        vz = np.clip((p[2] + PLATE_REL[2] - press - hand[2]) / sx.POS_SCALE, -0.4, 0.4) - 0.2
+        rerr = Rotation.from_matrix(mat @ ep.obs["robot_state"]["eef"]["mat"].T).as_rotvec()
+        a = np.concatenate([np.clip(v, -1, 1), [np.clip(vz, -0.5, 0.5)],
+                            np.clip(rerr / sx.ROT_SCALE, -0.3, 0.3), [-1.0]]).astype(np.float32)
+        if record is not None:
+            record(ep.obs, a)
+        ep.step(se._exec(a), "E")
+    se.servo(ep, sx.eef_pos(ep.obs) + [0, 0, 0.07], mat, -1.0, tol=0.02, max_steps=25, record=record)
+
+
+def push_plate_regrip(ep, record=None, speed=1.0, lead=0.05, press=0.006, tol=0.012, max_steps=300,
+                      regrips=2, stall_steps=15, above=0.08):
+    """push_plate + **다시 잡기**: 접시가 15스텝 동안 3mm 도 안 움직이면 손을 들어
+    남은 방향 쪽 안쪽 테두리(접시 중심에서 그 방향으로 4.5cm)에 다시 걸고 계속 끈다.
+    (속도·간격만 조정해서는 26/30 에서 멈췄다 — 접시가 목표 6cm 앞에서 서는 경우)"""
+    mat = ep.home[1].copy()
+    goal = site_pos(ep, "main_table_stove_front_region")
+    p0 = ep.obj_pos("plate_1")
+    g = p0 + PLATE_REL
+    se.hold(ep, -1.0, 3, record)
+    here = sx.eef_pos(ep.obs)
+    pre = g + [0, 0, above]
+    mid = (here + pre) / 2
+    mid[2] = max(here[2], pre[2]) + 0.02
+    se.servo(ep, mid, mat, -1.0, tol=0.04, record=record)
+    se.servo(ep, pre, mat, -1.0, tol=0.01, vmax=0.4, record=record)
+    se.servo(ep, g - [0, 0, press], mat, -1.0, tol=0.006, vmax=0.25, max_steps=50, record=record)
+    hist = []
+    left = regrips
+    for _ in range(max_steps):
+        p = ep.obj_pos("plate_1")
+        err = goal[:2] - p[:2]
+        if np.linalg.norm(err) < tol:
+            break
+        hist.append(p[:2].copy())
+        dirn = err / (np.linalg.norm(err) + 1e-6)
+        if left > 0 and len(hist) > stall_steps and np.linalg.norm(hist[-1] - hist[-1 - stall_steps]) < 0.003:
+            left -= 1
+            hist = []
+            up = sx.eef_pos(ep.obs) + [0, 0, 0.05]
+            se.servo(ep, up, mat, -1.0, tol=0.01, vmax=0.4, max_steps=20, record=record)
+            ng = np.concatenate([p[:2] + dirn * 0.045, [p[2] + PLATE_REL[2]]])
+            se.servo(ep, ng + [0, 0, 0.05], mat, -1.0, tol=0.01, vmax=0.4, max_steps=30, record=record)
+            se.servo(ep, ng - [0, 0, press], mat, -1.0, tol=0.006, vmax=0.25, max_steps=30, record=record)
+            continue
+        hand = sx.eef_pos(ep.obs)
+        tgt = p[:2] + PLATE_REL[:2] + dirn * lead
+        v = dirn * speed * np.clip(np.linalg.norm(err) / 0.05, 0.4, 1.0)
+        v = v + np.clip((tgt - hand[:2]) / sx.POS_SCALE, -0.3, 0.3) * 0.5
+        vz = np.clip((p[2] + PLATE_REL[2] - press - hand[2]) / sx.POS_SCALE, -0.4, 0.4) - 0.2
+        rerr = Rotation.from_matrix(mat @ ep.obs["robot_state"]["eef"]["mat"].T).as_rotvec()
+        a = np.concatenate([np.clip(v, -1, 1), [np.clip(vz, -0.5, 0.5)],
+                            np.clip(rerr / sx.ROT_SCALE, -0.3, 0.3), [-1.0]]).astype(np.float32)
+        if record is not None:
+            record(ep.obs, a)
+        ep.step(se._exec(a), "E")
+    se.servo(ep, sx.eef_pos(ep.obs) + [0, 0, 0.07], mat, -1.0, tol=0.02, max_steps=25, record=record)
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# T6 치즈를 그릇에 (diag_policy_contact.py, T6 ep0)
+#   원래 모델: 처음 자세 방향 그대로, 치즈 몸체 기준 [-0.010, -0.003, +0.002] 에서 쥐고(관절 0.018) 들어 올린다
+# ───────────────────────────────────────────────────────────────────────────
+CHEESE_REL = np.array([-0.010, -0.003, 0.002])
+
+
+def cheese_to_bowl(ep, record=None, above=0.10, drop_dz=0.06):
+    mat = ep.home[1].copy()
+    c = ep.obj_pos("cream_cheese_1")
+    g = c + CHEESE_REL
+    se.hold(ep, -1.0, 3, record)
+    here = sx.eef_pos(ep.obs)
+    pre = g + [0, 0, above]
+    mid = (here + pre) / 2
+    mid[2] = max(here[2], pre[2]) + 0.02
+    se.servo(ep, mid, mat, -1.0, tol=0.04, record=record)
+    se.servo(ep, pre, mat, -1.0, tol=0.01, vmax=0.4, record=record)
+    se.servo(ep, g, mat, -1.0, tol=0.006, vmax=0.25, max_steps=60, record=record)
+    se.hold(ep, 1.0, 10, record)
+    z0 = ep.obj_pos("cream_cheese_1")[2]
+    se.servo(ep, g + [0, 0, above], mat, 1.0, tol=0.015, vmax=0.4, record=record)
+    if ep.obj_pos("cream_cheese_1")[2] < z0 + 0.04:
+        return False
+    rel = sx.eef_pos(ep.obs) - ep.obj_pos("cream_cheese_1")
+    b = ep.obj_pos("akita_black_bowl_1")
+    se.servo(ep, b + rel + [0, 0, drop_dz + 0.06], mat, 1.0, tol=0.015, vmax=0.4, record=record)
+    se.servo(ep, b + rel + [0, 0, drop_dz], mat, 1.0, tol=0.008, vmax=0.25, record=record)
+    se.hold(ep, -1.0, 8, record)
+    se.servo(ep, sx.eef_pos(ep.obs) + [0, 0, 0.07], mat, -1.0, tol=0.02, max_steps=25, record=record)
+    return True
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# T9 와인병을 선반에 (record_demos 의 T9 ep107·110·114 성공 궤적)
+#   쥐기: 손목을 약 60도 기울여(euler xyz [-120, 6, -179]) 병 몸체 기준 [-0.003, -0.010, 0.10] 을 쥔다
+#   놓기: 손목을 더 눕혀 [-157, -8, -178], 병이 선반 몸체 기준 [0.068, 0.070, 0.245] 에 오게 (선반 영역 y 폭 ±2.2cm)
+#   병이 손에 어떻게 쥐였는지는 들어 올린 직후 **실제로 재서** 놓는 손 위치를 거꾸로 계산한다
+# ───────────────────────────────────────────────────────────────────────────
+WINE_GRASP_REL = np.array([-0.003, -0.010, 0.10])
+WINE_GRASP_EUL = [-120, 6, -179]
+WINE_RACK_EUL = [-157, -8, -178]
+WINE_RACK_REL = np.array([0.068, 0.070, 0.245])
+
+
+def _eul(e):
+    return Rotation.from_euler("xyz", e, degrees=True).as_matrix()
+
+
+def grasp_wine(ep, record=None, back=0.08):
+    w = ep.obj_pos("wine_bottle_1")
+    gm = _eul(WINE_GRASP_EUL)
+    g = w + WINE_GRASP_REL
+    approach = gm[:, 2]                         # 손끝이 향하는 방향
+    se.hold(ep, -1.0, 3, record)
+    here = sx.eef_pos(ep.obs)
+    pre = g - approach * back + [0, 0, 0.03]
+    mid = (here + pre) / 2
+    mid[2] = max(here[2], pre[2]) + 0.02
+    se.servo(ep, mid, gm, -1.0, tol=0.04, record=record)
+    se.servo(ep, pre, gm, -1.0, tol=0.01, vmax=0.4, record=record)
+    se.servo(ep, g, gm, -1.0, tol=0.006, vmax=0.2, max_steps=60, record=record)
+    se.hold(ep, 1.0, 10, record)
+    z0 = ep.obj_pos("wine_bottle_1")[2]
+    se.servo(ep, g + [0, 0, 0.12], gm, 1.0, tol=0.015, vmax=0.3, record=record)
+    return ep.obj_pos("wine_bottle_1")[2] > z0 + 0.05
+
+
+def place_wine(ep, bottle_target, place_eul, record=None, above=0.08):
+    """병이 bottle_target 에 오도록 손을 놓는다. 손−병 관계는 지금 실제로 잰 값(손 좌표계)."""
+    Rh = ep.obs["robot_state"]["eef"]["mat"].copy()
+    r = Rh.T @ (ep.obj_pos("wine_bottle_1") - sx.eef_pos(ep.obs))
+    Rt = _eul(place_eul)
+    hand_t = bottle_target - Rt @ r
+    here = sx.eef_pos(ep.obs)
+    up = np.array([here[0], here[1], max(here[2], hand_t[2] + above)])
+    se.servo(ep, up, Rh, 1.0, tol=0.02, vmax=0.4, record=record)
+    se.servo(ep, hand_t + [0, 0, above], Rt, 1.0, tol=0.012, vmax=0.35, record=record)
+    se.servo(ep, hand_t, Rt, 1.0, tol=0.006, vmax=0.2, max_steps=60, record=record)
+    se.hold(ep, -1.0, 10, record)
+    se.servo(ep, sx.eef_pos(ep.obs) + [0, 0.05, 0.05], ep.obs["robot_state"]["eef"]["mat"].copy(), -1.0,
+             tol=0.02, max_steps=25, record=record)
+
+
+def wine_to_rack(ep, record=None):
+    if not grasp_wine(ep, record):
+        return False
+    m, d = ep.inner.sim.model, ep.inner.sim.data
+    rack = np.array(d.body_xpos[m.body_name2id("wine_rack_1_main")])
+    place_wine(ep, rack + WINE_RACK_REL, WINE_RACK_EUL, record)
+    return True
+
+
+# T2 와인병을 캐비닛 위에: 쥔 방향 그대로(병이 선 채) 캐비닛 윗면 가운데로.
+#   병 몸체 높이는 탁자 위에서 0.899 (탁자면 0.900) → 윗면(top_side, z 1.127) 기준 −0.001, 1cm 위에서 놓는다
+def wine_to_cabinet(ep, record=None, drop=0.01):
+    if not grasp_wine(ep, record):
+        return False
+    top = site_pos(ep, "wooden_cabinet_1_top_side")
+    place_wine(ep, top + [0, 0, -0.001 + drop], WINE_GRASP_EUL, record)
+    return True
+
+
+# T1·T4·T8 그릇 옮기기: 집기(grasp_obj) + 놓기(carry_place, 목적지는 원래 모델이 놓던 위치 실측값)
+def bowl_task(ep, task, record=None):
+    if not se.grasp_obj(ep, "akita_black_bowl_1", se.BOWL_GRASP_OFFSET, record=record):
+        return False
+    se.carry_place(ep, se.bowl_place_target(ep, task), record=record)
+    return True
+
+
+EXPERT = {
+    0: lambda ep, rec=None: open_middle_hook(ep, rec),
+    1: lambda ep, rec=None: bowl_task(ep, 1, rec),
+    2: lambda ep, rec=None: wine_to_cabinet(ep, rec),
+    3: lambda ep, rec=None: drawer_bowl(ep, rec, y_front=0.03, pull=0.10),
+    4: lambda ep, rec=None: bowl_task(ep, 4, rec),
+    5: lambda ep, rec=None: push_plate_regrip(ep, rec),
+    6: lambda ep, rec=None: cheese_to_bowl(ep, rec),
+    7: lambda ep, rec=None: turn_on_stove(ep, rec),
+    8: lambda ep, rec=None: bowl_task(ep, 8, rec),
+    9: lambda ep, rec=None: wine_to_rack(ep, rec),
+}

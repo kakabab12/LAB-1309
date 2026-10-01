@@ -46,6 +46,11 @@ def parse_args():
     p.add_argument("--rehearsal-frac", type=float, default=None,
                    help="--balance 와 함께: 지시문마다 정상 리허설(source=normal)이 차지할 비중 (예 0.5). "
                         "4차는 같은 지시문 안에서 전환 데이터가 리허설을 압도해 무너졌다")
+    p.add_argument("--full-expert", action="store_true",
+                   help="LoRA 대신 동작 전문가(lm_expert)와 동작 입출력 층을 통째로 학습 (6차: 동작 방식을 전부 바꿔야 해서)")
+    p.add_argument("--workers", type=int, default=2,
+                   help="데이터 로더 작업자 수. 데이터가 크면 0 (작업자마다 데이터가 복사돼 메모리가 몇 배가 된다)")
+    p.add_argument("--aug", action="store_true", help="이미지 증강: 밝기·대비 ±10%, 위치 ±8픽셀 이동")
     p.add_argument("--steps", type=int, default=3000)
     p.add_argument("--batch-size", type=int, default=2)
     p.add_argument("--grad-accum", type=int, default=4)
@@ -68,10 +73,21 @@ def decode(blob) -> np.ndarray:
     return np.asarray(Image.open(io.BytesIO(b)).convert("RGB"))
 
 
+def augment(img, rng):
+    """밝기·대비 ±10%, 상하좌우 ±8픽셀 이동 (가장자리는 복제). 처음 보는 장면에 덜 흔들리게."""
+    x = img.astype(np.float32)
+    x = (x - x.mean()) * rng.uniform(0.9, 1.1) + x.mean() * rng.uniform(0.9, 1.1)
+    x = np.clip(x, 0, 255).astype(np.uint8)
+    dy, dx = rng.integers(-8, 9, size=2)
+    x = np.pad(x, ((8, 8), (8, 8), (0, 0)), mode="edge")[8 + dy:8 + dy + img.shape[0], 8 + dx:8 + dx + img.shape[1]]
+    return x
+
+
 class ChunkDataset(Dataset):
     """(에피소드, 시점) → 이미지 2장 + 로봇 상태 + 앞으로 chunk_size 스텝의 동작."""
 
-    def __init__(self, files, chunk_size):
+    def __init__(self, files, chunk_size, aug=False):
+        self.aug = aug
         self.chunk = chunk_size
         self.eps, self.index = [], []
         for f in files:
@@ -92,9 +108,13 @@ class ChunkDataset(Dataset):
         idx = np.clip(np.arange(t, t + self.chunk), 0, n - 1)
         actions = ep["action"][idx]
         is_pad = np.arange(t, t + self.chunk) >= n
+        img, wrist = decode(ep["img"][t]), decode(ep["wrist"][t])
+        if self.aug:
+            rng = np.random.default_rng()
+            img, wrist = augment(img, rng), augment(wrist, rng)
         return {
-            "img": decode(ep["img"][t]),
-            "wrist": decode(ep["wrist"][t]),
+            "img": img,
+            "wrist": wrist,
             "eef_pos": ep["eef_pos"][t], "eef_quat": ep["eef_quat"][t], "grip": ep["grip"][t],
             "action": actions.astype(np.float32), "is_pad": is_pad, "task": ep["task"],
         }
@@ -129,10 +149,24 @@ class Trainer:
         self.apply_lora()
 
     def apply_lora(self):
-        """action expert(LlamaModel)에만 LoRA 를 붙이고 나머지는 모두 동결."""
+        """action expert(LlamaModel)에만 LoRA 를 붙이고 나머지는 모두 동결.
+        --full-expert 면 LoRA 없이 lm_expert 와 동작 입출력 층 전체를 학습한다."""
         from peft import LoraConfig, get_peft_model
         for prm in self.policy.parameters():
             prm.requires_grad_(False)
+        if getattr(self.a, "full_expert", False):
+            mdl = self.policy.model
+            mods = [mdl.vlm_with_expert.lm_expert, mdl.state_proj, mdl.action_in_proj, mdl.action_out_proj,
+                    mdl.action_time_mlp_in, mdl.action_time_mlp_out]
+            for mod in mods:
+                for prm in mod.parameters():
+                    prm.requires_grad_(True)
+            self.lora_expert = None
+            tr = sum(p.numel() for p in self.policy.parameters() if p.requires_grad)
+            tot = sum(p.numel() for p in self.policy.parameters())
+            print(f"전체 미세조정(동작 전문가): 학습 파라미터 {tr / 1e6:.2f}M / 전체 {tot / 1e6:.1f}M "
+                  f"({100 * tr / tot:.2f}%)", flush=True)
+            return
         expert = self.policy.model.vlm_with_expert.lm_expert
         cfg = LoraConfig(r=self.a.lora_r, lora_alpha=self.a.lora_alpha, lora_dropout=self.a.lora_dropout,
                          bias="none", target_modules=LORA_TARGETS)
@@ -167,7 +201,7 @@ class Trainer:
         n_val = max(1, int(len(files) * a.val_frac))
         val_files, train_files = files[:n_val], files[n_val:]
         chunk = self.chunk_size
-        train_ds, val_ds = ChunkDataset(train_files, chunk), ChunkDataset(val_files, chunk)
+        train_ds, val_ds = ChunkDataset(train_files, chunk, aug=a.aug), ChunkDataset(val_files, chunk)
         print(f"에피소드 학습 {len(train_files)} / 검증 {len(val_files)}, "
               f"프레임 {len(train_ds)} / {len(val_ds)}", flush=True)
         sampler = None
@@ -187,8 +221,8 @@ class Trainer:
                 print("지시문×출처별 프레임:", {f"{t[:25]}|{s}": n for (t, s), n in sorted(cs.items())}, flush=True)
             sampler = WeightedRandomSampler(weights, num_samples=len(tasks), replacement=True)
         dl = DataLoader(train_ds, batch_size=a.batch_size, shuffle=sampler is None, sampler=sampler,
-                        collate_fn=collate, num_workers=2, drop_last=True, persistent_workers=True)
-        vdl = DataLoader(val_ds, batch_size=a.batch_size, shuffle=False, collate_fn=collate, num_workers=1)
+                        collate_fn=collate, num_workers=a.workers, drop_last=True, persistent_workers=a.workers > 0)
+        vdl = DataLoader(val_ds, batch_size=a.batch_size, shuffle=False, collate_fn=collate, num_workers=min(a.workers, 1))
 
         opt = torch.optim.AdamW([p for p in self.policy.parameters() if p.requires_grad], lr=a.lr,
                                 weight_decay=1e-4)
@@ -244,12 +278,27 @@ class Trainer:
         """학습 중에는 LoRA 어댑터만 저장 (가볍고, 옵티마이저 상태를 건드리지 않음)."""
         d = out / f"step_{step}"
         d.mkdir(parents=True, exist_ok=True)
+        if self.lora_expert is None:          # 전체 미세조정: 정책 전체를 저장 (1.2GB)
+            self.policy.save_pretrained(d)
+            self.pre.save_pretrained(d)
+            self.post.save_pretrained(d)
+            (out / "history.json").write_text(json.dumps(hist, ensure_ascii=False, indent=2))
+            print(f"정책 저장: {d}", flush=True)
+            return
         self.lora_expert.save_pretrained(d)  # adapter_model.safetensors + adapter_config.json
         (out / "history.json").write_text(json.dumps(hist, ensure_ascii=False, indent=2))
         print(f"어댑터 저장: {d}", flush=True)
 
     def export_merged(self, adapter_dir, dest):
         """LoRA 를 본체에 합쳐 SmolVLAPolicy.from_pretrained 로 바로 쓸 수 있게 저장."""
+        if self.lora_expert is None:          # 전체 미세조정: 마지막 저장본을 그대로 merged 로
+            import shutil
+            dest = Path(dest)
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(adapter_dir, dest)
+            print(f"모델 저장: {dest}  (평가: --policy {dest})", flush=True)
+            return dest
         from peft import PeftModel
         base = SmolVLAPolicy.from_pretrained(self.a.policy)
         expert = PeftModel.from_pretrained(base.model.vlm_with_expert.lm_expert, str(adapter_dir))
