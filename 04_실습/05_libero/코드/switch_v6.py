@@ -51,11 +51,17 @@ def run_until_held(ep, task, rec, extra=3, limit=400):
     return st["t"] is not None and ep.holding()
 
 
-def put_down_any(ep, obj, z_rest, record=None):
-    """쥔 물체를 그 자리에서 곧장 내려 탁자에 놓고 손을 든다 (물체를 처음 높이로)."""
+def put_down_any(ep, obj, z_rest, record=None, shift=(0.0, 0.0)):
+    """쥔 물체를 내려 탁자에 놓고 손을 든다 (물체를 처음 높이로). shift 만큼 옆으로 옮겨 놓을 수 있다.
+    B 가 서랍 일이면 서랍이 나올 자리(캐비닛 앞)를 비켜 앞쪽에 놓는다 — 그대로 두면 열린 서랍이
+    그릇 위로 튀어나와, 나중에 원래 일로 돌아갈 때 그릇을 다시 집지 못했다 (A8→B0 재개 0/10)."""
     mat = ep.obs["robot_state"]["eef"]["mat"].copy()
     hand = sx.eef_pos(ep.obs)
     dz = ep.obj_pos(obj)[2] - (z_rest + 0.004)
+    if shift[0] or shift[1]:
+        se.servo(ep, hand + [shift[0], shift[1], 0.015], mat, 1.0, tol=0.01, vmax=0.3, max_steps=40, record=record)
+        hand = sx.eef_pos(ep.obs)
+        dz = ep.obj_pos(obj)[2] - (z_rest + 0.004)
     se.servo(ep, hand - [0, 0, dz], mat, 1.0, tol=0.006, vmax=0.25, max_steps=60, record=record)
     se.hold(ep, -1.0, 8, record)
     se.servo(ep, sx.eef_pos(ep.obs) + [0, 0, 0.08], mat, -1.0, tol=0.02, max_steps=25, record=record)
@@ -76,7 +82,8 @@ def do_b(ep, at, bt, rec, z_rest):
             top = te.site_pos(ep, "wooden_cabinet_1_top_side")
             te.place_wine(ep, top + [0, 0, 0.009], te.WINE_GRASP_EUL, rec)
         return
-    put_down_any(ep, obj, z_rest, rec)                            # 그 자리에 내려놓고
+    shift = (0.0, 0.08) if bt in (0, 3) and ep.obj_pos(obj)[1] < 0.08 else (0.0, 0.0)
+    put_down_any(ep, obj, z_rest, rec, shift)                     # 내려놓고 (서랍 일이면 서랍 앞을 비켜서)
     te.EXPERT[bt](ep, rec)                                        # B 를 한다
 
 

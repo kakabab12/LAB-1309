@@ -37,9 +37,16 @@ DART_SIGMA = 0.0
 _rng = np.random.default_rng(0)
 
 
+# 정밀 구간 표시 (2026-10-01): 이 값이 True 인 동안은 DART 잡음을 넣지 않는다.
+#   서랍 손잡이 걸기·쥐기·누르며 끌기처럼 1cm 단위 동작에 잡음을 넣으니 시범이 무너졌다
+#   (잡음 0.1: 가운데 서랍 107번 중 11번, 위 서랍+그릇 109번 중 2번 / 잡음 0.03 에서도 8/10).
+#   잡음은 이동 구간(목표 허용 오차 1.5cm 이상)에만 넣어, 틀어졌다 바로잡는 동작을 배우게 한다.
+PRECISE = False
+
+
 def _exec(a):
-    """실제로 실행할 동작 = 전문가 동작 + DART 잡음 (위치·회전만)."""
-    if DART_SIGMA <= 0:
+    """실제로 실행할 동작 = 전문가 동작 + DART 잡음 (위치·회전만, 이동 구간에서만)."""
+    if DART_SIGMA <= 0 or PRECISE:
         return a
     b = a.copy()
     b[:6] = np.clip(b[:6] + _rng.normal(0, DART_SIGMA, 6), -1, 1)
@@ -65,6 +72,15 @@ def servo(ep, target_pos, target_mat, grip, max_steps=120, tol=0.008, vmax=0.5, 
     vmax: 한 스텝 최대 동작 크기 (1.0 = 5cm). 0.5 면 2.5cm/스텝 — 사람 팔 속도에 가깝다.
     목표에 가까울수록 비례해서 느려진다 (P 제어). 급정거·급출발이 없다.
     """
+    global PRECISE
+    prev, PRECISE = PRECISE, tol < 0.015
+    try:
+        return _servo_loop(ep, target_pos, target_mat, grip, max_steps, tol, vmax, record, phase)
+    finally:
+        PRECISE = prev
+
+
+def _servo_loop(ep, target_pos, target_mat, grip, max_steps, tol, vmax, record, phase):
     for _ in range(max_steps):
         pos = sx.eef_pos(ep.obs)
         dp = target_pos - pos
@@ -80,7 +96,16 @@ def servo(ep, target_pos, target_mat, grip, max_steps=120, tol=0.008, vmax=0.5, 
 
 
 def hold(ep, grip, n, record=None, phase="E"):
-    """제자리에서 그리퍼만 움직인다 (닫기·열기에 몇 스텝이 걸린다)."""
+    """제자리에서 그리퍼만 움직인다 (닫기·열기에 몇 스텝이 걸린다). 잡음 없음."""
+    global PRECISE
+    prev, PRECISE = PRECISE, True
+    try:
+        _hold_loop(ep, grip, n, record, phase)
+    finally:
+        PRECISE = prev
+
+
+def _hold_loop(ep, grip, n, record=None, phase="E"):
     for _ in range(n):
         a = np.array([0, 0, 0, 0, 0, 0, grip], dtype=np.float32)
         if record is not None:

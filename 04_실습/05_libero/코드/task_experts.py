@@ -22,6 +22,42 @@ from scipy.spatial.transform import Rotation
 import scripted_expert as se
 import switch_experiment as sx
 
+
+# ───────────────────────────────────────────────────────────────────────────
+# 2026-10-01: 손목 방향을 정할 때 평행 그리퍼의 대칭을 쓴다
+#   평행 그리퍼는 손끝 축으로 180도 돌려도 같은 모양이다. 목표 방향 M 과 M·Rz(180) 중
+#   **지금 손목에 가까운 쪽**을 고른다. 전환 상황에서 그릇을 쥔 뒤 손목이 목표와 180도 반대로
+#   시작하면, 먼 쪽으로 돌다가 관절 한계에 걸려 손이 손잡이까지 못 갔다 (A8→B0 0/10)
+# ───────────────────────────────────────────────────────────────────────────
+_RZ180 = Rotation.from_euler("z", 180, degrees=True).as_matrix()
+
+
+J7_LIMIT = 2.90        # 7번 관절(손을 빙글 돌리는 마지막 관절) 한계, 라디안
+J7_MARGIN = 0.90       # 손을 기울이는 회전도 7번 관절이 나눠 맡아서, 예측보다 더 돈다 (0.3 으로는 2.21 예측이 실제 2.90)
+
+
+def _j7(ep):
+    m, d = ep.inner.sim.model, ep.inner.sim.data
+    return float(d.qpos[m.jnt_qposadr[m.joint_name2id("robot0_joint7")]])
+
+
+def _aim(ep, mat):
+    """목표 방향 mat 과 180도 돌린 것 중 고른다.
+    ① 7번 관절이 한계(±2.9)에서 0.3 이상 여유가 남는 쪽 ② 그중 덜 도는 쪽.
+    손을 자기 축으로 돌린 만큼 7번 관절도 거의 같이 변한다 (+30도 → +27도, 실측).
+    처음엔 ②만 봤더니, 그릇을 집느라 이미 2.18 까지 돈 손목이 서랍을 열려고 더 돌다
+    한계 2.90 에 걸려 손잡이 1cm 앞에서 멈췄다 (A8→B0 0/10)."""
+    cur = ep.obs["robot_state"]["eef"]["mat"]
+    q7 = _j7(ep)
+    cands = []
+    for cand in (mat, mat @ _RZ180):
+        rel = Rotation.from_matrix(cur.T @ cand)
+        pred = q7 + rel.as_rotvec()[2]
+        ok = abs(pred) < J7_LIMIT - J7_MARGIN
+        cands.append((not ok, rel.magnitude(), abs(pred), cand))
+    cands.sort(key=lambda c: (c[0], c[1] if not c[0] else c[2]))
+    return cands[0][3]
+
 DRAWER = {
     "middle": {"handle": "wooden_cabinet_1_g29", "joint": "wooden_cabinet_1_middle_level",
                "euler": None, "euler_deg": [-128, 0, -177],
@@ -189,10 +225,23 @@ def _demo_mat(task, ep_idx, step):
     return Rotation.from_rotvec(d["rotvec"][step]).as_matrix()
 
 
+def rotate_staged(ep, target, record=None, n=4, lift=0.0):
+    """손 방향을 target 까지 n 단계로 나눠 돌린다 (그 자리에서, 필요하면 살짝 들고).
+    한 번에 150도 넘게 돌리면 로봇이 짧은 쪽으로 돌다 관절 한계에 걸릴 수 있다."""
+    cur = ep.obs["robot_state"]["eef"]["mat"].copy()
+    rel = Rotation.from_matrix(cur.T @ target).as_rotvec()
+    pos = sx.eef_pos(ep.obs) + [0, 0, lift]
+    for k in range(1, n + 1):
+        mk = cur @ Rotation.from_rotvec(rel * k / n).as_matrix()
+        se.servo(ep, pos, mk, -1.0, tol=0.02, vmax=0.5, max_steps=25, record=record)
+
+
 def open_middle_hook(ep, record=None, pull=0.15):
-    mat = _demo_mat(0, 102, 104)
+    mat = _aim(ep, _demo_mat(0, 102, 104))
     h = handle_pos(ep, "middle")
     se.hold(ep, -1.0, 3, record)
+    if Rotation.from_matrix(ep.obs["robot_state"]["eef"]["mat"].T @ mat).magnitude() > np.radians(90):
+        rotate_staged(ep, mat, record, lift=0.04)     # 전환 뒤처럼 손목이 많이 돌아가 있을 때
     here = sx.eef_pos(ep.obs)
     p1 = h + [-0.006, 0.05, 0.06]
     mid = (here + p1) / 2
@@ -284,7 +333,7 @@ def grasp_front(ep, obj, off, record=None, above=0.08, side_first=False):
 def open_top_to(ep, target, record=None, press=0.006, above=0.07):
     """위 서랍을 target(m)까지만 연다 — 서랍 위치를 보면서 도달하면 바로 누르기를 멈추고 손을 든다.
     그냥 당기면 미끄러져 14~16cm 까지 나가 T3 에서 손이 다시 막혔다 (30회 중 5회)."""
-    mat = ep.home[1].copy()
+    mat = _aim(ep, ep.home[1].copy())
     h = handle_pos(ep, "top")
     rel = np.array(PRESS["top"])
     se.hold(ep, -1.0, 3, record)
@@ -296,6 +345,7 @@ def open_top_to(ep, target, record=None, press=0.006, above=0.07):
     se.servo(ep, pre, mat, -1.0, tol=0.01, vmax=0.4, record=record)
     se.servo(ep, h + rel, mat, -1.0, tol=0.006, vmax=0.2, max_steps=60, record=record)
     g = h + rel - [0, 0, press]
+    se.PRECISE = True                 # 접촉 구간: DART 잡음 없음
     for _ in range(80):
         opened = -drawer_qpos(ep, "top")
         if opened >= target - 0.005:
@@ -305,6 +355,7 @@ def open_top_to(ep, target, record=None, press=0.006, above=0.07):
         if record is not None:
             record(ep.obs, a)
         ep.step(se._exec(a), "E")
+    se.PRECISE = False                # 접촉 구간 끝: 다시 잡음 허용
     # 손을 **똑바로 위로** 뺀다 (살짝 뒤로). 대각선으로 빼면 손끝이 막대를 한 번 더 끌어 14~16cm 까지 열렸다
     se.servo(ep, sx.eef_pos(ep.obs) + [0, -0.005, 0.05], mat, -1.0, tol=0.008, vmax=0.3, max_steps=30, record=record)
     return -drawer_qpos(ep, "top")
@@ -325,7 +376,7 @@ def body_pos(ep, name):
 
 def turn_on_stove(ep, record=None, turn_deg=60, above=0.08):
     """손목 40도로는 손잡이가 27~29도(0.47~0.51 rad)만 돌아 켜짐 기준(약 0.5)에 걸렸다 (7/20) → 60도."""
-    mat = ep.home[1].copy()
+    mat = _aim(ep, ep.home[1].copy())
     k = body_pos(ep, "flat_stove_1_button")
     g = k + STOVE_REL
     se.hold(ep, -1.0, 3, record)
@@ -375,6 +426,7 @@ def push_plate(ep, record=None, press=0.006, speed=0.8, tol=0.012, max_steps=160
     se.servo(ep, mid, mat, -1.0, tol=0.04, record=record)
     se.servo(ep, pre, mat, -1.0, tol=0.01, vmax=0.4, record=record)
     se.servo(ep, g - [0, 0, press], mat, -1.0, tol=0.006, vmax=0.25, max_steps=50, record=record)
+    se.PRECISE = True                 # 접촉 구간: DART 잡음 없음
     for _ in range(max_steps):
         p = ep.obj_pos("plate_1")
         err = goal[:2] - p[:2]
@@ -395,6 +447,7 @@ def push_plate(ep, record=None, press=0.006, speed=0.8, tol=0.012, max_steps=160
         if record is not None:
             record(ep.obs, a)
         ep.step(se._exec(a), "E")
+    se.PRECISE = False                # 접촉 구간 끝: 다시 잡음 허용
     se.servo(ep, sx.eef_pos(ep.obs) + [0, 0, 0.07], mat, -1.0, tol=0.02, max_steps=25, record=record)
 
 
@@ -403,7 +456,7 @@ def push_plate_regrip(ep, record=None, speed=1.0, lead=0.05, press=0.006, tol=0.
     """push_plate + **다시 잡기**: 접시가 15스텝 동안 3mm 도 안 움직이면 손을 들어
     남은 방향 쪽 안쪽 테두리(접시 중심에서 그 방향으로 4.5cm)에 다시 걸고 계속 끈다.
     (속도·간격만 조정해서는 26/30 에서 멈췄다 — 접시가 목표 6cm 앞에서 서는 경우)"""
-    mat = ep.home[1].copy()
+    mat = _aim(ep, ep.home[1].copy())
     goal = site_pos(ep, "main_table_stove_front_region")
     p0 = ep.obj_pos("plate_1")
     g = p0 + PLATE_REL
@@ -417,6 +470,7 @@ def push_plate_regrip(ep, record=None, speed=1.0, lead=0.05, press=0.006, tol=0.
     se.servo(ep, g - [0, 0, press], mat, -1.0, tol=0.006, vmax=0.25, max_steps=50, record=record)
     hist = []
     left = regrips
+    se.PRECISE = True                 # 접촉 구간: DART 잡음 없음
     for _ in range(max_steps):
         p = ep.obj_pos("plate_1")
         err = goal[:2] - p[:2]
@@ -444,6 +498,7 @@ def push_plate_regrip(ep, record=None, speed=1.0, lead=0.05, press=0.006, tol=0.
         if record is not None:
             record(ep.obs, a)
         ep.step(se._exec(a), "E")
+    se.PRECISE = False                # 접촉 구간 끝: 다시 잡음 허용
     se.servo(ep, sx.eef_pos(ep.obs) + [0, 0, 0.07], mat, -1.0, tol=0.02, max_steps=25, record=record)
 
 
@@ -455,7 +510,7 @@ CHEESE_REL = np.array([-0.010, -0.003, 0.002])
 
 
 def cheese_to_bowl(ep, record=None, above=0.10, drop_dz=0.06):
-    mat = ep.home[1].copy()
+    mat = _aim(ep, ep.home[1].copy())
     c = ep.obj_pos("cream_cheese_1")
     g = c + CHEESE_REL
     se.hold(ep, -1.0, 3, record)
@@ -498,10 +553,12 @@ def _eul(e):
 
 def grasp_wine(ep, record=None, back=0.08):
     w = ep.obj_pos("wine_bottle_1")
-    gm = _eul(WINE_GRASP_EUL)
+    gm = _aim(ep, _eul(WINE_GRASP_EUL))
     g = w + WINE_GRASP_REL
     approach = gm[:, 2]                         # 손끝이 향하는 방향
     se.hold(ep, -1.0, 3, record)
+    if Rotation.from_matrix(ep.obs["robot_state"]["eef"]["mat"].T @ gm).magnitude() > np.radians(90):
+        rotate_staged(ep, gm, record, lift=0.04)
     here = sx.eef_pos(ep.obs)
     pre = g - approach * back + [0, 0, 0.03]
     mid = (here + pre) / 2
@@ -519,10 +576,13 @@ def place_wine(ep, bottle_target, place_eul, record=None, above=0.08):
     """병이 bottle_target 에 오도록 손을 놓는다. 손−병 관계는 지금 실제로 잰 값(손 좌표계)."""
     Rh = ep.obs["robot_state"]["eef"]["mat"].copy()
     r = Rh.T @ (ep.obj_pos("wine_bottle_1") - sx.eef_pos(ep.obs))
-    Rt = _eul(place_eul)
+    Rt = _aim(ep, _eul(place_eul))
     hand_t = bottle_target - Rt @ r
     here = sx.eef_pos(ep.obs)
-    up = np.array([here[0], here[1], max(here[2], hand_t[2] + above)])
+    # 수직으로 먼저 올리지 않고 목적지 쪽으로 비스듬히 올라간다. 와인병 자리는 초기 자세 바로 아래라
+    # 수직으로 올리면 손이 초기 자세 7cm 안까지 들어갔다 (전환 뒤 와인병→선반 7cm 규칙에 걸려 1~2/10)
+    mid = here + 0.5 * (hand_t - here)
+    up = np.array([mid[0], mid[1], max(here[2], hand_t[2] + above)])
     se.servo(ep, up, Rh, 1.0, tol=0.02, vmax=0.4, record=record)
     se.servo(ep, hand_t + [0, 0, above], Rt, 1.0, tol=0.012, vmax=0.35, record=record)
     se.servo(ep, hand_t, Rt, 1.0, tol=0.006, vmax=0.2, max_steps=60, record=record)
@@ -552,7 +612,7 @@ def wine_to_cabinet(ep, record=None, drop=0.01):
 
 # T1·T4·T8 그릇 옮기기: 집기(grasp_obj) + 놓기(carry_place, 목적지는 원래 모델이 놓던 위치 실측값)
 def bowl_task(ep, task, record=None):
-    if not se.grasp_obj(ep, "akita_black_bowl_1", se.BOWL_GRASP_OFFSET, record=record):
+    if not grasp_bowl_safe(ep, record=record):
         return False
     se.carry_place(ep, se.bowl_place_target(ep, task), record=record)
     return True
@@ -570,3 +630,33 @@ EXPERT = {
     8: lambda ep, rec=None: bowl_task(ep, 8, rec),
     9: lambda ep, rec=None: wine_to_rack(ep, rec),
 }
+
+
+def grasp_bowl_safe(ep, obj="akita_black_bowl_1", off=None, record=None, above=0.08):
+    """se.grasp_obj 와 같지만 손목 방향을 고를 때 7번 관절 한계를 본다 (_aim), 많이 돌아야 하면 나눠 돌린다.
+    서랍을 열며 손목을 크게 돌려 둔 뒤 그릇을 다시 집을 때, 원래 방식은 손목이 한계 쪽으로 돌다
+    그릇에 못 갔다 (A8→B0 뒤 원래 일로 돌아가기 0/10)."""
+    off = se.BOWL_GRASP_OFFSET if off is None else off
+    down = ep.home[1].copy()
+    se.hold(ep, -1.0, 6, record)
+    cands = []
+    for g, gm in se.grasp_candidates(ep, obj, off, down):
+        gm2 = _aim(ep, gm)
+        rel = Rotation.from_matrix(ep.obs["robot_state"]["eef"]["mat"].T @ gm2)
+        pred = _j7(ep) + rel.as_rotvec()[2]
+        cands.append((abs(pred) > J7_LIMIT - J7_MARGIN, -round(g[2], 3), rel.magnitude(), g, gm2))
+    cands.sort(key=lambda c: c[:3])
+    for _, _, rot, g, gm in cands[:3]:
+        if rot > np.radians(90):
+            rotate_staged(ep, gm, record, lift=0.04)
+        if not se.servo(ep, g + [0, 0, above], gm, -1.0, tol=0.025, record=record):
+            continue
+        if not se.servo(ep, g, gm, -1.0, tol=0.008, vmax=0.3, record=record):
+            se.servo(ep, g + [0, 0, above], gm, -1.0, tol=0.03, max_steps=30, record=record)
+            continue
+        se.hold(ep, 1.0, 12, record)
+        z0 = ep.obj_pos(obj)[2]
+        se.servo(ep, g + [0, 0, 0.10], gm, 1.0, tol=0.02, record=record)
+        if ep.obj_pos(obj)[2] > z0 + 0.04:
+            return True
+    return False
