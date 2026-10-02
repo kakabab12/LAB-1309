@@ -69,7 +69,12 @@ def takeover(ep, task, rec, z_rest):
     te.EXPERT[task](ep, rec)
 
 
-def one(runner, task_a, task_b, i, out, rng, stats, max_policy=200):
+def reset_plan(ep, runner):
+    ep.plan, ep.exec_left, ep.plan_norm, ep.pending = np.zeros((0, 7)), 0, None, None
+    runner.policy.reset()
+
+
+def one(runner, task_a, task_b, i, out, rng, stats, max_policy=200, resume=False):
     ep = sx.Episode(runner, i)
     runner.policy.reset()
     z_rest = {o: ep.obj_pos(o)[2] for o in ("akita_black_bowl_1", "wine_bottle_1", "cream_cheese_1")}
@@ -81,8 +86,20 @@ def one(runner, task_a, task_b, i, out, rng, stats, max_policy=200):
             ep.env.close()
             return
         task, chk, tag = task_b, runner.chk_b, f"DS{task_a}{task_b}"
-        ep.plan, ep.exec_left, ep.plan_norm, ep.pending = np.zeros((0, 7)), 0, None, None
-        runner.policy.reset()
+        reset_plan(ep, runner)
+        if resume:                                       # 재개 구간: B 를 마친 뒤 원래 일로 돌아가는 동안
+            why, _ = ep.run_policy(runner.chk_b.language, "B", 300, runner.chk_b)
+            if why != "success":                         # 모델이 B 를 못 하면 선생이 B 를 마저 한다 (기록 안 함)
+                takeover(ep, task_b, None, z_rest)
+                if not settle(ep, runner.chk_b):
+                    stats["b_fail"] = stats.get("b_fail", 0) + 1
+                    ep.env.close()
+                    return
+            if chk_a(ep.env):                            # 원래 일이 이미 이뤄져 있으면 돌아갈 것이 없다
+                ep.env.close()
+                return
+            reset_plan(ep, runner)
+            task, chk, tag = task_a, chk_a, f"DR{task_a}{task_b}"
     k = int(rng.integers(10, max_policy))
     if run_policy_for(ep, runner, chk, k):               # 이미 성공 — 가르칠 것 없음
         stats["already"] += 1
@@ -92,6 +109,8 @@ def one(runner, task_a, task_b, i, out, rng, stats, max_policy=200):
     rec = ce.Rec()
     takeover(ep, task, rec, z_rest)
     ok = settle(ep, chk) and se.min_home_dist(ep, t0) >= 0.07
+    if resume and task_b is not None:
+        ok = ok and bool(runner.chk_b(ep.env))           # 원래 일로 돌아가며 B 를 망치면 안 된다
     stats["tried"] += 1
     if ok and len(rec) > 5:
         rec.save(out / f"{tag}_ep{i}_k{k}.npz", chk.language, source="dagger", takeover_step=k)
@@ -116,6 +135,8 @@ def main():
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--latency-steps", type=int, default=0, help="실제 로봇 조건: 추론 지연 (1080 Ti 11스텝)")
     p.add_argument("--max-policy", type=int, default=200)
+    p.add_argument("--resume", action="store_true",
+                   help="전환 쌍에서 B 를 마친 뒤 원래 일로 돌아가는 구간을 바로잡는다 (DR 파일)")
     p.add_argument("--out", required=True)
     a = p.parse_args()
     se.DART_SIGMA = a.dart
@@ -128,13 +149,14 @@ def main():
         ra = sx.default_args()
         ra.policy, ra.task_a, ra.task_b = a.policy, ta, tb
         ra.strategy = "flush" if tb is not None else "none"
+        ra.max_steps = 300
         ra.latency_steps = a.latency_steps
         runner = sx.Runner(ra)
         s0 = dict(stats)
         for i in ep_range(a.episodes):
             for _ in range(a.repeat):
                 torch.manual_seed(int(rng.integers(1 << 30)))
-                one(runner, ta, tb, i, out, rng, stats, a.max_policy)
+                one(runner, ta, tb, i, out, rng, stats, a.max_policy, a.resume)
         name = f"T{ta}" if tb is None else f"A{ta}→B{tb}"
         print(f"  == {name}: 저장 {stats['saved'] - s0['saved']}, 모델이 이미 성공 {stats['already'] - s0['already']}",
               flush=True)

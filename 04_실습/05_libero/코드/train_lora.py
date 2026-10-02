@@ -57,6 +57,10 @@ def parse_args():
     p.add_argument("--ema", type=float, default=0.0,
                    help="가중치 지수이동평균 (Diffusion Policy·π0 학습에서 쓰는 방식). 0.999 면 최근 ~1000번 갱신의 평균을 "
                         "저장·검증에 쓴다. 0 이면 끔")
+    p.add_argument("--renorm-action", action="store_true",
+                   help="동작 정규화 통계(평균·표준편차)를 학습 데이터에서 다시 잰다. 원래 값은 LIBERO 사람 시범 기준이라 "
+                        "선생 데이터에서는 위치 동작이 0.6배로 작고 손목 회전이 2배(최대 12.8배)로 커서, 학습이 위치 정밀도를 덜 본다")
+    p.add_argument("--vis-cache", default=None, help="vis_cache.py 로 미리 계산한 사진 특징 폴더 (학습 약 3배 빠름, 증강 없음)")
     p.add_argument("--steps", type=int, default=3000)
     p.add_argument("--batch-size", type=int, default=2)
     p.add_argument("--grad-accum", type=int, default=4)
@@ -92,13 +96,18 @@ def augment(img, rng):
 class ChunkDataset(Dataset):
     """(에피소드, 시점) → 이미지 2장 + 로봇 상태 + 앞으로 chunk_size 스텝의 동작."""
 
-    def __init__(self, files, chunk_size, aug=False):
+    def __init__(self, files, chunk_size, aug=False, vis_cache=None):
         self.aug = aug
         self.chunk = chunk_size
+        self.vis_cache = vis_cache
         self.eps, self.index = [], []
         for f in files:
             d = np.load(f, allow_pickle=True)
-            ep = {k: d[k] for k in ["img", "wrist", "eef_pos", "eef_quat", "grip", "action"]}
+            keys = ["eef_pos", "eef_quat", "grip", "action"] + ([] if vis_cache else ["img", "wrist"])
+            ep = {k: d[k] for k in keys}
+            if vis_cache:
+                import vis_cache as vc
+                ep["feat_path"] = str(vc.cache_path(vis_cache, f))
             ep["task"] = str(d["task"])
             ep["src"] = "normal" if (str(d["source"]) if "source" in d.files else "") == "normal" else "switch"
             self.eps.append(ep)
@@ -114,6 +123,12 @@ class ChunkDataset(Dataset):
         idx = np.clip(np.arange(t, t + self.chunk), 0, n - 1)
         actions = ep["action"][idx]
         is_pad = np.arange(t, t + self.chunk) >= n
+        if self.vis_cache:      # 미리 계산한 사진 특징 — 사진은 자리만 채운다
+            feats = np.array(np.load(ep["feat_path"], mmap_mode="r")[t])
+            dummy = np.zeros((8, 8, 3), dtype=np.uint8)
+            return {"img": dummy, "wrist": dummy, "feats": feats,
+                    "eef_pos": ep["eef_pos"][t], "eef_quat": ep["eef_quat"][t], "grip": ep["grip"][t],
+                    "action": actions.astype(np.float32), "is_pad": is_pad, "task": ep["task"]}
         img, wrist = decode(ep["img"][t]), decode(ep["wrist"][t])
         if self.aug:
             rng = np.random.default_rng()
@@ -136,6 +151,7 @@ def collate(items):
         "action": torch.from_numpy(np.stack([x["action"] for x in items])),
         "action_is_pad": torch.from_numpy(np.stack([x["is_pad"] for x in items])),
         "task": [x["task"] for x in items],
+        **({"feats": torch.from_numpy(np.stack([x["feats"] for x in items]))} if "feats" in items[0] else {}),
     }
 
 
@@ -188,6 +204,20 @@ class Trainer:
         print(f"LoRA 적용: r={self.a.lora_r}, 학습 파라미터 {tr / 1e6:.2f}M / 전체 {tot / 1e6:.1f}M "
               f"({100 * tr / tot:.2f}%)", flush=True)
 
+    def renorm_action(self, mean, std):
+        """전처리(정규화)·후처리(되돌리기) 양쪽의 동작 통계를 바꾼다. 저장하면 같이 저장된다."""
+        from lerobot.processor.converters import to_tensor
+        from lerobot.processor.normalize_processor import _NormalizationMixin
+        for pipe in (self.pre, self.post):
+            for st in pipe.steps:
+                if isinstance(st, _NormalizationMixin) and "action" in (st.stats or {}):
+                    old = {k: np.asarray(v).round(4).tolist() for k, v in st.stats["action"].items() if k in ("mean", "std")}
+                    st.stats["action"]["mean"] = np.asarray(mean, dtype=np.float32)
+                    st.stats["action"]["std"] = np.asarray(std, dtype=np.float32)
+                    st._tensor_stats = to_tensor(st.stats, device=st.device, dtype=st.dtype)
+        print(f"동작 정규화 다시 잼: 원래 {old} → 평균 {np.round(mean, 4).tolist()}, 표준편차 {np.round(std, 4).tolist()}",
+              flush=True)
+
     def batch_to_model(self, batch):
         b = preprocess_observation({"pixels": batch["pixels"], "robot_state": batch["robot_state"]})
         b["task"] = batch["task"]
@@ -198,7 +228,12 @@ class Trainer:
         return b
 
     def loss(self, batch):
-        loss, _ = self.policy(self.batch_to_model(batch))  # (loss, loss_dict)
+        bm = self.batch_to_model(batch)
+        if "feats" in batch:
+            import vis_cache as vc
+            f = batch["feats"].to(self.device)
+            vc.STATE["feats"] = [f[:, 0], f[:, 1]]
+        loss, _ = self.policy(bm)  # (loss, loss_dict)
         return loss
 
     def run(self):
@@ -212,9 +247,18 @@ class Trainer:
         n_val = max(1, int(len(files) * a.val_frac))
         val_files, train_files = files[:n_val], files[n_val:]
         chunk = self.chunk_size
-        train_ds, val_ds = ChunkDataset(train_files, chunk, aug=a.aug), ChunkDataset(val_files, chunk)
+        vcache = getattr(a, "vis_cache", None)
+        if vcache:
+            import vis_cache as vc
+            vc.install(self.policy)
+            print(f"사진 특징 미리 계산본 사용: {vcache} (사진 증강 없음)", flush=True)
+        train_ds = ChunkDataset(train_files, chunk, aug=a.aug and not vcache, vis_cache=vcache)
+        val_ds = ChunkDataset(val_files, chunk, vis_cache=vcache)
         print(f"에피소드 학습 {len(train_files)} / 검증 {len(val_files)}, "
               f"프레임 {len(train_ds)} / {len(val_ds)}", flush=True)
+        if getattr(a, "renorm_action", False):
+            acts = np.concatenate([ep["action"] for ep in train_ds.eps]).astype(np.float64)
+            self.renorm_action(acts.mean(0), acts.std(0) + 1e-4)
         sampler = None
         if a.balance:
             from collections import Counter

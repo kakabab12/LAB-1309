@@ -10,14 +10,30 @@ forget(){ local pol=$1 out=$2 ev=$3; shift 3; for t in "$@"; do $PY switch_exper
 switch(){ local pol=$1 out=$2 ev=$3 st=$4; shift 4; for p in "$@"; do $PY switch_experiment.py --policy $pol --task-a ${p%:*} --task-b ${p#*:} --switch-at grasp:3 --strategy $st $ev --out $out 2>&1 | grep -E "$F"; done; }
 PAIRS="8:0 8:3 8:5 8:7 8:9 4:5 4:9 1:7 8:1 8:4 1:8 4:1"
 
-while busy; do sleep 60; done
+dagger(){ ps -eo comm,args | awk '$1=="python" && /dagger_v6\.py/' | grep -q .; }
+while dagger; do sleep 60; done
+sleep 120                                             # 재개 DAgger(run_dagger_resume.sh)가 먼저 뜨게
 log "DAgger 끝: $(ls data/v6_dagger_lat/episodes | wc -l) 시범"
+
+log "[0] A2C2 시험 (v6b 위에, 작게): 효과가 있는지 v6c 전에 먼저 본다"
+$PY a2c2.py gen --policy outputs/v6b_model/merged --data data/v6_normal data/v6_switch data/v6_dagger_lat \
+  --frac 0.15 --stride 16 --batch 8 --out data/a2c2_v6b 2>&1 | grep -E "끝|Traceback|Error"
+$PY a2c2.py train --gen data/a2c2_v6b --out outputs/a2c2_v6b --steps 8000 --batch 64 --workers 4 --eval-every 1000 2>&1 \
+  | grep --line-buffered -E '보정 네트워크|"step"|Traceback|Error'
+gpu_n(){ ps -eo comm,args | awk '$1=="python" && /switch_experiment\.py|dagger_v6\.py|a2c2\.py|train_lora\.py/' | wc -l; }
+while [ "$(gpu_n)" -gt 2 ]; do sleep 60; done      # GPU 프로세스 4개를 넘기지 않는다
+EVP="--episodes 10 --start-episode 20 --latency-steps 11 --a2c2 outputs/a2c2_v6b"
+( forget outputs/v6b_model/merged outputs/v6ba_forget "$EVP" 1 4 8 ) &
+( switch outputs/v6b_model/merged outputs/v6ba_switch "$EVP" flush 8:5 8:7 ) &
+wait
+log "A2C2 시험 끝"
+while busy; do sleep 60; done
 
 log "[1] v6c 학습 (v6b에서 이어서 24000스텝)"
 $PY train_lora.py --policy outputs/v6b_model/merged --data data/v6_normal data/v6_switch data/v6_dagger_lat \
-  --full-expert --aug --balance --workers 0 --rtc-max-delay 14 --ema 0.999 \
+  --full-expert --aug --balance --workers 0 --rtc-max-delay 14 --ema 0.999 --renorm-action \
   --steps 24000 --batch-size 4 --grad-accum 2 --lr 3e-5 --eval-every 3000 --save-every 6000 --log-every 500 \
-  --out outputs/v6c_model 2>&1 | grep --line-buffered -E '지연 흉내|에피소드 학습|val_loss|모델 저장|Traceback|Error'
+  --out outputs/v6c_model 2>&1 | grep --line-buffered -E '지연 흉내|정규화 다시|에피소드 학습|val_loss|모델 저장|Traceback|Error'
 POL=outputs/v6c_model/merged
 [ -f $POL/model.safetensors ] || { log "v6c 모델이 없다 — 멈춤"; exit 1; }
 
