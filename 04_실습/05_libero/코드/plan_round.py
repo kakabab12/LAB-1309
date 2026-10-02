@@ -39,7 +39,8 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--base", default="v6clat")
     p.add_argument("--a2c2", default="v6ca")
-    p.add_argument("--log", default="outputs/v6/run_v6c.log")
+    p.add_argument("--log", default="outputs/v6/run_v6c_post.log")
+    p.add_argument("--posrot", default=None, help="그리퍼 보정을 끈 평가 폴더 (기본: <a2c2>_posrot)")
     p.add_argument("--target", type=float, default=0.95)
     a = p.parse_args()
     out = {}
@@ -52,10 +53,11 @@ def main():
     out["USE_A2C2"] = "1" if common and ma >= mb else "0"
     out["MEAN_BASE"], out["MEAN_A2C2"] = f"{mb:.3f}", f"{ma:.3f}"
     # 보정 차원
-    b7_all = rate(["outputs/v6ba_switch"], "A8_B7_*", "b_success")
-    b7_pr = rate(["outputs/v6ba_posrot"], "A8_B7_*", "b_success")
-    t8_all = rate(["outputs/v6ba_forget"], "A8_Bnone_*", "a_success")
-    t8_pr = rate(["outputs/v6ba_posrot"], "A8_Bnone_*", "a_success")
+    pr = a.posrot or f"outputs/{a.a2c2}_posrot"
+    b7_all = rate([f"outputs/{a.a2c2}_switch"], "A8_B7_*", "b_success")
+    b7_pr = rate([pr], "A8_B7_*", "b_success")
+    t8_all = rate([f"outputs/{a.a2c2}_forget"], "A8_Bnone_*", "a_success")
+    t8_pr = rate([pr], "A8_Bnone_*", "a_success")
     dims = "all"
     if b7_pr[1] and t8_pr[1] and b7_pr[0] - b7_all[0] >= 2 and t8_pr[0] >= t8_all[0] - 1:
         dims = "posrot"

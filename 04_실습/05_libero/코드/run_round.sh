@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 한 라운드: 95% 미만 항목 DAgger(실제 배치 설정 그대로) → 다음 모델 학습 → A2C2 → 28개 항목 평가 (2026-10-02)
 #   ./run_round.sh PREV NEXT EVALPREFIX_BASE EVALPREFIX_A2C2 A2C2DIR_PREV
-#   예: ./run_round.sh v6c v6d v6clat v6ca outputs/a2c2_v6c
+#   예: ./run_round.sh v6c v6d v6ch v6cah outputs/a2c2_v6c   (평가는 학습에 안 쓴 새 배치, 장면 1000번대)
 # GPU 프로세스 4개, 메모리: 학습은 혼자.
 set -u
 cd "$(dirname "$0")"
@@ -11,7 +11,7 @@ F='SUMMARY|Traceback|Error'
 log(){ echo "=== $(date +%m/%d\ %H:%M) $*"; }
 gpu_n(){ ps -eo comm,args | awk '$1=="python" && /switch_experiment\.py|dagger_v6\.py|a2c2\.py|train_lora\.py|teacher_audit\.py/' | wc -l; }
 
-eval "$($PY plan_round.py --base $EB --a2c2 $EA)"
+eval "$($PY plan_round.py --base $EB --a2c2 $EA --log outputs/v6/run_v6c_post.log)"
 log "설정: n_act=$NA, A2C2 사용=$USE_A2C2 (평균 $MEAN_BASE → $MEAN_A2C2), 보정 차원=$DIMS"
 log "95% 미만: 단독 [$TASKS] 전환 [$PAIRS] 재개 [$RESUME]"
 POL=outputs/${PREV}_model/merged
@@ -47,21 +47,21 @@ NPOL=outputs/${NEXT}_model/merged
 [ -f $NPOL/model.safetensors ] || { log "$NEXT 모델이 없다 — 멈춤"; exit 1; }
 
 log "[3] A2C2 데이터 ($NEXT) + $NEXT 혼자 평가"
-EV="--episodes 10 --start-episode 20 --latency-steps 11 --ttrtc --n-action-steps $NA"
+EV="--episodes 10 --start-episode 1000 --latency-steps 11 --ttrtc --n-action-steps $NA"   # 학습에 안 쓴 새 배치
 ( $PY a2c2.py gen --policy $NPOL --ttrtc --data $DATA --frac 0.5 --stride 16 --batch 8 --out data/a2c2_$NEXT 2>&1 | grep -E "끝|Traceback|Error" ) &
-( for t in 0 1 2 3 4 5 6 7 8 9; do $PY switch_experiment.py --policy $NPOL --task-a $t --strategy none $EV --out outputs/${NEXT}lat_forget 2>&1 | grep -E "$F"; done ) &
-( for p in 8:0 8:3 8:5 8:7 8:9 4:5 4:9 1:7 8:1 8:4 1:8 4:1; do $PY switch_experiment.py --policy $NPOL --task-a ${p%:*} --task-b ${p#*:} --switch-at grasp:3 --strategy keep $EV --out outputs/${NEXT}lat_switch 2>&1 | grep -E "$F"; done ) &
+( for t in 0 1 2 3 4 5 6 7 8 9; do $PY switch_experiment.py --policy $NPOL --task-a $t --strategy none $EV --out outputs/${NEXT}h_forget 2>&1 | grep -E "$F"; done ) &
+( for p in 8:0 8:3 8:5 8:7 8:9 4:5 4:9 1:7 8:1 8:4 1:8 4:1; do $PY switch_experiment.py --policy $NPOL --task-a ${p%:*} --task-b ${p#*:} --switch-at grasp:3 --strategy keep $EV --out outputs/${NEXT}h_switch 2>&1 | grep -E "$F"; done ) &
 wait
 log "[4] A2C2 학습"
 $PY a2c2.py train --gen data/a2c2_$NEXT --out outputs/a2c2_$NEXT --steps 30000 --batch 64 --workers 4 2>&1 \
   | grep --line-buffered -E '보정 네트워크|"step": [0-9]*0000,|저장|Traceback|Error'
 log "[5] $NEXT + A2C2 평가"
 EVA="$EV --a2c2 outputs/a2c2_$NEXT --a2c2-dims $DIMS"
-( for t in 0 1 2 3 4 5 6 7 8 9; do $PY switch_experiment.py --policy $NPOL --task-a $t --strategy none $EVA --out outputs/${NEXT}a_forget 2>&1 | grep -E "$F"; done ) &
-( for p in 8:0 8:3 8:5 8:7 8:9 4:5; do $PY switch_experiment.py --policy $NPOL --task-a ${p%:*} --task-b ${p#*:} --switch-at grasp:3 --strategy keep $EVA --out outputs/${NEXT}a_switch 2>&1 | grep -E "$F"; done ) &
-( for p in 4:9 1:7 8:1 8:4 1:8 4:1; do $PY switch_experiment.py --policy $NPOL --task-a ${p%:*} --task-b ${p#*:} --switch-at grasp:3 --strategy keep $EVA --out outputs/${NEXT}a_switch 2>&1 | grep -E "$F"; done ) &
+( for t in 0 1 2 3 4 5 6 7 8 9; do $PY switch_experiment.py --policy $NPOL --task-a $t --strategy none $EVA --out outputs/${NEXT}ah_forget 2>&1 | grep -E "$F"; done ) &
+( for p in 8:0 8:3 8:5 8:7 8:9 4:5; do $PY switch_experiment.py --policy $NPOL --task-a ${p%:*} --task-b ${p#*:} --switch-at grasp:3 --strategy keep $EVA --out outputs/${NEXT}ah_switch 2>&1 | grep -E "$F"; done ) &
+( for p in 4:9 1:7 8:1 8:4 1:8 4:1; do $PY switch_experiment.py --policy $NPOL --task-a ${p%:*} --task-b ${p#*:} --switch-at grasp:3 --strategy keep $EVA --out outputs/${NEXT}ah_switch 2>&1 | grep -E "$F"; done ) &
 wait
-for X in ${NEXT}lat ${NEXT}a; do
+for X in ${NEXT}h ${NEXT}ah; do
   $PY scoreboard.py --forget outputs/${X}_forget --switch outputs/${X}_switch --name "$X 지연11" --png outputs/media/score_$X.png \
     --md outputs/v6/score_$X.md | tail -1
 done

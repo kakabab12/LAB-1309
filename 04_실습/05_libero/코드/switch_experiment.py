@@ -74,6 +74,7 @@ DT = 1 / 20  # LIBERO control_freq = 20Hz
 GRIPPER_OPEN_QPOS = 0.035  # 손가락 qpos 가 이보다 작으면 닫힘
 HOLD_DIST = 0.10  # 그리퍼 닫힘 + 끝단에서 이 거리(m) 이내의 물체 → 잡고 있다고 판정
 POS_SCALE, ROT_SCALE = 0.05, 0.5  # OSC_POSE delta 액션 1.0 당 이동(m) / 회전(rad)
+HELDOUT_FROM = 1000  # 이 번호부터는 학습에 안 쓴 무작위 배치 (평가 전용)
 COLORS = {"A": (60, 120, 255), "B": (255, 150, 30), "A2": (40, 200, 90), "R": (160, 160, 160)}
 
 
@@ -234,8 +235,12 @@ class Episode:
     def __init__(self, runner, ep_idx):
         a = runner.args
         self.r, self.a = runner, a
+        # ⚠️ 2026-10-02: LIBERO 는 고정 시작 장면 50개를 episode_index % 50 으로 고른다. 그래서 장면 70~99 는
+        # 평가 장면 20~49 와 배치가 똑같고, 학습 데이터(장면 0~19, 50~139)에 평가 배치가 들어가 있었다.
+        # 장면 번호 1000 이상은 고정 장면을 쓰지 않고 같은 규칙으로 물체를 무작위로 놓는다 (번호가 같으면 같은 배치).
+        # 학습에 한 번도 안 쓴 배치라 평가는 1000번대로 한다.
         self.env = LiberoEnv(task_suite=runner.suite, task_id=a.task_a, task_suite_name=SUITE,
-                             obs_type="pixels_agent_pos", episode_index=ep_idx)
+                             obs_type="pixels_agent_pos", episode_index=ep_idx, init_states=ep_idx < HELDOUT_FROM)
         torch.manual_seed(a.seed + ep_idx)
         self.obs, _ = self.env.reset(seed=a.seed + ep_idx)
         self.inner = self.env._env.env
