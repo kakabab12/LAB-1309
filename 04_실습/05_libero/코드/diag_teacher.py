@@ -28,14 +28,19 @@ def main():
     p.add_argument("--gif", action="store_true")
     p.add_argument("--plate2", action="store_true")
     p.add_argument("--plate3", action="store_true")
+    p.add_argument("--piper", action="store_true", help="PiPER 장면 (piper_sim)")
     a = p.parse_args()
     se.DART_SIGMA = 0.0
+    if a.piper:
+        import piper_sim.piper_robot as pr
+        pr.use_piper_in_lerobot()
     if a.plate3:
         te.EXPERT[5] = lambda ep, rec=None: te.push_plate_v3(ep, rec)
     if a.plate2:
         te.EXPERT[5] = lambda ep, rec=None: te.push_plate_regrip2(ep, rec)
     r = so.SimRunner(a.task)
     r.args.video = a.gif
+    sx.COLORS.setdefault("E", (150, 80, 200))
     for i in a.episodes:
         ep = sx.Episode(r, i)
         ep.inner.horizon = 4000
@@ -44,6 +49,15 @@ def main():
             info["drawer_start_cm"] = round(100 * te.drawer_qpos(ep, "top"), 1)
             info["bowl_start"] = np.round(100 * ep.obj_pos("akita_black_bowl_1"), 1).tolist()
             info["bowl_minus_handle_y_cm"] = round(100 * (ep.obj_pos("akita_black_bowl_1") - te.handle_pos(ep, "top"))[1], 1)
+        if a.task in (2, 9):
+            info["wine_start"] = np.round(100 * ep.obj_pos("wine_bottle_1"), 1).tolist()
+            orig2 = ep.step
+            wtrace = []
+
+            def step2(act, phase):
+                orig2(act, phase)
+                wtrace.append(np.r_[ep.obj_pos("wine_bottle_1"), sx.eef_pos(ep.obs), ep.obs["robot_state"]["gripper"]["qpos"][0]])
+            ep.step = step2
         if a.task == 5:
             info["plate_start"] = np.round(100 * ep.obj_pos("plate_1"), 1).tolist()
         if a.task == 5:                          # 접시가 움직인 길을 같이 남긴다
@@ -57,6 +71,9 @@ def main():
         te.EXPERT[a.task](ep, None)
         ok = settle(ep, r.chk_a)
         info["ok"] = bool(ok)
+        if a.task == 0:
+            info["drawer_mid_cm"] = round(-100 * te.drawer_qpos(ep, "middle"), 1)
+            info["hand_end"] = np.round(100 * sx.eef_pos(ep.obs), 1).tolist()
         if a.task == 3:
             c = te.region_pos(ep, "wooden_cabinet_1_top_region")
             b = ep.obj_pos("akita_black_bowl_1")
@@ -95,11 +112,27 @@ def main():
             reg = st.get("main_table_stove_front_region")
             if reg is not None and hasattr(reg, "size"):
                 info["region_size_cm"] = np.round(100 * np.array(reg.size), 1).tolist()
+        if a.task in (2, 9):
+            w = ep.obj_pos("wine_bottle_1")
+            tgt = te.site_pos(ep, "wooden_cabinet_1_top_side") if a.task == 2 else None
+            tilt = float(np.degrees(np.arccos(np.clip(se.obj_rot(ep, "wine_bottle_1").apply([0, 0, 1])[2], -1, 1))))
+            wt = np.array(wtrace)
+            info["wine_end"] = np.round(100 * w, 1).tolist()
+            if tgt is not None:
+                info["wine_minus_top_cm"] = np.round(100 * (w - tgt), 1).tolist()
+            info["wine_tilt_deg"] = round(tilt, 1)
+            info["wine_max_z_cm"] = round(100 * float(wt[:, 2].max()), 1)
+            lifted = np.where(wt[:, 2] > wt[0, 2] + 0.03)[0]
+            info["lift_step"] = int(lifted[0]) if len(lifted) else None
+            rel = np.where(wt[:, 6] > 0.033)[0]          # PiPER 는 다 벌려도 0.035
+            info["release_step"] = int(rel[-1]) if len(lifted) and len(rel) else None
+            info["wine_z_every40"] = [round(100 * x, 1) for x in wt[::40, 2]]
         info["steps"] = len(ep.log["pos"])
         print(f"T{a.task} ep{i}:", info, flush=True)
         if a.gif and ep.frames:
-            fr = [Image.fromarray(np.asarray(f)).resize((384, 192)) for f in ep.frames[::4]]
-            fr[0].save(f"outputs/media/teacher_T{a.task}_ep{i}.gif", save_all=True, append_images=fr[1:], duration=120, loop=0)
+            fr = [Image.fromarray(np.asarray(f)).resize((512, 256)) for f in ep.frames[::4]]
+            tag = "piper_" if a.piper else ""
+            fr[0].save(f"outputs/media/teacher_{tag}T{a.task}_ep{i}.gif", save_all=True, append_images=fr[1:], duration=120, loop=0)
         ep.env.close()
 
 

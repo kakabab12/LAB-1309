@@ -90,7 +90,7 @@ def servo(ep, target_pos, target_mat, grip, max_steps=120, tol=0.008, vmax=0.5, 
 #   재개 A4→B9 에서 와인 선반 → 그릇으로 곧장 가는 길이 초기 자세 5.6~6.9cm 안을 지나 7cm 제약에 걸렸다
 #   (평가 장면 20~49 중 7번, A1→B7 재개 2번). 이동 구간(허용 오차 1.5cm 이상)에서만, 직선이 초기 자세
 #   HOME_AVOID 안을 지나면 그 바깥 한 점을 거쳐 간다. 잡기·놓기 같은 정밀 구간에는 쓰지 않는다.
-HOME_AVOID = 0.12
+HOME_AVOID = 0.085   # 10/3: 0.12 는 너무 넓어 와인병(처음 자세 바로 아래)을 들어 올리다 막혔다 (새 배치 T2 90/100)
 
 
 def _keep_off_home(ep, pos, v, margin=0.02):
@@ -103,9 +103,18 @@ def _keep_off_home(ep, pos, v, margin=0.02):
     if dist >= HOME_AVOID + margin or dist < 1e-6:
         return v
     n = r / dist
+    v0 = np.linalg.norm(v)
     radial = float(v @ n)
     if radial < 0:
         v = v - radial * n                              # 안쪽으로 들어가는 성분 제거 → 바깥을 따라 미끄러짐
+        if np.linalg.norm(v) < 0.3 * v0:               # 목표가 처음 자세 뒤쪽이라 거의 멈추면: 옆·위로 비켜 간다 (10/3)
+            t = np.cross(n, [0.0, 0.0, 1.0])
+            if np.linalg.norm(t) < 1e-3:
+                t = np.array([1.0, 0.0, 0.0])
+            t = t / np.linalg.norm(t)
+            up = np.array([0.0, 0.0, 1.0]) - n[2] * n    # 구면을 따라 위로
+            esc = t + (up / (np.linalg.norm(up) + 1e-6))
+            v = v + esc / (np.linalg.norm(esc) + 1e-6) * 0.5 * v0
     push = (HOME_AVOID + margin - dist) / sx.POS_SCALE  # 안쪽에 있으면 바깥으로
     return np.clip(v + n * min(push, 0.3), -1, 1)
 
@@ -249,7 +258,21 @@ def bowl_place_target(ep, task):
     if task == 8:
         p = ep.obj_pos("plate_1")
         return np.array([p[0], p[1], 0.911])   # 접시 위 그릇 높이 (실측 91.1cm)
+    if task == 4 and _is_piper(ep):
+        # PiPER 장면은 캐비닛을 옮겼다 (10/3). 고정 좌표(Panda 장면)면 앞 모서리에 놓여 떨어졌다 (0/10) →
+        # 캐비닛 윗면 영역에서 읽고, 가운데보다 로봇 쪽 4cm (손이 덜 뻗게)
+        m, d = ep.inner.sim.model, ep.inner.sim.data
+        c = np.array(d.site_xpos[m.site_name2id("wooden_cabinet_1_top_side")])
+        return np.array([c[0] - 0.04, c[1], c[2] + 0.003])
     return BOWL_PLACE[task]
+
+
+def _is_piper(ep):
+    try:
+        ep.inner.sim.model.joint_name2id("robot0_joint7")
+        return False
+    except Exception:
+        return True
 
 
 def grasp_obj(ep, obj, off, record=None, above=0.08):
@@ -301,6 +324,25 @@ def carry_place(ep, P, record=None, above=0.10, obj="akita_black_bowl_1"):
     mat = ep.obs["robot_state"]["eef"]["mat"].copy()   # 쥔 방향 그대로 (그릇이 기울지 않게)
     rel = hand0 - ep.obj_pos(obj)                     # 지금 실제 손−그릇 관계
     tgt = P + rel + [0, 0, 0.015]
+    if _is_piper(ep):
+        # PiPER (10/3): 밑동 가까이에서 손을 똑바로 높이 올리면 팔이 접히는 한계(3번 관절)에 걸려 손이 30cm
+        # 앞으로 튀었다 (캐비닛 위 0/10). 목표 쪽으로 나아가며 닿는 높이로 올라가 위에서 내려놓는다
+        import piper_sim.ik as pik
+        # 그릇은 수평만 유지되면 되므로 그릇 중심을 지나는 수직축으로 손을 돌린 자세(30° 간격)도 후보.
+        # 쥔 손이 로봇 쪽으로 18° 기울어 있으면 캐비닛 위에서 그 방향으로는 손이 닿지 않았다
+        ab = min(above, 0.06)
+        best = None
+        for psi in range(0, 360, 30):
+            Rz = Rotation.from_euler("z", psi, degrees=True).as_matrix()
+            t, M = P + Rz @ rel + [0, 0, 0.015], Rz @ mat
+            zs = max(hand0[2], t[2] + 0.02)
+            b = pik.plan_branch(ep, [np.array([t[0], t[1], max(zs, t[2] + ab)]), t + [0, 0, ab], t], [M], n_seeds=4)
+            if b is not None and (best is None or b[0] > best[0] + np.radians(2)):
+                best = (b[0], t, M, zs)
+        if best is not None and pik.transit(ep, best[1], best[2], 1.0, best[3], record=record, above=ab, tol=0.008):
+            hold(ep, -1.0, 10, record)
+            servo(ep, sx.eef_pos(ep.obs) + [0, 0, 0.06], best[2], -1.0, max_steps=20, record=record)
+            return
     # ① 들어 올리며 목적지 쪽으로. 높은 목적지(찬장 위 113cm)는 모서리에 걸리지 않게 먼저 충분히 올린다
     lift_z = max(hand0[2], tgt[2]) + above
     servo(ep, np.array([hand0[0], hand0[1], lift_z]), mat, 1.0, tol=0.03, record=record)
