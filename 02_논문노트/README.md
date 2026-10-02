@@ -13,6 +13,7 @@
 - [x] **[지연과 정밀도 논문 조사](지연과_정밀도_논문조사.md)** (2026-10-02) Training-Time RTC, A2C2, VLASH 등 11편, 적용 순서
 - [x] **[Training-Time RTC](Training-Time-RTC.md)** 학습 때 지연 흉내내기 — `ttrtc.py` 로 구현
 - [x] **[A2C2](A2C2.md)** 매 스텝 보정 네트워크 — `a2c2.py` 로 구현
+- [x] **[실물 실험 물체 조사](실물실험_물체_조사.md)** (2026-10-03) SwitchVLA, Causeway, PiPER 논문들이 쓴 물체
 
 ### VLA 기본
 - [ ] RT-1
