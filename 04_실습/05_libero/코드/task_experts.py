@@ -514,6 +514,20 @@ def push_plate_regrip(ep, record=None, speed=1.0, lead=0.05, press=0.006, tol=0.
 CHEESE_REL = np.array([-0.010, -0.003, 0.002])
 
 
+def cheese_carry_to_bowl(ep, record=None, drop_dz=0.06):
+    """이미 쥔 치즈를 놓지 않고 그릇 위로 옮겨 떨어뜨린다 (DAgger 넘겨받기용, 10/2)."""
+    mat = _aim(ep, ep.home[1].copy())
+    se.hold(ep, 1.0, 4, record)
+    se.servo(ep, sx.eef_pos(ep.obs) + [0, 0, 0.06], mat, 1.0, tol=0.02, vmax=0.4, max_steps=30, record=record)
+    rel = sx.eef_pos(ep.obs) - ep.obj_pos("cream_cheese_1")
+    b = ep.obj_pos("akita_black_bowl_1")
+    se.servo(ep, b + rel + [0, 0, drop_dz + 0.06], mat, 1.0, tol=0.015, vmax=0.4, record=record)
+    se.servo(ep, b + rel + [0, 0, drop_dz], mat, 1.0, tol=0.008, vmax=0.25, record=record)
+    se.hold(ep, -1.0, 8, record)
+    se.servo(ep, sx.eef_pos(ep.obs) + [0, 0, 0.07], mat, -1.0, tol=0.02, max_steps=25, record=record)
+    return True
+
+
 def cheese_to_bowl(ep, record=None, above=0.10, drop_dz=0.06):
     mat = _aim(ep, ep.home[1].copy())
     c = ep.obj_pos("cream_cheese_1")

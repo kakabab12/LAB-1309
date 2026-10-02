@@ -11,7 +11,7 @@ F='SUMMARY|Traceback|Error'
 log(){ echo "=== $(date +%m/%d\ %H:%M) $*"; }
 gpu_n(){ ps -eo comm,args | awk '$1=="python" && /switch_experiment\.py|dagger_v6\.py|a2c2\.py|train_lora\.py|teacher_audit\.py/' | wc -l; }
 
-eval "$($PY plan_round.py --base $EB --a2c2 $EA --log outputs/v6/run_v6c_post.log)"
+eval "$($PY plan_round.py --base $EB --a2c2 $EA --log outputs/v6/run_post_${PREV}.log)"
 log "설정: n_act=$NA, A2C2 사용=$USE_A2C2 (평균 $MEAN_BASE → $MEAN_A2C2), 보정 차원=$DIMS"
 log "95% 미만: 단독 [$TASKS] 전환 [$PAIRS] 재개 [$RESUME]"
 POL=outputs/${PREV}_model/merged
@@ -45,6 +45,10 @@ $PY train_lora.py --policy $POL --data $DATA --full-expert --aug --balance --dag
   --out outputs/${NEXT}_model 2>&1 | grep --line-buffered -E '지연 흉내|교정 시범 비율|에피소드 학습|val_loss|모델 저장|Traceback|Error'
 NPOL=outputs/${NEXT}_model/merged
 [ -f $NPOL/model.safetensors ] || { log "$NEXT 모델이 없다 — 멈춤"; exit 1; }
+SAN=$($PY switch_experiment.py --policy $NPOL --task-a 8 --strategy none --episodes 5 --start-episode 0 --out outputs/${NEXT}_sanity 2>&1 \
+  | grep SUMMARY | sed -E 's/.*"a_success_rate": ([0-9.]+).*/\1/')
+log "쉬운 점검 T8 (학습 배치, 지연 없음, 5장면): $SAN"
+python3 -c "import sys; sys.exit(0 if float('${SAN:-0}') >= 0.4 else 1)" || { log "점검 실패 — 멈춤"; exit 1; }
 
 log "[3] A2C2 데이터 ($NEXT) + $NEXT 혼자 평가"
 EV="--episodes 10 --start-episode 1000 --latency-steps 11 --ttrtc --n-action-steps $NA"   # 학습에 안 쓴 새 배치

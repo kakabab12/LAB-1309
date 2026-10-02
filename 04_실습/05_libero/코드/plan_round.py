@@ -44,7 +44,11 @@ def main():
     p.add_argument("--target", type=float, default=0.95)
     a = p.parse_args()
     out = {}
-    m = re.findall(r"n_act (\d+) 로 정식 평가", Path(a.log).read_text()) if Path(a.log).exists() else []
+    logs = [Path(a.log)] if Path(a.log).exists() else []
+    logs += sorted(Path("outputs/v6").glob("run_post_*.log"), key=lambda x: x.stat().st_mtime)
+    m = []
+    for lg in logs:                                    # 가장 최근에 정한 계산 간격
+        m += re.findall(r"n_act (\d+) 로 정식 평가", lg.read_text())
     out["NA"] = m[-1] if m else "10"
     rb, ra = rows(a.base), rows(a.a2c2)
     common = [(x, y) for x, y in zip(rb, ra) if x[4] and y[4]]

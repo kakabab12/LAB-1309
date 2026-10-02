@@ -72,6 +72,9 @@ def takeover(ep, task, rec, z_rest):
         se.hold(ep, 1.0, 4, rec)
         ok, _ = se.redirect(ep, task, record=rec)
         return
+    elif held == "cream_cheese_1" and task == 6:
+        te.cheese_carry_to_bowl(ep, rec)
+        return
     elif held == "wine_bottle_1" and task in sv.WINE_DST:
         se.hold(ep, 1.0, 4, rec)
         m, d = ep.inner.sim.model, ep.inner.sim.data
@@ -82,6 +85,11 @@ def takeover(ep, task, rec, z_rest):
             top = te.site_pos(ep, "wooden_cabinet_1_top_side")
             te.place_wine(ep, top + [0, 0, 0.009], te.WINE_GRASP_EUL, rec)
         return
+    elif held is not None:
+        # 필요한 물체지만 쥔 채로는 못 하는 일(위 서랍 열고 그릇 넣기): 그 자리에 놓지 말고 살며시 내려놓은 뒤 시작.
+        # (10/2: 예전에는 바로 그리퍼를 열어 떨어뜨리고 다시 집었고, 이런 시범 267개로 학습한 v6c 는
+        #  그릇을 집은 직후 그리퍼를 여는 버릇이 생겼다)
+        sv.put_down_any(ep, held, z_rest.get(held, ep.obj_pos(held)[2]), rec)
     te.EXPERT[task](ep, rec)
 
 
@@ -91,7 +99,16 @@ def reset_plan(ep, runner):
 
 
 def one(runner, task_a, task_b, i, out, rng, stats, max_policy=200, resume=False):
+    try:
+        _one(runner, task_a, task_b, i, out, rng, stats, max_policy, resume)
+    except ValueError as e:                              # 한 장면이 꼬여도 전체 수집은 계속
+        stats["error"] = stats.get("error", 0) + 1
+        print(f"  ! 장면 {i}: {e}", flush=True)
+
+
+def _one(runner, task_a, task_b, i, out, rng, stats, max_policy=200, resume=False):
     ep = sx.Episode(runner, i)
+    ep.inner.horizon = 4000      # 재개는 A·B·A 를 다 거쳐 기본 1000스텝 제한을 넘는다 (10/2 r1·r2 가 여기서 멈춤)
     runner.policy.reset()
     z_rest = {o: ep.obj_pos(o)[2] for o in ("akita_black_bowl_1", "wine_bottle_1", "cream_cheese_1")}
     chk_a = runner.chk_a
@@ -117,7 +134,10 @@ def one(runner, task_a, task_b, i, out, rng, stats, max_policy=200, resume=False
             if chk_a(ep.env):                            # 원래 일이 이미 이뤄져 있으면 돌아갈 것이 없다
                 ep.env.close()
                 return
-            reset_plan(ep, runner)
+            if runner.args.strategy == "keep":
+                ep.pending, ep.exec_left = None, 0
+            else:
+                reset_plan(ep, runner)
             task, chk, tag = task_a, chk_a, f"DR{task_a}{task_b}"
     k = int(rng.integers(10, max_policy))
     if run_policy_for(ep, runner, chk, k):               # 이미 성공 — 가르칠 것 없음
@@ -126,11 +146,17 @@ def one(runner, task_a, task_b, i, out, rng, stats, max_policy=200, resume=False
         return
     t0 = len(ep.log["pos"])
     rec = ce.Rec()
+    held_at_takeover = held_object(ep) is not None
+    resume_put_down_ok = False
     takeover(ep, task, rec, z_rest)
     ok = settle(ep, chk) and se.min_home_dist(ep, t0) >= 0.07
     if resume and task_b is not None:
         ok = ok and bool(runner.chk_b(ep.env))           # 원래 일로 돌아가며 B 를 망치면 안 된다
     stats["tried"] += 1
+    if ok and len(rec) > 5 and held_at_takeover and (np.array([a[6] for a in rec.f["action"][:8]]) < 0).mean() > 0.5 \
+            and not resume_put_down_ok:
+        ok = False                                   # 쥔 물체를 바로 놓는 시범은 저장하지 않는다 (10/2 v6c 사고)
+        stats["dropped_release"] = stats.get("dropped_release", 0) + 1
     if ok and len(rec) > 5:
         rec.save(out / f"{tag}_ep{i}_k{k}.npz", chk.language, source="dagger", takeover_step=k)
         stats["saved"] += 1

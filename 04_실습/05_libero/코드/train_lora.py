@@ -63,6 +63,9 @@ def parse_args():
                    help="동작 정규화 통계(평균·표준편차)를 학습 데이터에서 다시 잰다. 원래 값은 LIBERO 사람 시범 기준이라 "
                         "선생 데이터에서는 위치 동작이 0.6배로 작고 손목 회전이 2배(최대 12.8배)로 커서, 학습이 위치 정밀도를 덜 본다")
     p.add_argument("--vis-cache", default=None, help="vis_cache.py 로 미리 계산한 사진 특징 폴더 (학습 약 3배 빠름, 증강 없음)")
+    p.add_argument("--frame-stride", type=int, default=1,
+                   help="학습 시작 프레임을 N 개마다 하나만 쓴다 (이웃 프레임은 거의 같다). 안 쓰는 사진은 메모리에서 지워 "
+                        "메모리를 약 1/N 로 줄인다 (31GB PC 에서 데이터가 늘어 필요, 10/2)")
     p.add_argument("--steps", type=int, default=3000)
     p.add_argument("--batch-size", type=int, default=2)
     p.add_argument("--grad-accum", type=int, default=4)
@@ -98,7 +101,7 @@ def augment(img, rng):
 class ChunkDataset(Dataset):
     """(에피소드, 시점) → 이미지 2장 + 로봇 상태 + 앞으로 chunk_size 스텝의 동작."""
 
-    def __init__(self, files, chunk_size, aug=False, vis_cache=None):
+    def __init__(self, files, chunk_size, aug=False, vis_cache=None, frame_stride=1):
         self.aug = aug
         self.chunk = chunk_size
         self.vis_cache = vis_cache
@@ -114,7 +117,17 @@ class ChunkDataset(Dataset):
             ep["src"] = "normal" if (str(d["source"]) if "source" in d.files else "") == "normal" else "switch"
             ep["dagger"] = Path(f).name.startswith("D")      # DN/DS/DR: 학생 상태에서 선생이 바로잡은 시범
             self.eps.append(ep)
-            self.index += [(len(self.eps) - 1, t) for t in range(len(ep["action"]))]
+            n = len(ep["action"])
+            off = len(self.eps) % frame_stride if frame_stride > 1 else 0
+            ts = list(range(off, n, frame_stride))
+            if frame_stride > 1 and not vis_cache:   # 안 쓰는 프레임의 사진은 메모리에서 지운다
+                keep = set(ts)
+                for k in ("img", "wrist"):
+                    arr = ep[k]
+                    for t in range(n):
+                        if t not in keep:
+                            arr[t] = b""
+            self.index += [(len(self.eps) - 1, t) for t in ts]
 
     def __len__(self):
         return len(self.index)
@@ -255,8 +268,9 @@ class Trainer:
             import vis_cache as vc
             vc.install(self.policy)
             print(f"사진 특징 미리 계산본 사용: {vcache} (사진 증강 없음)", flush=True)
-        train_ds = ChunkDataset(train_files, chunk, aug=a.aug and not vcache, vis_cache=vcache)
-        val_ds = ChunkDataset(val_files, chunk, vis_cache=vcache)
+        fs = getattr(a, "frame_stride", 1)
+        train_ds = ChunkDataset(train_files, chunk, aug=a.aug and not vcache, vis_cache=vcache, frame_stride=fs)
+        val_ds = ChunkDataset(val_files, chunk, vis_cache=vcache, frame_stride=fs)
         print(f"에피소드 학습 {len(train_files)} / 검증 {len(val_files)}, "
               f"프레임 {len(train_ds)} / {len(val_ds)}", flush=True)
         if getattr(a, "renorm_action", False):
