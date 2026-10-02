@@ -62,10 +62,26 @@ def run_policy_for(ep, runner, chk, k):
 
 
 def takeover(ep, task, rec, z_rest):
-    """전문가가 지금 상태에서 task 를 끝까지 한다. 필요 없는 물체를 쥐고 있으면 먼저 내려놓는다."""
+    """전문가가 지금 상태에서 task 를 끝까지 한다. 필요 없는 물체를 쥐고 있으면 먼저 내려놓는다.
+    필요한 물체를 이미 쥐고 있으면(그릇→어디, 와인→어디) 놓지 않고 쥔 채 이어서 옮긴다 (10/2 추가).
+    처음 넣은 방식은 쥔 병을 놓고 다시 집으려다 넘어뜨려, T2 교정 시범이 40장면 중 13개만 남았다."""
     held = held_object(ep)
     if held is not None and held != OBJ_OF_TASK.get(task):
         sv.put_down_any(ep, held, z_rest.get(held, ep.obj_pos(held)[2]), rec)
+    elif held == "akita_black_bowl_1" and task in sv.BOWL_DST:
+        se.hold(ep, 1.0, 4, rec)
+        ok, _ = se.redirect(ep, task, record=rec)
+        return
+    elif held == "wine_bottle_1" and task in sv.WINE_DST:
+        se.hold(ep, 1.0, 4, rec)
+        m, d = ep.inner.sim.model, ep.inner.sim.data
+        if task == 9:
+            rack = np.array(d.body_xpos[m.body_name2id("wine_rack_1_main")])
+            te.place_wine(ep, rack + te.WINE_RACK_REL, te.WINE_RACK_EUL, rec)
+        else:
+            top = te.site_pos(ep, "wooden_cabinet_1_top_side")
+            te.place_wine(ep, top + [0, 0, 0.009], te.WINE_GRASP_EUL, rec)
+        return
     te.EXPERT[task](ep, rec)
 
 
@@ -86,7 +102,10 @@ def one(runner, task_a, task_b, i, out, rng, stats, max_policy=200, resume=False
             ep.env.close()
             return
         task, chk, tag = task_b, runner.chk_b, f"DS{task_a}{task_b}"
-        reset_plan(ep, runner)
+        if runner.args.strategy == "keep":               # 멈추지 않는 전환: 이전 계획을 따라가며 새 지시로 계산
+            ep.pending, ep.exec_left = None, 0
+        else:
+            reset_plan(ep, runner)
         if resume:                                       # 재개 구간: B 를 마친 뒤 원래 일로 돌아가는 동안
             why, _ = ep.run_policy(runner.chk_b.language, "B", 300, runner.chk_b)
             if why != "success":                         # 모델이 B 를 못 하면 선생이 B 를 마저 한다 (기록 안 함)
@@ -135,6 +154,10 @@ def main():
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--latency-steps", type=int, default=0, help="실제 로봇 조건: 추론 지연 (1080 Ti 11스텝)")
     p.add_argument("--max-policy", type=int, default=200)
+    p.add_argument("--ttrtc", action="store_true", help="학습 때 지연 흉내내기 모델 (switch_experiment --ttrtc)")
+    p.add_argument("--a2c2", default=None, help="A2C2 보정 네트워크 폴더")
+    p.add_argument("--n-action-steps", type=int, default=10)
+    p.add_argument("--strategy", default="flush", help="전환 방식 (flush / keep)")
     p.add_argument("--resume", action="store_true",
                    help="전환 쌍에서 B 를 마친 뒤 원래 일로 돌아가는 구간을 바로잡는다 (DR 파일)")
     p.add_argument("--out", required=True)
@@ -148,9 +171,10 @@ def main():
     for ta, tb in jobs:
         ra = sx.default_args()
         ra.policy, ra.task_a, ra.task_b = a.policy, ta, tb
-        ra.strategy = "flush" if tb is not None else "none"
+        ra.strategy = a.strategy if tb is not None else "none"
         ra.max_steps = 300
         ra.latency_steps = a.latency_steps
+        ra.ttrtc, ra.a2c2, ra.n_action_steps = a.ttrtc, a.a2c2, a.n_action_steps
         runner = sx.Runner(ra)
         s0 = dict(stats)
         for i in ep_range(a.episodes):
