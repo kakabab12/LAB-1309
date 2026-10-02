@@ -174,6 +174,12 @@ def build_parser():
     p.add_argument("--latency-steps", type=int, default=0,
                    help="추론 지연 모사 (스텝, 20스텝=1초). 요청한 chunk 가 이만큼 뒤에 도착하고, 그동안 이전 계획을 계속 실행. "
                         "도착한 chunk 는 지나간 앞부분을 버리고 이어서 씀. 0 이면 기존 동기 실행")
+    p.add_argument("--ttrtc", action="store_true",
+                   help="학습 때 지연 흉내내기(training-time RTC, arXiv 2512.05964)로 학습한 모델용. 지연 모사 중 계산을 "
+                        "시작할 때, 기다리는 동안 실제로 할 동작을 새 계획 앞에 고정해 넣는다 (추론 시간 그대로)")
+    p.add_argument("--a2c2", default=None,
+                   help="A2C2 보정 네트워크 폴더 (a2c2.py train 결과). 매 스텝 최신 사진으로 묶음 동작을 조금씩 고친다")
+    p.add_argument("--a2c2-scale", type=float, default=1.0, help="보정 크기 배율 (진단용)")
     p.add_argument("--max-steps", type=int, default=300, help="각 단계(A, B, A2) 최대 스텝")
     p.add_argument("--episodes", type=int, default=10)
     p.add_argument("--start-episode", type=int, default=0, help="LIBERO 고정 초기상태 인덱스")
@@ -402,11 +408,15 @@ class Episode:
         계획이 바닥나면 제자리 유지. 도착하면 이미 지나간 앞 L 개를 버리고 이어서 사용."""
         L = self.a.latency_steps
         if self.pending is None and (self.exec_left <= 0 or len(self.plan) <= L):
+            if getattr(self.a, "ttrtc", False) and self.plan_norm is not None and len(self.plan) > 0:
+                import ttrtc
+                ttrtc.STATE["prefix"] = self.plan_norm[:min(L, len(self.plan))]   # 기다리는 동안 실제로 할 동작
             out, norm = self.infer_chunk(instruction, commit=False)
             self.pending = [out, norm, L]
         if self.pending is not None and self.pending[2] <= 0:
             out, norm, _ = self.pending
             self.plan, self.plan_norm = out[L:], norm[L:]
+            self.plan_k = L
             self.exec_left = self.n_act
             self.pending = None
         if len(self.plan) == 0:
@@ -414,7 +424,8 @@ class Episode:
             act[6] = self.last_grip  # 새 계획이 올 때까지 제자리, 그리퍼 상태 유지
             self.hold_steps += 1
         else:
-            act, self.plan = self.plan[0], self.plan[1:]
+            act = self.correct(instruction)
+            self.plan = self.plan[1:]
             if self.plan_norm is not None:
                 self.plan_norm = self.plan_norm[1:]
         self.exec_left -= 1
@@ -422,6 +433,15 @@ class Episode:
             self.pending[2] -= 1
         self.last_grip = float(act[6])
         return act
+
+    def correct(self, instruction):
+        """A2C2 보정 네트워크가 있으면 지금 사진을 보고 묶음의 이번 동작을 고친다 (arXiv 2509.23224)."""
+        c = getattr(self.r, "corrector", None)
+        k = getattr(self, "plan_k", 0)
+        self.plan_k = k + 1
+        if c is None:
+            return self.plan[0]
+        return c(self.obs, self.plan, k, instruction)
 
     def is_dithering(self):
         """최근 창 안에서 끝단이 좁은 영역에만 머물렀으면 idling."""
@@ -479,8 +499,10 @@ class Episode:
             return self.policy_action_async(instruction)
         if self.exec_left <= 0 or len(self.plan) == 0:
             self.plan = self.infer_chunk(instruction)
+            self.plan_k = 0
             self.exec_left = self.n_act
-        act, self.plan = self.plan[0], self.plan[1:]
+        act = self.correct(instruction)
+        self.plan = self.plan[1:]
         if self.plan_norm is not None:
             self.plan_norm = self.plan_norm[1:]
         self.exec_left -= 1
@@ -789,6 +811,13 @@ class Runner:
             self.policy.config.rtc_config = RTCConfig(enabled=True, execution_horizon=args.rtc_horizon,
                                                       max_guidance_weight=args.rtc_guidance)
             self.policy.init_rtc_processor()
+        if getattr(args, "ttrtc", False):
+            import ttrtc
+            ttrtc.patch()
+        self.corrector = None
+        if getattr(args, "a2c2", None):
+            import a2c2
+            self.corrector = a2c2.Corrector(args.a2c2, self.device, getattr(args, "a2c2_scale", 1.0))
         self.policy.to(self.device).eval()
         self.last_prefix_feat = None
         self.noise_shift = None

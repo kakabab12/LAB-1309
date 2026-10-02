@@ -14,6 +14,7 @@ DAgger — 학습한 모델이 **실제로 가는 상태**에서 전문가가 �
 
 쓰는 법
   python dagger_v6.py --policy outputs/v6_model/merged --tasks 0 3 5 --pairs 8:3,8:5 --episodes 0-19,50-69 --out data/v6_dagger1
+  실제 로봇 조건(추론 지연 0.56초)에서 모델이 가는 상태를 모으려면 --latency-steps 11
 """
 import argparse
 import json
@@ -80,7 +81,7 @@ def one(runner, task_a, task_b, i, out, rng, stats, max_policy=200):
             ep.env.close()
             return
         task, chk, tag = task_b, runner.chk_b, f"DS{task_a}{task_b}"
-        ep.plan, ep.exec_left, ep.plan_norm = np.zeros((0, 7)), 0, None
+        ep.plan, ep.exec_left, ep.plan_norm, ep.pending = np.zeros((0, 7)), 0, None, None
         runner.policy.reset()
     k = int(rng.integers(10, max_policy))
     if run_policy_for(ep, runner, chk, k):               # 이미 성공 — 가르칠 것 없음
@@ -113,6 +114,8 @@ def main():
     p.add_argument("--repeat", type=int, default=1, help="장면마다 넘겨받는 시점을 바꿔 몇 번")
     p.add_argument("--dart", type=float, default=0.1)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--latency-steps", type=int, default=0, help="실제 로봇 조건: 추론 지연 (1080 Ti 11스텝)")
+    p.add_argument("--max-policy", type=int, default=200)
     p.add_argument("--out", required=True)
     a = p.parse_args()
     se.DART_SIGMA = a.dart
@@ -125,12 +128,13 @@ def main():
         ra = sx.default_args()
         ra.policy, ra.task_a, ra.task_b = a.policy, ta, tb
         ra.strategy = "flush" if tb is not None else "none"
+        ra.latency_steps = a.latency_steps
         runner = sx.Runner(ra)
         s0 = dict(stats)
         for i in ep_range(a.episodes):
             for _ in range(a.repeat):
                 torch.manual_seed(int(rng.integers(1 << 30)))
-                one(runner, ta, tb, i, out, rng, stats)
+                one(runner, ta, tb, i, out, rng, stats, a.max_policy)
         name = f"T{ta}" if tb is None else f"A{ta}→B{tb}"
         print(f"  == {name}: 저장 {stats['saved'] - s0['saved']}, 모델이 이미 성공 {stats['already'] - s0['already']}",
               flush=True)

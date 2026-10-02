@@ -51,6 +51,12 @@ def parse_args():
     p.add_argument("--workers", type=int, default=2,
                    help="데이터 로더 작업자 수. 데이터가 크면 0 (작업자마다 데이터가 복사돼 메모리가 몇 배가 된다)")
     p.add_argument("--aug", action="store_true", help="이미지 증강: 밝기·대비 ±10%, 위치 ±8픽셀 이동")
+    p.add_argument("--rtc-max-delay", type=int, default=0,
+                   help="학습 때 지연 흉내내기 (training-time RTC, arXiv 2512.05964): 동작 묶음 앞 0~N 스텝을 정답으로 "
+                        "고정해 넣고 뒤만 맞히게 한다. 1080 Ti 지연 11스텝이면 14 정도")
+    p.add_argument("--ema", type=float, default=0.0,
+                   help="가중치 지수이동평균 (Diffusion Policy·π0 학습에서 쓰는 방식). 0.999 면 최근 ~1000번 갱신의 평균을 "
+                        "저장·검증에 쓴다. 0 이면 끔")
     p.add_argument("--steps", type=int, default=3000)
     p.add_argument("--batch-size", type=int, default=2)
     p.add_argument("--grad-accum", type=int, default=4)
@@ -146,6 +152,11 @@ class Trainer:
         )
         self.env_step = PolicyProcessorPipeline(steps=[LiberoProcessorStep()])
         self.chunk_size = self.policy.config.chunk_size
+        if getattr(args, "rtc_max_delay", 0) > 0:
+            import ttrtc
+            ttrtc.patch()
+            ttrtc.STATE["max_delay"] = args.rtc_max_delay
+            print(f"학습 때 지연 흉내내기: 앞 0~{args.rtc_max_delay} 스텝 고정", flush=True)
         self.apply_lora()
 
     def apply_lora(self):
@@ -231,6 +242,9 @@ class Trainer:
         out.mkdir(parents=True, exist_ok=True)
         hist = []
         step, t0, acc_loss = 0, time.time(), 0.0
+        self.train_params = [p for p in self.policy.parameters() if p.requires_grad]
+        self.ema = [p.detach().clone() for p in self.train_params] if a.ema > 0 else None
+        self.n_updates = 0
         self.policy.train()
         while step < a.steps:
             for batch in dl:
@@ -241,6 +255,12 @@ class Trainer:
                     torch.nn.utils.clip_grad_norm_([p for p in self.policy.parameters() if p.requires_grad], 1.0)
                     opt.step()
                     opt.zero_grad(set_to_none=True)
+                    self.n_updates += 1
+                    if self.ema is not None:
+                        dcy = min(a.ema, (1 + self.n_updates) / (10 + self.n_updates))
+                        with torch.no_grad():
+                            for e, prm in zip(self.ema, self.train_params):
+                                e.mul_(dcy).add_(prm.detach(), alpha=1 - dcy)
                 step += 1
                 sched.step()
                 if step % a.log_every == 0:
@@ -262,8 +282,26 @@ class Trainer:
         self.save(out, step, hist)
         self.export_merged(out / f"step_{step}", out / "merged")
 
+    def swap_ema(self):
+        """EMA 가중치와 지금 가중치를 맞바꾼다 (두 번 부르면 원래대로)."""
+        if getattr(self, "ema", None) is None:
+            return
+        with torch.no_grad():
+            for e, prm in zip(self.ema, self.train_params):
+                tmp = prm.detach().clone()
+                prm.copy_(e)
+                e.copy_(tmp)
+
     @torch.no_grad()
     def validate(self, vdl, max_batches=40):
+        self.swap_ema()
+        try:
+            return self._validate(vdl, max_batches)
+        finally:
+            self.swap_ema()
+
+    @torch.no_grad()
+    def _validate(self, vdl, max_batches=40):
         self.policy.eval()
         tot, n = 0.0, 0
         for i, batch in enumerate(vdl):
@@ -275,6 +313,13 @@ class Trainer:
         return tot / max(n, 1)
 
     def save(self, out, step, hist):
+        self.swap_ema()          # EMA 를 쓰면 평균 가중치를 저장한다
+        try:
+            self._save(out, step, hist)
+        finally:
+            self.swap_ema()
+
+    def _save(self, out, step, hist):
         """학습 중에는 LoRA 어댑터만 저장 (가볍고, 옵티마이저 상태를 건드리지 않음)."""
         d = out / f"step_{step}"
         d.mkdir(parents=True, exist_ok=True)
