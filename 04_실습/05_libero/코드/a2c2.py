@@ -117,12 +117,16 @@ def decode(blob):
 
 # ───────────────────────── 평가·로봇에서 쓰는 객체 ─────────────────────────
 class Corrector:
-    def __init__(self, path, device="cuda", scale=1.0):
+    DIMS = {"all": list(range(7)), "posrot": list(range(6)), "pos": [0, 1, 2]}
+
+    def __init__(self, path, device="cuda", scale=1.0, dims="all"):
         ck = torch.load(Path(path) / "head.pt", map_location="cpu")
         self.net = A2C2Head(ck["tasks"])
         self.net.load_state_dict(ck["state"])
         self.net.to(device).eval()
         self.device, self.scale = device, scale
+        self.mask = np.zeros(7, dtype=np.float32)
+        self.mask[self.DIMS[dims]] = 1.0          # 고칠 동작 차원 (10/2: 그리퍼 보정이 스토브 손잡이 쥐기를 방해하는지 확인용)
 
     @torch.no_grad()
     def __call__(self, obs, plan_raw, k, task):
@@ -136,7 +140,7 @@ class Corrector:
         t = lambda x: torch.as_tensor(np.asarray(x, dtype=np.float32))[None].to(self.device)
         r = self.net(t(img), t(wr), t(st), t(acts), torch.tensor([k], device=self.device),
                      self.net.task_index([task]).to(self.device))[0]
-        corr = (r * self.net.act_std).cpu().numpy() * self.scale
+        corr = (r * self.net.act_std).cpu().numpy() * self.scale * self.mask
         a = plan_raw[0] + corr
         a[:6] = np.clip(a[:6], -1, 1)
         a[6] = np.clip(a[6], -1, 1)

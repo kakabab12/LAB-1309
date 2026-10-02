@@ -180,6 +180,8 @@ def build_parser():
     p.add_argument("--a2c2", default=None,
                    help="A2C2 보정 네트워크 폴더 (a2c2.py train 결과). 매 스텝 최신 사진으로 묶음 동작을 조금씩 고친다")
     p.add_argument("--a2c2-scale", type=float, default=1.0, help="보정 크기 배율 (진단용)")
+    p.add_argument("--a2c2-dims", default="all", choices=["all", "posrot", "pos"],
+                   help="보정할 동작 차원: all(그리퍼 포함), posrot(위치+회전), pos(위치만)")
     p.add_argument("--max-steps", type=int, default=300, help="각 단계(A, B, A2) 최대 스텝")
     p.add_argument("--episodes", type=int, default=10)
     p.add_argument("--start-episode", type=int, default=0, help="LIBERO 고정 초기상태 인덱스")
@@ -817,7 +819,8 @@ class Runner:
         self.corrector = None
         if getattr(args, "a2c2", None):
             import a2c2
-            self.corrector = a2c2.Corrector(args.a2c2, self.device, getattr(args, "a2c2_scale", 1.0))
+            self.corrector = a2c2.Corrector(args.a2c2, self.device, getattr(args, "a2c2_scale", 1.0),
+                                            getattr(args, "a2c2_dims", "all"))
         self.policy.to(self.device).eval()
         self.last_prefix_feat = None
         self.noise_shift = None
