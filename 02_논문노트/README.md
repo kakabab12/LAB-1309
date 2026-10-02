@@ -10,6 +10,7 @@
 - [ ] ACT (ALOHA)
 - [ ] Diffusion Policy
 - [x] **[Real-Time Chunking](Real-Time-Chunking.md)** ⭐ `rtc` 전략으로 구현
+- [x] **[지연과 정밀도 논문 조사](지연과_정밀도_논문조사.md)** (2026-10-02) Training-Time RTC, A2C2, VLASH 등 11편, 적용 순서
 
 ### VLA 기본
 - [ ] RT-1
@@ -20,6 +21,7 @@
 - [ ] π0 / π0.5
 
 ### 전환 · 개입 · 기억
+- [x] **[Causeway](Causeway.md)** (2026-09-25) 가장 가까운 경쟁 논문. LIBERO-Goal 전환, 재개는 없음
 - [x] **[SwitchVLA](SwitchVLA.md)** ⭐⭐ 연구 주제와 거의 동일 (LIBERO-Goal, 전환 시점 3단계)
 - [x] **[LIBERO-Plus](LIBERO-Plus.md)** ⭐ 로봇 초기 상태 교란에 VLA가 취약함을 보임
 - [ ] **Hi Robot** ⭐
