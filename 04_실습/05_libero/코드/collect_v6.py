@@ -27,8 +27,9 @@ import switch_experiment as sx
 import task_experts as te
 
 EVAL = set(range(20, 50))
-# ⚠️ 2026-10-02: 장면 번호는 50 으로 나눈 나머지로 고정 배치를 고른다. 70~99, 120~149 도 평가 배치(20~49)와 같다.
-#    학습용 장면은 나머지가 0~19 인 번호만 쓰고, 1000 이상(평가 전용 무작위 배치)은 절대 쓰지 않는다.
+# ⚠️ 2026-10-02: 장면 번호 1000 미만은 50 으로 나눈 나머지로 고정 배치를 고른다. 70~99, 120~149 도 평가 배치(20~49)와 같다.
+#    학습용: 1000 미만은 나머지가 0~19 인 번호만, 그리고 2000 이상(학습용 무작위 배치).
+#    1000~1999 는 평가 전용 무작위 배치라 절대 쓰지 않는다.
 EVAL_MOD = set(range(20, 50))
 
 
@@ -37,7 +38,7 @@ def ep_range(s):
     for part in s.split(","):
         a, b = part.split("-") if "-" in part else (part, part)
         out += list(range(int(a), int(b) + 1))
-    return [i for i in out if i not in EVAL and (i % 50) not in EVAL_MOD and i < 1000]
+    return [i for i in out if (i < 1000 and i not in EVAL and (i % 50) not in EVAL_MOD) or i >= 2000]
 
 
 def settle(ep, chk, n=15):

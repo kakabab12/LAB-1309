@@ -39,7 +39,7 @@ log "DAgger 끝: $(ls data/dagger_$NEXT/episodes 2>/dev/null | wc -l) 시범"
 
 while [ "$(gpu_n)" -gt 0 ]; do sleep 60; done        # 학습은 혼자 (메모리 23GB)
 log "[2] $NEXT 학습 ($PREV 에서 이어서, 동작 통계는 $PREV 것 그대로)"
-DATA="data/v6_normal data/v6_switch data/v6_dagger_lat $(ls -d data/dagger_v6* 2>/dev/null | tr '\n' ' ')"
+DATA="data/v6_normal data/v6_switch data/v6_dagger_lat $(ls -d data/dagger_v6* data/v7_* 2>/dev/null | tr '\n' ' ')"   # v7_*: 고친 시범 프로그램, 새 무작위 배치(장면 2000번대)
 $PY train_lora.py --policy $POL --data $DATA --full-expert --aug --balance --dagger-frac 0.3 --workers 0 --rtc-max-delay 14 --ema 0.999 \
   --steps 24000 --batch-size 4 --grad-accum 2 --lr 3e-5 --eval-every 3000 --save-every 6000 --log-every 500 \
   --out outputs/${NEXT}_model 2>&1 | grep --line-buffered -E '지연 흉내|교정 시범 비율|에피소드 학습|val_loss|모델 저장|Traceback|Error'

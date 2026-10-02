@@ -75,20 +75,70 @@ def servo(ep, target_pos, target_mat, grip, max_steps=120, tol=0.008, vmax=0.5, 
     global PRECISE
     prev, PRECISE = PRECISE, tol < 0.015
     try:
-        return _servo_loop(ep, target_pos, target_mat, grip, max_steps, tol, vmax, record, phase)
+        avoid = tol >= 0.015 and HOME_AVOID > 0 and \
+            np.linalg.norm(np.asarray(target_pos) - ep.home[0]) >= HOME_AVOID
+        if avoid:                                      # 이동 구간: 직선이 초기 자세 근처를 지나면 돌아간다
+            w = _home_detour(ep, np.asarray(target_pos, dtype=float))
+            if w is not None:
+                _servo_loop(ep, w, target_mat, grip, max_steps // 2, 0.03, vmax, record, phase, avoid=True)
+        return _servo_loop(ep, target_pos, target_mat, grip, max_steps, tol, vmax, record, phase, avoid=avoid)
     finally:
         PRECISE = prev
 
 
-def _servo_loop(ep, target_pos, target_mat, grip, max_steps, tol, vmax, record, phase):
+# 초기 자세 피해 가기 (2026-10-02)
+#   재개 A4→B9 에서 와인 선반 → 그릇으로 곧장 가는 길이 초기 자세 5.6~6.9cm 안을 지나 7cm 제약에 걸렸다
+#   (평가 장면 20~49 중 7번, A1→B7 재개 2번). 이동 구간(허용 오차 1.5cm 이상)에서만, 직선이 초기 자세
+#   HOME_AVOID 안을 지나면 그 바깥 한 점을 거쳐 간다. 잡기·놓기 같은 정밀 구간에는 쓰지 않는다.
+HOME_AVOID = 0.12
+
+
+def _keep_off_home(ep, pos, v, margin=0.02):
+    """손이 초기 자세 HOME_AVOID+margin 안이면 그쪽으로 다가가는 성분을 빼고 살짝 밀어낸다 (10/2).
+    팔은 축마다 따로 속도가 잘려 직선으로 가지 않아, 직선만 보고 돌아가는 방식으로는 A1→B7 재개에서
+    그릇을 들고 스토브로 가다 6.5cm 까지 다가간 것을 막지 못했다."""
+    h = np.asarray(ep.home[0], dtype=float)
+    r = np.asarray(pos, dtype=float) - h
+    dist = np.linalg.norm(r)
+    if dist >= HOME_AVOID + margin or dist < 1e-6:
+        return v
+    n = r / dist
+    radial = float(v @ n)
+    if radial < 0:
+        v = v - radial * n                              # 안쪽으로 들어가는 성분 제거 → 바깥을 따라 미끄러짐
+    push = (HOME_AVOID + margin - dist) / sx.POS_SCALE  # 안쪽에 있으면 바깥으로
+    return np.clip(v + n * min(push, 0.3), -1, 1)
+
+
+def _home_detour(ep, target):
+    h = np.asarray(ep.home[0], dtype=float)
+    p = np.asarray(sx.eef_pos(ep.obs), dtype=float)
+    d = target - p
+    L2 = float(d @ d)
+    if L2 < 0.05 ** 2 or np.linalg.norm(p - h) < HOME_AVOID or np.linalg.norm(target - h) < HOME_AVOID:
+        return None
+    t = float(np.clip((h - p) @ d / L2, 0.0, 1.0))
+    q = p + t * d
+    if np.linalg.norm(q - h) >= HOME_AVOID:
+        return None
+    away = q - h
+    if np.linalg.norm(away) < 1e-3:                     # 정확히 지나가면 수평으로 직각 방향
+        away = np.array([-d[1], d[0], 0.0])
+    away[2] = min(away[2], 0.0) if q[2] < h[2] else away[2]
+    return h + away / np.linalg.norm(away) * (HOME_AVOID + 0.03)
+
+
+def _servo_loop(ep, target_pos, target_mat, grip, max_steps, tol, vmax, record, phase, avoid=False):
     for _ in range(max_steps):
         pos = sx.eef_pos(ep.obs)
         dp = target_pos - pos
         rerr = Rotation.from_matrix(target_mat @ ep.obs["robot_state"]["eef"]["mat"].T).as_rotvec()
         if np.linalg.norm(dp) < tol and np.linalg.norm(rerr) < 0.08:
             return True
-        a = np.concatenate([np.clip(dp / sx.POS_SCALE, -vmax, vmax),
-                            np.clip(rerr / sx.ROT_SCALE, -vmax, vmax), [grip]]).astype(np.float32)
+        v = np.clip(dp / sx.POS_SCALE, -vmax, vmax)
+        if avoid:
+            v = _keep_off_home(ep, pos, v)
+        a = np.concatenate([v, np.clip(rerr / sx.ROT_SCALE, -vmax, vmax), [grip]]).astype(np.float32)
         if record is not None:
             record(ep.obs, a)
         ep.step(_exec(a), phase)
