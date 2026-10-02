@@ -43,6 +43,8 @@ def parse_args():
     p.add_argument("--data", nargs="+", default=["data/robust"], help="데이터 폴더 여러 개 가능")
     p.add_argument("--balance", action="store_true",
                    help="지시문(태스크)별로 같은 비중이 되게 샘플링 — 한 태스크 데이터가 몰려 다른 걸 잊는 문제 완화")
+    p.add_argument("--dagger-frac", type=float, default=None,
+                   help="--balance 와 같이: 지시문마다 교정 시범(DN/DS/DR 파일)이 뽑히는 몫. 교정 시범은 전체의 일부라 묻히기 쉽다")
     p.add_argument("--rehearsal-frac", type=float, default=None,
                    help="--balance 와 함께: 지시문마다 정상 리허설(source=normal)이 차지할 비중 (예 0.5). "
                         "4차는 같은 지시문 안에서 전환 데이터가 리허설을 압도해 무너졌다")
@@ -110,6 +112,7 @@ class ChunkDataset(Dataset):
                 ep["feat_path"] = str(vc.cache_path(vis_cache, f))
             ep["task"] = str(d["task"])
             ep["src"] = "normal" if (str(d["source"]) if "source" in d.files else "") == "normal" else "switch"
+            ep["dagger"] = Path(f).name.startswith("D")      # DN/DS/DR: 학생 상태에서 선생이 바로잡은 시범
             self.eps.append(ep)
             self.index += [(len(self.eps) - 1, t) for t in range(len(ep["action"]))]
 
@@ -274,6 +277,19 @@ class Trainer:
                 fr = lambda t, s: (a.rehearsal_frac if s == "normal" else 1 - a.rehearsal_frac) if t in both else 1.0
                 weights = torch.tensor([fr(t, s) / cs[(t, s)] for t, s in zip(tasks, srcs)], dtype=torch.double)
                 print("지시문×출처별 프레임:", {f"{t[:25]}|{s}": n for (t, s), n in sorted(cs.items())}, flush=True)
+            if getattr(a, "dagger_frac", None) is not None:
+                dg = [train_ds.eps[e]["dagger"] for e, _ in train_ds.index]
+                cd = Counter(zip(tasks, dg))
+                f = a.dagger_frac
+                w = []
+                for t, g, w0 in zip(tasks, dg, weights.tolist()):
+                    if cd[(t, True)] and cd[(t, False)]:       # 그 지시문에 교정 시범이 있으면 그 몫을 f 로
+                        tot = cnt[t]
+                        w.append((f if g else 1 - f) / cnt[t] * tot / cd[(t, g)] * (w0 * cnt[t]))
+                    else:
+                        w.append(w0)
+                weights = torch.tensor(w, dtype=torch.double)
+                print("교정 시범 비율 맞춤:", {f"{t[:25]}": f"{cd[(t, True)]}/{cnt[t]}" for t in cnt}, flush=True)
             sampler = WeightedRandomSampler(weights, num_samples=len(tasks), replacement=True)
         dl = DataLoader(train_ds, batch_size=a.batch_size, shuffle=sampler is None, sampler=sampler,
                         collate_fn=collate, num_workers=a.workers, drop_last=True, persistent_workers=a.workers > 0)
