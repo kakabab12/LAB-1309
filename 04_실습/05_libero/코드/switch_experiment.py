@@ -75,6 +75,9 @@ GRIPPER_OPEN_QPOS = 0.035  # 손가락 qpos 가 이보다 작으면 닫힘
 HOLD_DIST = 0.10  # 그리퍼 닫힘 + 끝단에서 이 거리(m) 이내의 물체 → 잡고 있다고 판정
 POS_SCALE, ROT_SCALE = 0.05, 0.5  # OSC_POSE delta 액션 1.0 당 이동(m) / 회전(rad)
 HELDOUT_FROM = 1000  # 이 번호부터는 학습에 안 쓴 무작위 배치 (평가 전용)
+# PiPER 장면에서는 고정 시작 장면을 쓰지 않는다: 고정 장면 파일은 Panda(관절 7개) 상태값이라 PiPER(6개)에 넣으면
+# 값이 밀려 관절·물체가 엉뚱하게 들어간다 (10/3 확인). piper_sim.piper_robot.use_piper_in_lerobot() 가 켠다
+FIXED_STATES_OFF = False
 COLORS = {"A": (60, 120, 255), "B": (255, 150, 30), "A2": (40, 200, 90), "R": (160, 160, 160)}
 
 
@@ -178,6 +181,9 @@ def build_parser():
     p.add_argument("--ttrtc", action="store_true",
                    help="학습 때 지연 흉내내기(training-time RTC, arXiv 2512.05964)로 학습한 모델용. 지연 모사 중 계산을 "
                         "시작할 때, 기다리는 동안 실제로 할 동작을 새 계획 앞에 고정해 넣는다 (추론 시간 그대로)")
+    p.add_argument("--num-steps", type=int, default=0,
+                   help="동작을 만드는 반복 단계 수 (기본 0 = 모델 설정 10). 5 로 줄이면 1080 Ti 계산이 약 38% 빨라진다 "
+                        "(10/3 bench_split: 752→468ms). 줄이면 --latency-steps 도 그에 맞게 줄여 평가할 것")
     p.add_argument("--a2c2", default=None,
                    help="A2C2 보정 네트워크 폴더 (a2c2.py train 결과). 매 스텝 최신 사진으로 묶음 동작을 조금씩 고친다")
     p.add_argument("--a2c2-scale", type=float, default=1.0, help="보정 크기 배율 (진단용)")
@@ -240,10 +246,15 @@ class Episode:
         # 장면 번호 1000 이상은 고정 장면을 쓰지 않고 같은 규칙으로 물체를 무작위로 놓는다 (번호가 같으면 같은 배치).
         # 학습에 한 번도 안 쓴 배치라 평가는 1000번대로 한다.
         self.env = LiberoEnv(task_suite=runner.suite, task_id=a.task_a, task_suite_name=SUITE,
-                             obs_type="pixels_agent_pos", episode_index=ep_idx, init_states=ep_idx < HELDOUT_FROM)
+                             obs_type="pixels_agent_pos", episode_index=ep_idx,
+                             init_states=ep_idx < HELDOUT_FROM and not FIXED_STATES_OFF)
         torch.manual_seed(a.seed + ep_idx)
         self.obs, _ = self.env.reset(seed=a.seed + ep_idx)
         self.inner = self.env._env.env
+        if FIXED_STATES_OFF:
+            # PiPER (10/3): 단계마다 600스텝까지 재므로(A·B·재개) 환경 길이 제한(기본)을 넘겨
+            # "executing action in terminated episode" 로 평가가 죽었다 → 넉넉히
+            self.inner.horizon = 4000
         self.home = (eef_pos(self.obs).copy(), self.obs["robot_state"]["eef"]["mat"].copy())
         self.plan = np.zeros((0, 7))  # 현재 chunk 에서 아직 실행 안 한 동작들
         self.plan_norm = None  # 같은 동작의 정규화 값 (RTC guidance 에 필요)
@@ -818,6 +829,8 @@ class Runner:
             self.policy.config.rtc_config = RTCConfig(enabled=True, execution_horizon=args.rtc_horizon,
                                                       max_guidance_weight=args.rtc_guidance)
             self.policy.init_rtc_processor()
+        if getattr(args, "num_steps", 0) > 0:
+            self.policy.config.num_steps = args.num_steps
         if getattr(args, "ttrtc", False):
             import ttrtc
             ttrtc.patch()

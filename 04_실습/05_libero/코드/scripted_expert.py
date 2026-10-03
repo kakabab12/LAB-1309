@@ -321,7 +321,10 @@ def secure_hold(ep, obj, record=None):
     z0 = ep.obj_pos(obj)[2]
     mat = ep.obs["robot_state"]["eef"]["mat"].copy()
     servo(ep, sx.eef_pos(ep.obs) + [0, 0, 0.04], mat, 1.0, tol=0.01, vmax=0.2, max_steps=25, record=record)
-    return ep.obj_pos(obj)[2] > z0 + 0.015
+    # PiPER(역기구학 관절 제어)는 손이 4cm 를 정확히 올라가 제대로 쥐면 그릇도 거의 4cm 따라온다 → 3cm 기준.
+    #   1.5cm 로는 손가락 끝에 겨우 걸린 그릇(2.5cm 따라옴)도 통과해, 옮기다 떨어뜨렸다 (잡음 수집 A1→B8 30번 중 8번)
+    need = 0.03 if _is_piper(ep) else 0.015
+    return ep.obj_pos(obj)[2] > z0 + need
 
 
 def carry_place(ep, P, record=None, above=0.10, obj="akita_black_bowl_1", z_safe=None, keepout=()):
