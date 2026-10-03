@@ -10,14 +10,17 @@ F='SUMMARY|Traceback|Error'
 log(){ echo "=== $(date +%m/%d\ %H:%M) $*"; }
 POL=outputs/${PREV}_model/merged
 EVQ="--latency-steps 11 --ttrtc --n-action-steps 1"
-# 1) 95% 미만 항목 (PREV 새 배치 평가 결과)
-eval "$($PY plan_round.py --base ${PREV}h --a2c2 ${PREV}h_none --log /dev/null)"
-log "[1] $PREV 95% 미만 — 단독: ${TASKS:-없음} / 전환: ${PAIRS:-없음} / 재개: ${RESUME:-없음}"
+# 1) 95% 미만 항목 (PREV 새 배치 평가 결과) — 성적이 낮을수록 교정 시범 장면을 많이 (30/20/10)
+eval "$($PY piper_sim/plan_dagger.py --base ${PREV}h --start ${EPS%-*})"
+log "[1] $PREV 95% 미만 — 단독 30:[${T30}] 20:[${T20}] 10:[${T10}] / 전환 30:[${P30}] 20:[${P20}] 10:[${P10}] / 재개 30:[${R30}] 20:[${R20}] 10:[${R10}]"
 OUTD=data/piper_dagger_${NEXT}
-D="--policy $POL $EVQ --strategy keep --episodes $EPS --out $OUTD"
-[ -n "$TASKS" ] && ( $PY piper_sim/dagger_piper.py $D --tasks $TASKS --seed 11 > outputs/piper/dagger_${NEXT}_t.log 2>&1 ) &
-[ -n "$PAIRS" ] && ( $PY piper_sim/dagger_piper.py $D --pairs $PAIRS --seed 12 > outputs/piper/dagger_${NEXT}_p.log 2>&1 ) &
-[ -n "$RESUME" ] && ( $PY piper_sim/dagger_piper.py $D --pairs $RESUME --resume --seed 13 > outputs/piper/dagger_${NEXT}_r.log 2>&1 ) &
+D="--policy $POL $EVQ --strategy keep --out $OUTD"
+dag_t(){ for k in 30 20 10; do v=T$k; e=E$k; [ -n "${!v}" ] && $PY piper_sim/dagger_piper.py $D --tasks ${!v} --episodes ${!e} --seed $((11 + k)); done; }
+dag_p(){ for k in 30 20 10; do v=P$k; e=E$k; [ -n "${!v}" ] && $PY piper_sim/dagger_piper.py $D --pairs ${!v} --episodes ${!e} --seed $((12 + k)); done; }
+dag_r(){ for k in 30 20 10; do v=R$k; e=E$k; [ -n "${!v}" ] && $PY piper_sim/dagger_piper.py $D --pairs ${!v} --resume --episodes ${!e} --seed $((13 + k)); done; }
+( dag_t > outputs/piper/dagger_${NEXT}_t.log 2>&1 ) &
+( dag_p > outputs/piper/dagger_${NEXT}_p.log 2>&1 ) &
+( dag_r > outputs/piper/dagger_${NEXT}_r.log 2>&1 ) &
 wait
 log "DAgger 끝: $(ls $OUTD/episodes 2>/dev/null | wc -l) 시범"
 [ -d $OUTD/episodes ] && $PY piper_sim/trim_stalls.py $OUTD ${OUTD}_t
