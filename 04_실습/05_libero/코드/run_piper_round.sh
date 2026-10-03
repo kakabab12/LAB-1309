@@ -25,7 +25,11 @@ wait
 log "DAgger 끝: $(ls $OUTD/episodes 2>/dev/null | wc -l) 시범"
 [ -d $OUTD/episodes ] && $PY piper_sim/trim_stalls.py $OUTD ${OUTD}_t
 # 2) NEXT 학습 (PREV 에서, 시범 전부 + 교정 시범)
-DATA="data/piper_normal_t data/piper_switch_t $(ls -d data/piper_normal2_t data/piper_switch2_t data/piper_dagger_*_t 2>/dev/null | tr '\n' ' ')"
+# 학습 데이터: outputs/piper/train_data.txt 가 있으면 그것(10/3 밤: 그릇은 깊게 쥐는 새 시범만) + 교정 시범 전부
+until [ -f outputs/piper/train_data.txt ] || ! pgrep -f "collect_piper[.]py" >/dev/null; do sleep 120; done   # 3차 수집이 끝날 때까지
+if [ -f outputs/piper/train_data.txt ]; then BASE_DATA="$(cat outputs/piper/train_data.txt)"
+else BASE_DATA="data/piper_normal_t data/piper_switch_t data/piper_normal2_t data/piper_switch2_t"; fi
+DATA="$BASE_DATA $(ls -d data/piper_dagger_*_t 2>/dev/null | tr '\n' ' ')"
 log "[2] $NEXT 학습: $DATA"
 touch outputs/piper/TRAINING
 $PY train_lora.py --policy $POL --data $DATA --full-expert --aug --balance --dagger-frac 0.3 --workers 0 --rtc-max-delay 14 \

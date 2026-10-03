@@ -1289,7 +1289,7 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
     plans.sort(key=lambda x: x[0])                 # 여유 충분한 후보 먼저, 그 안에서는 원래 순서
     for _, (mg, gm, q_above), g in plans[:3]:
         pik.safe_servo_to_q(ep, q_above, -1.0, list(keepout) + pik.scene_keepout(ep), record=record, tol=0.01)
-        if not se.servo(ep, g, gm, -1.0, tol=0.008, vmax=0.3, record=record):
+        if not se.servo(ep, g, gm, -1.0, tol=0.004, vmax=0.3, record=record):      # 쥐는 높이를 정확히 (0.8cm 허용이면 위에서 멈춤)
             se.servo(ep, g + [0, 0, above], gm, -1.0, tol=0.03, max_steps=30, record=record)
             continue
         se.hold(ep, 1.0, 12, record)
@@ -1301,12 +1301,20 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
     return False
 
 
+PIPER_GRASP_DEEPER = 0.012
+
+
 def grasp_bowl_safe(ep, obj="akita_black_bowl_1", off=None, record=None, above=0.08, prefer=None, keepout=(),
                     dest=None):
     """se.grasp_obj 와 같지만 손목 방향을 고를 때 7번 관절 한계를 본다 (_aim), 많이 돌아야 하면 나눠 돌린다.
     서랍을 열며 손목을 크게 돌려 둔 뒤 그릇을 다시 집을 때, 원래 방식은 손목이 한계 쪽으로 돌다
     그릇에 못 갔다 (A8→B0 뒤 원래 일로 돌아가기 0/10)."""
-    off = se.BOWL_GRASP_OFFSET if off is None else off
+    if off is None:
+        off = se.BOWL_GRASP_OFFSET.copy()
+        if _robot(ep) == "piper":
+            # PiPER: 테두리를 1.2cm 더 깊이 쥔다. 시범이 테두리 끝 0.2cm 만 걸쳐 쥐어서(손 높이 94.9cm, 테두리 위 95.1cm),
+            #   학생 모델이 0.7cm 높게(95.6cm) 닫으면 빈손이 됐다 (PiPER 1차 쉬운 점검 0/5, 10/3 밤)
+            off = off - [0, 0, PIPER_GRASP_DEEPER]
     down = ep.home[1].copy()
     se.hold(ep, -1.0, 6, record)
     cands = []
