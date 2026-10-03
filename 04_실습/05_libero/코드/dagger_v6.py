@@ -75,6 +75,10 @@ def takeover(ep, task, rec, z_rest):
     elif held == "cream_cheese_1" and task == 6:
         te.cheese_carry_to_bowl(ep, rec)
         return
+    elif held == "wine_bottle_1" and task in sv.WINE_DST and te._robot(ep) == "piper":
+        se.hold(ep, 1.0, 4, rec)
+        te.wine_place_held_piper(ep, task, rec)          # PiPER: 놓을 자세를 역기구학으로 골라 높이 지나가 놓는다
+        return
     elif held == "wine_bottle_1" and task in sv.WINE_DST:
         se.hold(ep, 1.0, 4, rec)
         m, d = ep.inner.sim.model, ep.inner.sim.data

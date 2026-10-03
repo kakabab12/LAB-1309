@@ -137,13 +137,24 @@ def _home_detour(ep, target):
     return h + away / np.linalg.norm(away) * (HOME_AVOID + 0.03)
 
 
+STALL_STEPS = 8        # PiPER: 이만큼 동안 목표에 1mm·0.6° 도 가까워지지 않으면 막힌 것으로 보고 끝낸다
+
+
 def _servo_loop(ep, target_pos, target_mat, grip, max_steps, tol, vmax, record, phase, avoid=False):
+    # 10/3 PiPER: 손잡이·스토브 손잡이에 손가락이 닿아 목표 1cm 앞에서 막히면 max_steps(60~80) 동안 제자리에 있었다.
+    #   이런 정지 구간이 시범 1,408개 중 350개에 있었다 — 학생 모델이 '맴돌기'를 배울 수 있어 일찍 끝낸다
+    hist = [] if _is_piper(ep) else None
     for _ in range(max_steps):
         pos = sx.eef_pos(ep.obs)
         dp = target_pos - pos
         rerr = Rotation.from_matrix(target_mat @ ep.obs["robot_state"]["eef"]["mat"].T).as_rotvec()
         if np.linalg.norm(dp) < tol and np.linalg.norm(rerr) < 0.08:
             return True
+        if hist is not None:
+            hist.append((np.linalg.norm(dp), np.linalg.norm(rerr)))
+            if len(hist) > STALL_STEPS and hist[-1 - STALL_STEPS][0] - hist[-1][0] < 0.001 \
+                    and hist[-1 - STALL_STEPS][1] - hist[-1][1] < 0.01:
+                return False
         v = np.clip(dp / sx.POS_SCALE, -vmax, vmax)
         if avoid:
             v = _keep_off_home(ep, pos, v)
@@ -313,7 +324,7 @@ def secure_hold(ep, obj, record=None):
     return ep.obj_pos(obj)[2] > z0 + 0.015
 
 
-def carry_place(ep, P, record=None, above=0.10, obj="akita_black_bowl_1"):
+def carry_place(ep, P, record=None, above=0.10, obj="akita_black_bowl_1", z_safe=None, keepout=()):
     """쥔 그릇을 P 에 놓는다. 들어 올리며 목적지로 향하고, 위에서 천천히 내려 놓는다.
 
     ⚠️ 손−그릇 관계를 **지금 실제로 잰 값**으로 쓴다.
@@ -335,11 +346,14 @@ def carry_place(ep, P, record=None, above=0.10, obj="akita_black_bowl_1"):
         for psi in range(0, 360, 30):
             Rz = Rotation.from_euler("z", psi, degrees=True).as_matrix()
             t, M = P + Rz @ rel + [0, 0, 0.015], Rz @ mat
-            zs = max(hand0[2], t[2] + 0.02)
+            # 지나가는 높이: 놓는 손 높이 + 6cm. +2cm 로는 손 아래 8cm 에 매달린 그릇 바닥이 캐비닛 윗면 모서리에
+            # 걸려 떨어졌다 (재개 A4→B9→A4 장면 1004 등 4/10 실패)
+            zs = max(hand0[2], t[2] + 0.06, z_safe or 0.0)
             b = pik.plan_branch(ep, [np.array([t[0], t[1], max(zs, t[2] + ab)]), t + [0, 0, ab], t], [M], n_seeds=4)
             if b is not None and (best is None or b[0] > best[0] + np.radians(2)):
                 best = (b[0], t, M, zs)
-        if best is not None and pik.transit(ep, best[1], best[2], 1.0, best[3], record=record, above=ab, tol=0.008):
+        if best is not None and pik.transit(ep, best[1], best[2], 1.0, best[3], record=record, above=ab, tol=0.008,
+                                            keepout=keepout):
             hold(ep, -1.0, 10, record)
             servo(ep, sx.eef_pos(ep.obs) + [0, 0, 0.06], best[2], -1.0, max_steps=20, record=record)
             return
@@ -366,7 +380,13 @@ def redirect(ep, b_task, record=None, obj="akita_black_bowl_1"):
     chk = sx.GoalChecker(ep.r.suite, b_task)
     n0 = len(ep.log["pos"])
     if not secure_hold(ep, obj, record):
-        if not grasp_obj(ep, obj, BOWL_GRASP_OFFSET, record):
+        if _is_piper(ep):
+            # PiPER: 전환 순간 미끄러진 그릇은 PiPER 집기(놓을 자리까지 보고 쥐는 방향 고르기)로 다시 집는다.
+            #   옛 grasp_obj 로는 다시 집지 못해 A4→B1 장면 1001 실패
+            import task_experts as te
+            if not te.grasp_bowl_safe(ep, obj, record=record, dest=bowl_place_target(ep, b_task)):
+                return False, len(ep.log["pos"]) - n0
+        elif not grasp_obj(ep, obj, BOWL_GRASP_OFFSET, record):
             return False, len(ep.log["pos"]) - n0
     carry_place(ep, bowl_place_target(ep, b_task), record)
     for _ in range(10):

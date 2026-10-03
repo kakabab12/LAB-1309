@@ -32,6 +32,7 @@ class PiperIKController(OperationalSpaceController):
         rng = self._m.jnt_range[self.joint_index]
         self._lo, self._hi = rng[:, 0] + 0.01, rng[:, 1] - 0.01
         self.q_goal = None
+        self.hint_q = None
         self._kp = KP
         self._kd = 2 * np.sqrt(KP)
 
@@ -39,6 +40,11 @@ class PiperIKController(OperationalSpaceController):
         m, d = self._m, self._d
         d.qpos[:] = self.sim.data.qpos
         q = d.qpos[self.qpos_index].copy()
+        hint = getattr(self, "hint_q", None)
+        if hint is not None:
+            # 시범 프로그램이 관절 길을 따라갈 때 계획한 관절값에서 출발 — 손목 특이 자세(5번 관절 0°)를 지날 때
+            # 지금 관절에서 풀면 반대로 꺾인 해로 넘어가 계획한 길을 벗어났다 (A8→B0 0/5)
+            q = np.clip(np.asarray(hint, float), self._lo, self._hi)
         jp = np.zeros((3, m.nv))
         jr = np.zeros((3, m.nv))
         for _ in range(IK_ITERS):
@@ -97,6 +103,7 @@ def install():
             rng = m.jnt_range[new.joint_index]
             new._lo, new._hi = rng[:, 0] + 0.01, rng[:, 1] - 0.01
             new.q_goal = None
+            new.hint_q = None
             new._kp = KP
             new._kd = 2 * np.sqrt(KP)
             return new

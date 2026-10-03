@@ -73,6 +73,9 @@ def do_b(ep, at, bt, rec, z_rest):
     if obj == "akita_black_bowl_1" and bt in BOWL_DST:
         ok, _ = se.redirect(ep, bt, record=rec)                    # 쥔 채 새 목적지로
         return
+    if obj == "wine_bottle_1" and bt in WINE_DST and te._robot(ep) == "piper":
+        te.wine_place_held_piper(ep, bt, rec)
+        return
     if obj == "wine_bottle_1" and bt in WINE_DST:
         m, d = ep.inner.sim.model, ep.inner.sim.data
         if bt == 9:
@@ -97,6 +100,7 @@ def run(a, out, stats):
             if (out / f"SB{at}{bt}_ep{i}.npz").exists() or (out / f"SX{at}{bt}_ep{i}.txt").exists():
                 continue                                    # 이미 해 본 장면은 건너뛴다 (세션이 끊겨도 이어서)
             ep = sx.Episode(r, i)
+            ep.inner.horizon = 4000     # 10/3 PiPER: 재개까지 하면 기본 길이 제한을 넘어 "terminated episode" 로 프로세스가 죽었다
             obj = OBJ[at]
             z_rest = ep.obj_pos(obj)[2]
             ra = ce.Rec()
@@ -123,8 +127,13 @@ def run(a, out, stats):
             if not same_obj and not chk_a(ep.env):
                 rr = ce.Rec()
                 t_r = len(ep.log["pos"])
-                te.EXPERT[at](ep, rr)
-                if settle(ep, chk_a) and chk_b(ep.env) and se.min_home_dist(ep, t_r) >= 0.07:
+                try:
+                    te.EXPERT[at](ep, rr)
+                    ok_r = settle(ep, chk_a) and chk_b(ep.env) and se.min_home_dist(ep, t_r) >= 0.07
+                except Exception as e:                       # 재개 중 예외는 그 장면의 재개만 버린다
+                    print(f"  재개 예외 A{at}→B{bt} ep{i}: {type(e).__name__}: {e}"[:160], flush=True)
+                    ok_r = False
+                if ok_r:
                     rr.save(out / f"SR{at}{bt}_ep{i}.npz", chk_a.language, source="expert_resume", pair=f"{at}:{bt}")
                     stats["frames"] += len(rr)
                     kr += 1

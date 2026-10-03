@@ -58,9 +58,14 @@ def run_normal(a, out, stats):
                 k += 1
                 continue
             ep = sx.Episode(r, i)
+            ep.inner.horizon = 4000
             rec = ce.Rec()
-            te.EXPERT[task](ep, rec)
-            ok = settle(ep, r.chk_a)
+            try:
+                te.EXPERT[task](ep, rec)
+                ok = settle(ep, r.chk_a)
+            except Exception as e:                           # 한 장면의 예외로 수집 전체가 죽지 않게
+                print(f"  예외 T{task} ep{i}: {type(e).__name__}: {e}"[:160], flush=True)
+                ok = False
             if ok and len(rec) > 10:
                 rec.save(out / f"N{task}_ep{i}.npz", r.chk_a.language, source="expert_normal")
                 stats["frames"] += len(rec)

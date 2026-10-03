@@ -369,7 +369,18 @@ def open_drawer_grasp(ep, which="middle", pull=0.158, record=None, back=0.05, le
         return 0.0
     _, mat, q_far, g = best
     ap = mat[:, 2]
-    pik.servo_to_q(ep, q_far, -1.0, record=record)
+    # 캐비닛 앞(손잡이 앞 6cm ~ 캐비닛 뒤, 캐비닛 폭 ± 여유)을 관절 길이 지나면 준비 자세를 거쳐 간다.
+    #   전환 A8→B0: 그릇을 내려놓은 자리(캐비닛 가까이)에서 곧장 가다 손가락이 위 서랍 손잡이에 걸려 위 서랍을 2cm 엶 (0/5)
+    c = site_pos(ep, "wooden_cabinet_1_top_side")
+    keep = [(np.array([h[0] - 0.06, c[1] - 0.16, 0.85]), np.array([c[0] + 0.15, c[1] + 0.16, 1.16]))]
+    # 거쳐 갈 점: 손잡이 앞 먼 점보다 캐비닛 바깥쪽(+y) 10cm, 위 6cm — 처음 자세에서도 18cm 떨어져 전환 규칙(7cm)에 안 걸림.
+    #   (처음엔 준비 자세(처음 자세 9cm 위)를 거쳤는데, 그리로 가는 길이 처음 자세 4cm 까지 다가갔다)
+    far = g - ap * far_back
+    via = None
+    rb = pik.plan_branch(ep, [far + [0, 0.10, 0.06], far], [mat])
+    if rb is not None:
+        via = rb[2]
+    pik.servo_to_q(ep, q_far, -1.0, record=record, keepout=keep, via_q=via)
     grip = -1.0
     if partial:
         se.hold(ep, 1.0, partial, record)
@@ -452,9 +463,17 @@ def drawer_bowl_piper(ep, record=None):
     here = sx.eef_pos(ep.obs)
     se.servo(ep, np.array([here[0] - 0.03, here[1], max(here[2], 1.18)]), mat, -1.0, tol=0.02, record=record)
     keep = drawer_keepout(ep, opened)
-    # 꺾인 서랍 자세에서 그릇으로 곧장 가는 관절 길은 열린 서랍을 지나간다 → 처음 자세 9cm 위(준비 자세)를 거친다.
-    # 처음 자세에서 7cm 이상 떨어져 있어 전환 규칙(처음 자세 복귀 금지)에도 걸리지 않는다
-    ready_pose(ep, record, keepout=keep)
+    # 꺾인 서랍 자세에서 그릇으로 곧장 가는 관절 길은 열린 서랍을 지나간다 → 열린 서랍 앞 옆쪽 위를 거친다.
+    #   처음엔 처음 자세 9cm 위(준비 자세)를 거쳤는데, 그리로 가는 길이 처음 자세 4cm 까지 다가가
+    #   전환 A8→B3 이 처음 자세 규칙(7cm)에 걸렸다 (0/3). 이 점은 처음 자세에서 약 15cm
+    import piper_sim.ik as pik
+    h = handle_pos(ep, "top")
+    via = np.array([h[0] - 0.06, site_pos(ep, "wooden_cabinet_1_top_side")[1] + 0.17, 1.17])
+    rb = pik.plan_branch(ep, [via], [ep.home[1], ep.home[1] @ _RZ180])
+    if rb is not None:
+        pik.servo_to_q(ep, rb[2], -1.0, record=record, tol=0.02, keepout=keep, lift_z=1.20)
+    else:
+        ready_pose(ep, record, keepout=keep)
     if not grasp_bowl_safe(ep, record=record, prefer=lambda d: d[0], keepout=keep):
         return False
     opened = -drawer_qpos(ep, "top")
@@ -465,8 +484,10 @@ def drawer_bowl_piper(ep, record=None):
     P = np.array([(lo + hi) / 2, c[1], TOP_FLOOR_Z + BOWL_REST_DZ])
     # 그릇을 든 채로는 그릇(반지름 5.6cm, 손보다 5cm 아래)까지 피해야 한다: 상자를 +y·위로 8cm 넓힌다
     #   (넓히기 전: 든 그릇이 서랍 옆벽에 부딪혀 서랍을 16→11.7cm 닫음, ep2005)
-    keep_b = [(lo_, hi_ + [0, 0.08, 0.08]) for lo_, hi_ in drawer_keepout(ep, opened)]
-    carry_place_piper(ep, P, record=record, above=0.12, keepout=keep_b)
+    # 든 그릇 바닥은 손보다 약 5cm 아래 → 서랍 앞판(1.12m)에 걸리지 않게 손을 1.20m 로 지나가게 (높이 지나가기).
+    #   그릇 축 둘레 손 회전 후보까지 보는 se.carry_place(PiPER 판)를 쓴다
+    keep_b = [(lo_, hi_ + [0, 0.08, 0.08]) for lo_, hi_ in drawer_keepout(ep, opened)]   # 든 그릇 크기만큼 넓힘
+    se.carry_place(ep, P, record=record, above=0.10, z_safe=1.20, keepout=keep_b)
     return True
 
 
@@ -1016,17 +1037,61 @@ def wine_place_piper(ep, bottom_t, axis_t, lift_dir, record=None, above=0.08, ke
         se.servo(ep, pht + lift_dir * above / 2, Rht, 1.0, tol=0.01, vmax=0.3, record=record)
         se.servo(ep, pht + lift_dir * 0.005, Rht, 1.0, tol=0.006, vmax=0.2, max_steps=60, record=record)
     se.hold(ep, -1.0, 10, record)
-    se.servo(ep, sx.eef_pos(ep.obs) - Rht[:, 2] * 0.06 + lift_dir * 0.03, Rht, -1.0, tol=0.02, max_steps=30,
+    se.servo(ep, sx.eef_pos(ep.obs) - Rht[:, 2] * 0.08 + lift_dir * 0.05, Rht, -1.0, tol=0.02, max_steps=30,
              record=record)
+    if z_safe is not None:
+        # 선반 위 모서리보다 높이 빠진 뒤, 로봇 쪽 높은 준비 자세로 간다. 병 위 6cm 에 손을 둔 채 다음 일(그릇 집기)로
+        # 가면 관절 길이 놓은 병을 건드리거나(재개 장면 2004) 캐비닛 모서리·선반에 걸렸다(장면 1002)
+        here = sx.eef_pos(ep.obs)
+        b = pik.plan_branch(ep, [np.array([here[0], here[1], z_safe])], [Rht, ep.home[1]])
+        if b is not None:
+            pik.servo_to_q(ep, b[2], -1.0, record=record, tol=0.02)
+        post_place_ready(ep, record)
     return True
 
 
-def wine_to_rack_piper(ep, record=None):
+POST_READY = np.array([-0.22, -0.14, 1.25])   # 처음 자세에서 약 24cm (전환 규칙 7cm 밖), 선반·캐비닛보다 높고 로봇 쪽
+
+
+def post_place_ready(ep, record=None):
+    """선반에 병을 놓은 뒤의 준비 자세 (손은 아래를 봄). 이후 그릇·서랍 일은 단독 과제처럼 로봇 쪽 위에서 시작한다."""
+    import piper_sim.ik as pik
+    b = pik.plan_branch(ep, [POST_READY], [ep.home[1], ep.home[1] @ _RZ180])
+    if b is not None:
+        pik.servo_to_q(ep, b[2], -1.0, record=record, tol=0.03)
+
+
+def wine_rack_target(ep):
+    """(병 바닥 목표, 병 축, 홈 면에서 떨어지는 방향)"""
     m, d = ep.inner.sim.model, ep.inner.sim.data
     rack = np.array(d.body_xpos[m.body_name2id("wine_rack_1_main")])
-    normal = np.array([0.0, -0.515, 0.857])           # 선반 홈 면에서 떨어지는 방향 (축에 수직, 위)
-    if not wine_grasp_piper(ep, record, place=(rack + WINE_RACK_BOTTOM, WINE_RACK_AXIS, normal)):
+    return rack + WINE_RACK_BOTTOM, WINE_RACK_AXIS, np.array([0.0, -0.515, 0.857])
+
+
+def wine_cabinet_target(ep):
+    """(병 바닥 목표, 지나갈 높이) — 캐비닛 윗면 가운데에서 로봇 쪽으로 (손이 덜 뻗게)"""
+    m, d = ep.inner.sim.model, ep.inner.sim.data
+    sid = m.site_name2id("wooden_cabinet_1_top_side")
+    c = np.array(d.site_xpos[sid])
+    half = np.abs(np.array(d.site_xmat[sid]).reshape(3, 3)) @ np.array(m.site_size[sid])
+    return np.array([c[0] - 0.4 * half[0], c[1], c[2] + 0.004]), c[2] + WINE_GRASP_DZ + 0.04
+
+
+def wine_place_held_piper(ep, task, record=None):
+    """이미 쥔 병을 T9(선반)·T2(캐비닛 위) 자리에 놓는다 (전환·DAgger 넘겨받기용)."""
+    if task == 9:
+        b, a_, n = wine_rack_target(ep)
+        return wine_place_piper(ep, b, a_, n, record, z_safe=1.36)
+    b, z = wine_cabinet_target(ep)
+    up = np.array([0, 0, 1.0])
+    return wine_place_piper(ep, b, up, up, record, above=0.05, z_safe=z)
+
+
+def wine_to_rack_piper(ep, record=None):
+    bottom, axis, normal = wine_rack_target(ep)
+    if not wine_grasp_piper(ep, record, place=(bottom, axis, normal)):
         return False
+    rack = bottom - WINE_RACK_BOTTOM
     # 선반 위 모서리(1.25m) + 든 병이 손 아래로 처지는 길이(약 8cm) 위로 지나간다
     return wine_place_piper(ep, rack + WINE_RACK_BOTTOM, WINE_RACK_AXIS, normal, record, z_safe=1.36)
 
@@ -1047,7 +1112,8 @@ def wine_to_cabinet_piper(ep, record=None):
 
 # T1·T4·T8 그릇 옮기기: 집기(grasp_obj) + 놓기(carry_place, 목적지는 원래 모델이 놓던 위치 실측값)
 def bowl_task(ep, task, record=None):
-    if not grasp_bowl_safe(ep, record=record):
+    dest = se.bowl_place_target(ep, task) if _robot(ep) == "piper" else None
+    if not grasp_bowl_safe(ep, record=record, dest=dest):
         return False
     se.carry_place(ep, se.bowl_place_target(ep, task), record=record)     # PiPER 캐비닛 위 자리는 se 에서 읽음
     return True
@@ -1178,7 +1244,21 @@ EXPERT = {
 }
 
 
-def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.radians(8), keepout=()):
+def _bowl_place_margin(ep, M, rel, P, above=0.06):
+    """손 방향 M, 손−그릇 관계 rel 로 쥔 그릇을 P 에 놓을 수 있는가: 그릇 수직축 둘레 손 회전(60° 간격) 중
+    팔이 부딪히지 않고 닿는 것의 관절 여유 최댓값 (없으면 None)."""
+    import piper_sim.ik as pik
+    best = None
+    for psi in range(0, 360, 60):
+        Rz = Rotation.from_euler("z", psi, degrees=True).as_matrix()
+        t = P + Rz @ rel + [0, 0, 0.015]
+        b = pik.plan_branch(ep, [t + [0, 0, above], t], [Rz @ M], n_seeds=3)
+        if b is not None and (best is None or b[0] > best):
+            best = b[0]
+    return best
+
+
+def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.radians(8), keepout=(), dest=None):
     """PiPER 그릇 집기: 후보 테두리마다 (위 → 잡는 점 → 들어 올린 점) 길을 역기구학으로 풀어
     관절 한계·손목 특이 자세 여유가 min_margin 이상인 첫 후보(정렬 순서)를 관절 길로 따라간다.
     손끝 변화량만으로 가면 서랍을 연 뒤의 꺾인 자세에서 손목이 특이 자세로 내려가 헛잡았다 (T3 ep2001)."""
@@ -1195,11 +1275,20 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
             Rt = Rotation.from_rotvec(axis * np.radians(tilt)).as_matrix()
             mats += [Rt @ gm, Rt @ gm @ _RZ180]
         b = pik.plan_branch(ep, [g + [0, 0, above], g, g + [0, 0, 0.10]], mats)
-        if b is not None:
-            plans.append((b[0] < min_margin, b, g))
+        if b is None:
+            continue
+        score = b[0]
+        if dest is not None:
+            # 놓을 자리에서도 닿는지 같이 본다: 재개 때(선반 위에서 출발) 고른 쥐는 방향으로는 접시에 놓는 손 자세가
+            # 모두 캐비닛에 부딪혀 300스텝 멈췄다 (A8→B9→A8 장면 1000)
+            pm = _bowl_place_margin(ep, b[1], g - ep.obj_pos(obj), dest)
+            if pm is None:
+                continue
+            score = min(score, pm)
+        plans.append((score < min_margin, b, g))
     plans.sort(key=lambda x: x[0])                 # 여유 충분한 후보 먼저, 그 안에서는 원래 순서
     for _, (mg, gm, q_above), g in plans[:3]:
-        pik.servo_to_q(ep, q_above, -1.0, record=record, tol=0.01, keepout=keepout, lift_z=1.20)
+        pik.safe_servo_to_q(ep, q_above, -1.0, list(keepout) + pik.scene_keepout(ep), record=record, tol=0.01)
         if not se.servo(ep, g, gm, -1.0, tol=0.008, vmax=0.3, record=record):
             se.servo(ep, g + [0, 0, above], gm, -1.0, tol=0.03, max_steps=30, record=record)
             continue
@@ -1212,7 +1301,8 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
     return False
 
 
-def grasp_bowl_safe(ep, obj="akita_black_bowl_1", off=None, record=None, above=0.08, prefer=None, keepout=()):
+def grasp_bowl_safe(ep, obj="akita_black_bowl_1", off=None, record=None, above=0.08, prefer=None, keepout=(),
+                    dest=None):
     """se.grasp_obj 와 같지만 손목 방향을 고를 때 7번 관절 한계를 본다 (_aim), 많이 돌아야 하면 나눠 돌린다.
     서랍을 열며 손목을 크게 돌려 둔 뒤 그릇을 다시 집을 때, 원래 방식은 손목이 한계 쪽으로 돌다
     그릇에 못 갔다 (A8→B0 뒤 원래 일로 돌아가기 0/10)."""
@@ -1230,7 +1320,7 @@ def grasp_bowl_safe(ep, obj="akita_black_bowl_1", off=None, record=None, above=0
     else:
         cands.sort(key=lambda c: c[:3])
     if _robot(ep) == "piper":
-        return _grasp_bowl_piper(ep, obj, [(c[3], c[4]) for c in cands], record, above, keepout=keepout)
+        return _grasp_bowl_piper(ep, obj, [(c[3], c[4]) for c in cands], record, above, keepout=keepout, dest=dest)
     for _, _, rot, g, gm in cands[:3]:
         if rot > np.radians(90):
             rotate_staged(ep, gm, record, lift=0.04)
