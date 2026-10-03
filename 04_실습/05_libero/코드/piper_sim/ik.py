@@ -116,7 +116,7 @@ def servo_path(ep, pos, mat, grip, record=None, symmetric=True, step=np.radians(
     return M
 
 
-HOME_CLEAR = 0.09             # 높이 지나가기에서 처음 자세와 떨어질 거리 (전환 규칙 7cm + 여유)
+HOME_CLEAR = 0.11             # 처음 자세와 떨어질 거리: 전환 규칙 7cm + 잡음 여유 (9cm 로는 DART 잡음에 6.2~6.8cm 까지 다가감, 10/3)
 WRIST_SING = np.radians(12)   # 5번 관절이 0도 근처면 4·6번 축이 겹쳐(특이 자세) 손끝 제어가 한 방향을 잃는다
 
 
@@ -173,8 +173,18 @@ def _home_via(ik, ep, q0, qT, n=16):
     pk, Rk = ik.fk(qs[k])
     away = pk - home
     away = away / (np.linalg.norm(away) + 1e-9) if np.linalg.norm(away) > 1e-4 else np.array([0, 0, 1.0])
-    q, err = ik.solve(home + away * (HOME_CLEAR + 0.04), Rk, qs[k])
-    return q if err < 0.005 else None
+    horiz = away * [1, 1, 0]
+    horiz = horiz / (np.linalg.norm(horiz) + 1e-9)
+    # 경유점 후보 여러 개: 바깥쪽(3D)·수평 바깥·바깥+아래, 거리 두 가지, 손 방향은 그 자리/양 끝.
+    #   한 점만 풀던 때는 그 점의 역기구학이 안 풀려 우회를 건너뛰었다 (잡음 A8→B3, 처음 자세 6.2cm)
+    dirs = [away, horiz, (horiz + np.array([0, 0, -0.5])) / np.linalg.norm(horiz + np.array([0, 0, -0.5]))]
+    for dist in (HOME_CLEAR + 0.04, HOME_CLEAR + 0.02):
+        for dv in dirs:
+            for R, s0 in ((Rk, qs[k]), (ik.fk(qT)[1], qT), (ik.fk(q0)[1], q0)):
+                q, err = ik.solve(home + dv * dist, R, s0)
+                if err < 0.008:
+                    return q
+    return None
 
 
 def servo_to_q(ep, qT, grip, record=None, step=np.radians(8), tol=0.008, vmax=0.4, final_steps=80, way_tol=0.02,
