@@ -44,11 +44,11 @@ def held_object(ep):
         b = m.geom_id2name(cc.geom2) or ""
         if ("finger" in a) != ("finger" in b):
             other = b if "finger" in a else a
-            for obj in ("akita_black_bowl_1", "wine_bottle_1", "cream_cheese_1", "plate_1"):
+            for obj in ("akita_black_bowl_1", "wine_bottle_1", "cream_cheese_1", "plate_1", "blue_block_1"):
                 if other.startswith(obj):
                     names.add(obj)
     q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
-    return next(iter(names)) if names and q < 0.035 else None
+    return next(iter(names)) if names and q < sx.GRIPPER_OPEN_QPOS else None   # PiPER 는 0.030 (piper_robot)
 
 
 def run_policy_for(ep, runner, chk, k):

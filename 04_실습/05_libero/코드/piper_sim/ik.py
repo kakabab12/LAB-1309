@@ -40,6 +40,24 @@ class ArmIK:
     def q_now(self):
         return self.live.qpos[self.qadr].copy()
 
+    def hand_hits(self, q, target_prefix):
+        """관절 q 에서 (벌린) 그리퍼가 잡을 물체(target_prefix 로 시작하는 몸체) 말고 다른 물체에 닿는가.
+        블록 옆 3cm 에 쟁반이 있으면 쟁반 쪽으로 벌어진 손가락이 테두리에 걸렸다 (블록 T4 장면 2000, 10/4)."""
+        m, d = self.m, self.d
+        d.qpos[:] = self.live.qpos
+        d.qpos[self.qadr] = q
+        mujoco.mj_forward(m, d)
+        for i in range(d.ncon):
+            c = d.contact[i]
+            if c.dist > 0.002:
+                continue
+            b1 = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, m.geom_bodyid[c.geom1]) or ""
+            b2 = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, m.geom_bodyid[c.geom2]) or ""
+            for a, b in ((b1, b2), (b2, b1)):
+                if a.startswith("gripper0") and not b.startswith(("gripper0", "robot0", target_prefix)):
+                    return True
+        return False
+
     def arm_hits(self, q):
         """관절 q 에서 팔 링크(link2~link6)가 로봇 아닌 물체에 닿는가. 손가락은 물체를 쥐어야 하므로 보지 않는다.
         손끝만 계산하면 손목 링크가 캐비닛 앞 모서리에 걸려 300스텝 멈췄다 (재개 A8→B9→A8 장면 1000)."""
@@ -350,4 +368,10 @@ def cabinet_keepout(ep, margin=0.05):
 def scene_keepout(ep):
     """그릇·병을 가지러 가는 이동이 피해야 할 고정 물체: 와인 선반 + 캐비닛.
     선반 위에서 그릇으로 가는 관절 길에서 손가락이 캐비닛 윗면 앞 모서리에 걸려 멈췄다 (A8→B9→A8 장면 1002)."""
-    return rack_keepout(ep) + cabinet_keepout(ep)
+    out = []
+    for fn in (rack_keepout, cabinet_keepout):     # 블록 장면(10/4)에는 선반·캐비닛이 없다
+        try:
+            out += fn(ep)
+        except Exception:
+            pass
+    return out

@@ -86,6 +86,8 @@ def do_b(ep, at, bt, rec, z_rest):
             te.place_wine(ep, top + [0, 0, 0.009], te.WINE_GRASP_EUL, rec)
         return
     shift = (0.0, 0.08) if bt in (0, 3) and ep.obj_pos(obj)[1] < 0.08 else (0.0, 0.0)
+    if te._is_blocks():
+        shift = (0.0, 0.0)          # 블록 장면(10/4)에는 서랍이 없다 — 옆으로 옮기면 이웃 블록에 닿는다
     put_down_any(ep, obj, z_rest, rec, shift)                     # 내려놓고 (서랍 일이면 서랍 앞을 비켜서)
     te.EXPERT[bt](ep, rec)                                        # B 를 한다
 

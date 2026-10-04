@@ -136,6 +136,11 @@ def register():
 def use_piper_in_lerobot():
     """lerobot LiberoEnv 가 OffScreenRenderEnv 를 만들 때 robots=["Piper"] 를 넘기게 한다."""
     register()
+    import os
+    if os.environ.get("PIPER_BLOCKS") == "1":
+        # 10/4: 물체를 색 블록으로 (blocks.py). 환경 변수로만 켠다 — 원래 물체로 도는 라운드와 섞이지 않게
+        import piper_sim.blocks as pb
+        pb.install()
     if USE_IK_CONTROLLER:
         import piper_sim.ik_controller as ikc
         ikc.install()
@@ -154,11 +159,18 @@ def use_piper_in_lerobot():
 
     def get_path(key):
         if key == "bddl_files" and USE_PIPER_BDDL:
+            if os.environ.get("PIPER_BLOCKS") == "1":
+                return str(HERE / "bddl_blocks")          # 10/4: 색 블록만 있는 장면 (blocks.py)
             return str(HERE / "bddl")
         return orig_path(key)
     L.get_libero_path = get_path
     try:
         import switch_experiment as sx
         sx.FIXED_STATES_OFF = True            # 고정 시작 장면(Panda 상태값)을 쓰지 않는다
+        sx.get_libero_path = get_path         # 10/4: 성공 판정도 같은 장면 정의에서 목표를 읽는다 (블록 장면은 목표가 다르다)
+        # 10/4: PiPER 손가락은 활짝 열면 0.035 라서 '0.035 보다 작으면 닫힘' 판정이 0.03499 에서 깜박였다.
+        #   물체 10cm 안에서 깜박이면 쥐지도 않았는데 쥐었다고 보고 전환했다 (블록 장면 2004 전환 4쌍 실패).
+        #   블록(4.5cm)을 쥐면 0.0225, 막대(4cm) 0.020 → 0.030 으로
+        sx.GRIPPER_OPEN_QPOS = 0.030
     except ImportError:
         pass

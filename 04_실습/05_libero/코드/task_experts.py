@@ -478,8 +478,9 @@ def drawer_bowl_piper(ep, record=None):
         return False
     opened = -drawer_qpos(ep, "top")
     hx = handle_pos(ep, "top")[0]
-    lo = hx + PLATE_IN + BOWL_R + 0.005
-    hi = hx + opened + CAB_FRONT - BOWL_R - 0.010
+    rad = 0.035 if _is_blocks() else BOWL_R          # 블록은 대각선 반 3.2cm
+    lo = hx + PLATE_IN + rad + 0.005
+    hi = hx + opened + CAB_FRONT - rad - 0.010
     c = region_pos(ep, "wooden_cabinet_1_top_region")
     P = np.array([(lo + hi) / 2, c[1], TOP_FLOOR_Z + BOWL_REST_DZ])
     # 그릇을 든 채로는 그릇(반지름 5.6cm, 손보다 5cm 아래)까지 피해야 한다: 상자를 +y·위로 8cm 넓힌다
@@ -832,6 +833,17 @@ def cheese_to_bowl(ep, record=None, above=0.10, drop_dz=0.06):
     return True
 
 
+def green_on_red_blocks(ep, record=None):
+    """블록 T6: 초록 정육면체를 집어 빨간 정육면체 윗면 가운데에 올린다 (성공 판정: 위에서 닿고 중심 3cm 안)."""
+    red = ep.obj_pos("akita_black_bowl_1")
+    h_red = block_size("akita_black_bowl_1")[2]
+    P = red + [0, 0, h_red + 0.002]
+    if not grasp_bowl_safe(ep, "cream_cheese_1", record=record, dest=P):
+        return False
+    se.carry_place(ep, P, record=record, above=0.06, obj="cream_cheese_1")
+    return True
+
+
 # ───────────────────────────────────────────────────────────────────────────
 # T9 와인병을 선반에 (record_demos 의 T9 ep107·110·114 성공 궤적)
 #   쥐기: 손목을 약 60도 기울여(euler xyz [-120, 6, -179]) 병 몸체 기준 [-0.003, -0.010, 0.10] 을 쥔다
@@ -966,7 +978,8 @@ def wine_grasp_piper(ep, record=None, back=0.10, lift=0.12, place=None):
     best = None
     # 역기구학 지도 (scratchpad/wine_reach.py): 병이 밑동에 가까워 수평으로는 어느 방향도 안 되고,
     # 병 너머(+x)에서 로봇 쪽으로 60° 숙여 내려오는 방향(yaw 180±30)만 관절 여유 16~20°
-    for yaw in (180, 150, -150, 120, -120):
+    yaws = (180, 90, -90) if _is_blocks() else (180, 150, -150, 120, -120)   # 블록은 면과 나란한 방향만
+    for yaw in yaws:
         for pitch in (60, 50):
             for M in _side_mats(yaw, pitch):
                 ap = M[:, 2]
@@ -1237,7 +1250,7 @@ EXPERT = {
     3: lambda ep, rec=None: drawer_bowl_piper(ep, rec) if _robot(ep) == "piper" else drawer_bowl(ep, rec, y_front=0.03, pull=0.10),
     4: lambda ep, rec=None: bowl_task(ep, 4, rec),
     5: lambda ep, rec=None: push_plate_v3(ep, rec),        # 10/2: 바깥에서 밀어 마무리 (30장면 T5 28→30, A4→B5 25→30, A8→B5 27→30)
-    6: lambda ep, rec=None: cheese_to_bowl(ep, rec),
+    6: lambda ep, rec=None: green_on_red_blocks(ep, rec) if _is_blocks() else cheese_to_bowl(ep, rec),
     7: lambda ep, rec=None: turn_on_stove_piper(ep, rec) if _robot(ep) == "piper" else turn_on_stove(ep, rec),
     8: lambda ep, rec=None: bowl_task(ep, 8, rec),
     9: lambda ep, rec=None: wine_to_rack_piper(ep, rec) if _robot(ep) == "piper" else wine_to_rack(ep, rec),
@@ -1249,7 +1262,7 @@ def _bowl_place_margin(ep, M, rel, P, above=0.06):
     팔이 부딪히지 않고 닿는 것의 관절 여유 최댓값 (없으면 None)."""
     import piper_sim.ik as pik
     best = None
-    for psi in range(0, 360, 60):
+    for psi in range(0, 360, 30):          # 30° 간격 (60° 면 블록을 90° 돌려 놓는 경우를 못 봤다, 10/4)
         Rz = Rotation.from_euler("z", psi, degrees=True).as_matrix()
         t = P + Rz @ rel + [0, 0, 0.015]
         b = pik.plan_branch(ep, [t + [0, 0, above], t], [Rz @ M], n_seeds=3)
@@ -1274,21 +1287,33 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
         for tilt in (0, 15, -15):
             Rt = Rotation.from_rotvec(axis * np.radians(tilt)).as_matrix()
             mats += [Rt @ gm, Rt @ gm @ _RZ180]
-        b = pik.plan_branch(ep, [g + [0, 0, above], g, g + [0, 0, 0.10]], mats)
-        if b is None:
-            continue
-        score = b[0]
-        if dest is not None:
-            # 놓을 자리에서도 닿는지 같이 본다: 재개 때(선반 위에서 출발) 고른 쥐는 방향으로는 접시에 놓는 손 자세가
-            # 모두 캐비닛에 부딪혀 300스텝 멈췄다 (A8→B9→A8 장면 1000)
-            pm = _bowl_place_margin(ep, b[1], g - ep.obj_pos(obj), dest)
-            if pm is None:
+        # 블록(10/4): 기울기마다 따로 본다. 여유가 가장 큰 하나만 보면 그 방향이 옆 물체에 걸릴 때 걸리지 않는
+        #   다른 기울기가 있어도 버렸다 (T5 장면 2014, 시작도 못 함)
+        groups = [[M] for M in mats] if _is_blocks() else [mats]
+        found = []
+        for ms in groups:
+            b = pik.plan_branch(ep, [g + [0, 0, above], g, g + [0, 0, 0.10]], ms)
+            if b is None:
                 continue
-            score = min(score, pm)
-        plans.append((score < min_margin, b, g))
+            ikc = pik.ArmIK(ep)
+            q_g, _ = ikc.solve(g, b[1], b[2])
+            if ikc.hand_hits(q_g, obj.rsplit("_", 1)[0]):        # 벌린 손가락이 옆 물체에 걸리는 방향은 뺀다
+                continue
+            score = b[0]
+            if dest is not None:
+                # 놓을 자리에서도 닿는지 같이 본다: 재개 때(선반 위에서 출발) 고른 쥐는 방향으로는 접시에 놓는 손 자세가
+                # 모두 캐비닛에 부딪혀 300스텝 멈췄다 (A8→B9→A8 장면 1000)
+                pm = _bowl_place_margin(ep, b[1], g - ep.obj_pos(obj), dest)
+                if pm is None:
+                    continue
+                score = min(score, pm)
+            found.append((score, b))
+        for score, b in sorted(found, key=lambda x: -x[0]):
+            plans.append((score < min_margin, b, g))
     plans.sort(key=lambda x: x[0])                 # 여유 충분한 후보 먼저, 그 안에서는 원래 순서
     for _, (mg, gm, q_above), g in plans[:3]:
-        pik.safe_servo_to_q(ep, q_above, -1.0, list(keepout) + pik.scene_keepout(ep), record=record, tol=0.01)
+        keep = list(keepout) + pik.scene_keepout(ep) + (block_keepout(ep, exclude=(obj,)) if _is_blocks() else [])
+        pik.safe_servo_to_q(ep, q_above, -1.0, keep, record=record, tol=0.01)
         if not se.servo(ep, g, gm, -1.0, tol=0.004, vmax=0.3, record=record):      # 쥐는 높이를 정확히 (0.8cm 허용이면 위에서 멈춤)
             se.servo(ep, g + [0, 0, above], gm, -1.0, tol=0.03, max_steps=30, record=record)
             continue
@@ -1299,6 +1324,67 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
             return True
         se.hold(ep, -1.0, 8, record)
     return False
+
+
+def _is_blocks():
+    import os
+    return os.environ.get("PIPER_BLOCKS") == "1"
+
+
+def block_size(obj):
+    import piper_sim.blocks as pb
+    return np.array(pb.BLOCKS[pb.INSTANCES[obj]][1])
+
+
+def block_task(ep, task, record=None):
+    """블록 장면(10/4)의 모든 일: 블록 X 를 집어 Y(판 또는 블록) 위 가운데에 놓는다.
+    집을 때 놓을 자리에서도 손이 닿는지 같이 보고(dest), 놓을 때는 블록 수직축 둘레로 손을 돌린 자세 중 닿는 것을 쓴다."""
+    import piper_sim.blocks as pb
+    obj, _tgt, _ = pb.TASKS[task]
+    P = pb.target_pos(ep, task)
+    if not grasp_bowl_safe(ep, obj, record=record, dest=P):
+        return False
+    # 지나가는 높이: 든 블록 바닥이 다른 블록(쌓인 것 포함) 윗면보다 3cm 위 — 쥔 점이 블록 바닥에서 2.25cm 위
+    tops = [ep.obj_pos(o)[2] + block_size(o)[2] for o in BLOCK_OBJS if o != obj]
+    z_safe = max(tops) + min(0.025, block_size(obj)[2] / 2) + 0.03
+    se.carry_place(ep, P, record=record, above=0.06, obj=obj, z_safe=z_safe)
+    return True
+
+
+BLOCK_OBJS = ("akita_black_bowl_1", "cream_cheese_1", "blue_block_1", "wine_bottle_1")
+
+
+def block_keepout(ep, exclude=(), margin=0.04, top=0.03):
+    """블록마다 손끝이 들어가면 안 되는 상자 (손끝 = 손가락 패드 가운데). 옆으로는 벌린 손가락 반 폭, 위로는 손가락 끝 길이만큼 넓힌다.
+    초록을 파랑 위에 쌓은 뒤 빨강을 다시 집으러 10cm 높이로 옆으로 가다 손가락이 쌓은 블록을 쳤다 (재개 A8→B9→A8 장면 2001)."""
+    out = []
+    for o in BLOCK_OBJS:
+        if o in exclude:
+            continue
+        c = ep.obj_pos(o)
+        a, b, h = block_size(o)
+        r = float(np.hypot(a, b) / 2) + margin
+        out.append((np.array([c[0] - r, c[1] - r, 0.80]), np.array([c[0] + r, c[1] + r, c[2] + h + top])))
+    return out
+
+
+def block_grasp_candidates(ep, obj):
+    """블록(10/4): 위에서 내려가 마주 보는 옆면 두 개를 쥔다. 손가락은 블록 면과 나란히(0°/90°).
+    쥐는 높이: 바닥에서 2.5cm (블록이 낮으면 높이의 절반) — 손가락 끝이 책상에 닿지 않고 옆면을 넓게 잡는다."""
+    o = ep.obj_pos(obj)
+    a, b, h = block_size(obj)
+    R = se.obj_rot(ep, obj)
+    g = o + R.apply([0, 0, min(0.025, h / 2)])
+    cands = []
+    # 0/90 에 180 을 더한 방향도 넣는다: 손가락이 대칭이라 같은 쥐기지만 손목 관절은 반 바퀴 다르다.
+    #   막대(쥘 수 있는 방향이 하나)가 손목 한계 밖이라 시작도 못 했다 (T2·T7 2/5, 10/4)
+    for yaw in (0, 90, 180, 270):
+        M = R.as_matrix() @ Rotation.from_euler("z", yaw, degrees=True).as_matrix() @ ep.home[1]
+        # 손가락 방향의 블록 폭이 그리퍼(7cm)보다 좁을 때만
+        width = a if abs(np.cos(np.radians(yaw))) < 0.5 else b
+        if width < 0.065:
+            cands.append((g, M))
+    return cands
 
 
 PIPER_GRASP_DEEPER = 0.012
@@ -1328,6 +1414,8 @@ def grasp_bowl_safe(ep, obj="akita_black_bowl_1", off=None, record=None, above=0
     else:
         cands.sort(key=lambda c: c[:3])
     if _robot(ep) == "piper":
+        if _is_blocks():
+            return _grasp_bowl_piper(ep, obj, block_grasp_candidates(ep, obj), record, above, keepout=keepout, dest=dest)
         return _grasp_bowl_piper(ep, obj, [(c[3], c[4]) for c in cands], record, above, keepout=keepout, dest=dest)
     for _, _, rot, g, gm in cands[:3]:
         if rot > np.radians(90):
