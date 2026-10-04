@@ -66,6 +66,10 @@ def takeover(ep, task, rec, z_rest):
     필요한 물체를 이미 쥐고 있으면(그릇→어디, 와인→어디) 놓지 않고 쥔 채 이어서 옮긴다 (10/2 추가).
     처음 넣은 방식은 쥔 병을 놓고 다시 집으려다 넘어뜨려, T2 교정 시범이 40장면 중 13개만 남았다."""
     held = held_object(ep)
+    if te._is_blocks() and held is not None and held == OBJ_OF_TASK.get(task):
+        se.hold(ep, 1.0, 4, rec)                         # 블록 장면(10/4): 맞는 블록을 쥐고 있으면 쥔 채 옮겨 놓는다
+        te.block_carry(ep, task, rec)
+        return
     if held is not None and held != OBJ_OF_TASK.get(task):
         sv.put_down_any(ep, held, z_rest.get(held, ep.obj_pos(held)[2]), rec)
     elif held == "akita_black_bowl_1" and task in sv.BOWL_DST:

@@ -1344,11 +1344,20 @@ def block_task(ep, task, record=None):
     P = pb.target_pos(ep, task)
     if not grasp_bowl_safe(ep, obj, record=record, dest=P):
         return False
+    block_carry(ep, task, record)
+    return True
+
+
+def block_carry(ep, task, record=None):
+    """이미 쥔 블록을 task 의 목적지에 놓는다. 교정 시범에서 학생이 맞는 블록을 쥐고 있을 때도 쓴다
+    (놓았다 다시 집으면 '쥐자마자 놓는' 시범이 되어 버려진다 — Panda v6c 사고)."""
+    import piper_sim.blocks as pb
+    obj = pb.TASKS[task][0]
+    P = pb.target_pos(ep, task)
     # 지나가는 높이: 든 블록 바닥이 다른 블록(쌓인 것 포함) 윗면보다 3cm 위 — 쥔 점이 블록 바닥에서 2.25cm 위
     tops = [ep.obj_pos(o)[2] + block_size(o)[2] for o in BLOCK_OBJS if o != obj]
     z_safe = max(tops) + min(0.025, block_size(obj)[2] / 2) + 0.03
     se.carry_place(ep, P, record=record, above=0.06, obj=obj, z_safe=z_safe)
-    return True
 
 
 BLOCK_OBJS = ("akita_black_bowl_1", "cream_cheese_1", "blue_block_1", "wine_bottle_1")
