@@ -426,15 +426,19 @@ class Episode:
         계획이 바닥나면 제자리 유지. 도착하면 이미 지나간 앞 L 개를 버리고 이어서 사용."""
         L = self.a.latency_steps
         if self.pending is None and (self.exec_left <= 0 or len(self.plan) <= L):
-            if getattr(self.a, "ttrtc", False) and self.plan_norm is not None and len(self.plan) > 0:
+            # k = 기다리는 동안 실제로 실행할 이전 계획 동작 수. 계획이 없으면(시작할 때) 로봇은 가만히 있으므로 0.
+            # ⚠️ 10/4: 예전에는 늘 앞 L 개를 버려서, 시작할 때 첫 계획의 처음 11개(블록 쪽으로 옆 이동 전부)를 버렸다.
+            #   로봇은 그동안 가만히 있었으니 요청 때 관측 = 도착 때 관측이고, 첫 동작부터 쓰는 것이 맞다 (실물도 같다).
+            k = min(L, len(self.plan))
+            if getattr(self.a, "ttrtc", False) and self.plan_norm is not None and k > 0:
                 import ttrtc
-                ttrtc.STATE["prefix"] = self.plan_norm[:min(L, len(self.plan))]   # 기다리는 동안 실제로 할 동작
+                ttrtc.STATE["prefix"] = self.plan_norm[:k]   # 기다리는 동안 실제로 할 동작
             out, norm = self.infer_chunk(instruction, commit=False)
-            self.pending = [out, norm, L]
+            self.pending = [out, norm, L, k]
         if self.pending is not None and self.pending[2] <= 0:
-            out, norm, _ = self.pending
-            self.plan, self.plan_norm = out[L:], norm[L:]
-            self.plan_k = L
+            out, norm, _, k = self.pending
+            self.plan, self.plan_norm = out[k:], norm[k:]
+            self.plan_k = k
             self.exec_left = self.n_act
             self.pending = None
         if len(self.plan) == 0:
