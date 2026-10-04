@@ -172,5 +172,6 @@ def use_piper_in_lerobot():
         #   물체 10cm 안에서 깜박이면 쥐지도 않았는데 쥐었다고 보고 전환했다 (블록 장면 2004 전환 4쌍 실패).
         #   블록(4.5cm)을 쥐면 0.0225, 막대(4cm) 0.020 → 0.030 으로
         sx.GRIPPER_OPEN_QPOS = 0.030
+        sx.GRIPPER_MIN_QPOS = 0.005           # 빈손으로 끝까지 닫히면 0.000 — 쥔 것으로 보지 않는다 (10/4)
     except ImportError:
         pass

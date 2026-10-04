@@ -73,6 +73,7 @@ SUITE = "libero_goal"
 DT = 1 / 20  # LIBERO control_freq = 20Hz
 GRIPPER_OPEN_QPOS = 0.035  # 손가락 qpos 가 이보다 작으면 닫힘
 HOLD_DIST = 0.10  # 그리퍼 닫힘 + 끝단에서 이 거리(m) 이내의 물체 → 잡고 있다고 판정
+GRIPPER_MIN_QPOS = -1.0  # 빈손으로 끝까지 닫힌 값보다 조금 큰 값 (PiPER 는 piper_robot 이 0.005 로)
 POS_SCALE, ROT_SCALE = 0.05, 0.5  # OSC_POSE delta 액션 1.0 당 이동(m) / 회전(rad)
 HELDOUT_FROM = 1000  # 이 번호부터는 학습에 안 쓴 무작위 배치 (평가 전용)
 # PiPER 장면에서는 고정 시작 장면을 쓰지 않는다: 고정 장면 파일은 Panda(관절 7개) 상태값이라 PiPER(6개)에 넣으면
@@ -677,7 +678,10 @@ class Episode:
         return name if dists[name] < HOLD_DIST else None
 
     def holding(self):
-        return gripper_closed(self.obs) and self.nearest_object() is not None
+        # GRIPPER_MIN_QPOS: 이보다 작으면 손가락이 끝까지 닫힌 빈손 (PiPER 0.005, piper_robot 이 정함. Panda 는 쓰지 않음)
+        #   10/4: 빈손으로 오므려도 근처에 블록이 있으면 '쥠'으로 보고 전환해, 쥐지 않은 채 B 를 하는 시도가 섞였다
+        q = float(self.obs["robot_state"]["gripper"]["qpos"][0])
+        return gripper_closed(self.obs) and q > GRIPPER_MIN_QPOS and self.nearest_object() is not None
 
     def run_policy(self, instruction, phase, max_steps, success_fn=None, trigger_fn=None, watch_fn=None):
         """success_fn/trigger_fn 이 True 가 되거나 max_steps 까지. (끝난 이유, 스텝 수) 반환."""

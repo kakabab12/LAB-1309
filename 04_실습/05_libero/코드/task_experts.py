@@ -1314,9 +1314,17 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
     for _, (mg, gm, q_above), g in plans[:3]:
         keep = list(keepout) + pik.scene_keepout(ep) + (block_keepout(ep, exclude=(obj,)) if _is_blocks() else [])
         pik.safe_servo_to_q(ep, q_above, -1.0, keep, record=record, tol=0.01)
-        if not se.servo(ep, g, gm, -1.0, tol=0.004, vmax=0.3, record=record):      # 쥐는 높이를 정확히 (0.8cm 허용이면 위에서 멈춤)
+        # 블록(10/4 밤): 내려가는 속도(0.15~0.4)와 바닥에서 멈추는 시간(0~4스텝)을 시범마다 다르게.
+        #   늘 같은 속도로 내려가 같은 시간에 오므리면 학생은 높이 대신 '시간'으로 오므릴 때를 배운다 —
+        #   b1 은 시범보다 40% 느리게 내려가며 같은 시간(45스텝째)에 96cm 에서 오므려 빈손이 됐다 (가설)
+        vdown = float(se._rng.uniform(0.15, 0.4)) if _is_blocks() else 0.3
+        if not se.servo(ep, g, gm, -1.0, tol=0.004, vmax=vdown, record=record):      # 쥐는 높이를 정확히 (0.8cm 허용이면 위에서 멈춤)
             se.servo(ep, g + [0, 0, above], gm, -1.0, tol=0.03, max_steps=30, record=record)
             continue
+        if _is_blocks():
+            n_wait = int(se._rng.integers(0, 5))
+            if n_wait:
+                se.hold(ep, -1.0, n_wait, record)
         se.hold(ep, 1.0, 12, record)
         z0 = ep.obj_pos(obj)[2]
         se.servo(ep, g + [0, 0, 0.10], gm, 1.0, tol=0.02, record=record)
