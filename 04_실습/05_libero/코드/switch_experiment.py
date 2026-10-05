@@ -447,6 +447,8 @@ class Episode:
         if len(self.plan) == 0:
             act = np.zeros(7, dtype=np.float32)
             act[6] = self.last_grip  # 새 계획이 올 때까지 제자리, 그리퍼 상태 유지
+            if getattr(self.r, "abs_pos", False):
+                act[:3] = eef_pos(self.obs)     # 절대 목표 모델: '지금 자리'가 제자리 (to_delta 뒤 0)
             self.hold_steps += 1
         else:
             act = self.correct(instruction)
@@ -516,12 +518,21 @@ class Episode:
             return self.escape_act
         return None
 
+    def to_delta(self, act):
+        """절대 목표 위치 모델(abs_pos, 10/5): 위치 3개를 '지금 손 위치와의 차이'로 바꿔 제어기에 준다.
+        묶음을 눈 감고 실행하는 동안 손이 계획보다 덜·더 가도 다음 스텝 명령이 그만큼 바로잡는다."""
+        if not getattr(self.r, "abs_pos", False):
+            return act
+        act = np.array(act, dtype=np.float32, copy=True)
+        act[:3] = np.clip((act[:3] - eef_pos(self.obs)) / 0.05, -1, 1)
+        return act
+
     def policy_action(self, instruction):
         esc = self.maybe_escape()
         if esc is not None:
             return esc
         if self.a.latency_steps > 0:
-            return self.policy_action_async(instruction)
+            return self.to_delta(self.policy_action_async(instruction))
         if self.exec_left <= 0 or len(self.plan) == 0:
             self.plan = self.infer_chunk(instruction)
             self.plan_k = 0
@@ -531,7 +542,7 @@ class Episode:
         if self.plan_norm is not None:
             self.plan_norm = self.plan_norm[1:]
         self.exec_left -= 1
-        return self.latch_grip(self.bias_wrist(act))
+        return self.to_delta(self.latch_grip(self.bias_wrist(act)))
 
     def bias_wrist(self, act):
         """⚠️ 진단용 — 손목 회전을 초기 방향 쪽으로 **조금씩** 당긴다.
@@ -862,6 +873,8 @@ class Runner:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.policy = SmolVLAPolicy.from_pretrained(args.policy)
         self.policy.config.device = self.device
+        # 10/5: 위치 동작이 절대 목표 위치인 모델 (train_lora --abs-pos 가 모델 폴더에 abs_pos 를 남김)
+        self.abs_pos = (Path(args.policy) / "abs_pos").exists()
         if getattr(args, "strategy", None) in ("rtc", "flush_rtc", "rtc_all"):
             from lerobot.policies.rtc.configuration_rtc import RTCConfig
             self.policy.config.rtc_config = RTCConfig(enabled=True, execution_horizon=args.rtc_horizon,

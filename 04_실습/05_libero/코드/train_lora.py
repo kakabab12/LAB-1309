@@ -59,6 +59,9 @@ def parse_args():
     p.add_argument("--ema", type=float, default=0.0,
                    help="가중치 지수이동평균 (Diffusion Policy·π0 학습에서 쓰는 방식). 0.999 면 최근 ~1000번 갱신의 평균을 "
                         "저장·검증에 쓴다. 0 이면 끔")
+    p.add_argument("--abs-pos", action="store_true",
+                   help="10/5: 동작의 위치 3개를 '절대 목표 위치'로 (그때 손 위치 + 5cm×명령). 실행할 때 지금 손 위치와의 차이로 "
+                        "명령을 만들어 묶음을 눈 감고 실행해도 오차가 쌓이지 않는다. --renorm-action 과 함께. 모델 폴더에 abs_pos 표시")
     p.add_argument("--renorm-action", action="store_true",
                    help="동작 정규화 통계(평균·표준편차)를 학습 데이터에서 다시 잰다. 원래 값은 LIBERO 사람 시범 기준이라 "
                         "선생 데이터에서는 위치 동작이 0.6배로 작고 손목 회전이 2배(최대 12.8배)로 커서, 학습이 위치 정밀도를 덜 본다")
@@ -79,7 +82,16 @@ def parse_args():
     p.add_argument("--save-every", type=int, default=1000)
     p.add_argument("--out", default="outputs/lora_v1")
     p.add_argument("--seed", type=int, default=0)
-    return p.parse_args()
+    a = p.parse_args()
+    # 10/4: 돌고 있는 자동 라운드 스크립트를 고치지 않고 설정을 바꾸려고, outputs/train_override.json 에
+    #   {"<--out 경로>": {"steps": 24000, "lr": 5e-5}} 가 있으면 덮어쓴다 (PiPER 1차가 학습 부족으로 보여서)
+    ov = Path("outputs/train_override.json")
+    if ov.exists():
+        import json as _json
+        for k, v in _json.loads(ov.read_text()).get(a.out, {}).items():
+            print(f"설정 덮어쓰기 ({ov}): {k} {getattr(a, k, None)} → {v}", flush=True)
+            setattr(a, k, v)
+    return a
 
 
 def decode(blob) -> np.ndarray:
@@ -101,7 +113,7 @@ def augment(img, rng):
 class ChunkDataset(Dataset):
     """(에피소드, 시점) → 이미지 2장 + 로봇 상태 + 앞으로 chunk_size 스텝의 동작."""
 
-    def __init__(self, files, chunk_size, aug=False, vis_cache=None, frame_stride=1):
+    def __init__(self, files, chunk_size, aug=False, vis_cache=None, frame_stride=1, abs_pos=False):
         self.aug = aug
         self.chunk = chunk_size
         self.vis_cache = vis_cache
@@ -110,6 +122,10 @@ class ChunkDataset(Dataset):
             d = np.load(f, allow_pickle=True)
             keys = ["eef_pos", "eef_quat", "grip", "action"] + ([] if vis_cache else ["img", "wrist"])
             ep = {k: d[k] for k in keys}
+            if abs_pos:     # 위치 명령 → 그 스텝의 절대 목표 위치 (robosuite OSC: 입력 [-1,1] → 5cm, 목표 = 지금 손 위치 + 변화)
+                act = ep["action"].astype(np.float32).copy()
+                act[:, :3] = ep["eef_pos"].astype(np.float32) + 0.05 * np.clip(act[:, :3], -1, 1)
+                ep["action"] = act
             if vis_cache:
                 import vis_cache as vc
                 ep["feat_path"] = str(vc.cache_path(vis_cache, f))
@@ -269,8 +285,9 @@ class Trainer:
             vc.install(self.policy)
             print(f"사진 특징 미리 계산본 사용: {vcache} (사진 증강 없음)", flush=True)
         fs = getattr(a, "frame_stride", 1)
-        train_ds = ChunkDataset(train_files, chunk, aug=a.aug and not vcache, vis_cache=vcache, frame_stride=fs)
-        val_ds = ChunkDataset(val_files, chunk, vis_cache=vcache, frame_stride=fs)
+        ab = getattr(a, "abs_pos", False)
+        train_ds = ChunkDataset(train_files, chunk, aug=a.aug and not vcache, vis_cache=vcache, frame_stride=fs, abs_pos=ab)
+        val_ds = ChunkDataset(val_files, chunk, vis_cache=vcache, frame_stride=fs, abs_pos=ab)
         print(f"에피소드 학습 {len(train_files)} / 검증 {len(val_files)}, "
               f"프레임 {len(train_ds)} / {len(val_ds)}", flush=True)
         if getattr(a, "renorm_action", False):
@@ -401,6 +418,8 @@ class Trainer:
             self.policy.save_pretrained(d)
             self.pre.save_pretrained(d)
             self.post.save_pretrained(d)
+            if getattr(self.a, "abs_pos", False):
+                (d / "abs_pos").write_text("위치 동작 = 절대 목표 위치 (train_lora --abs-pos)\n")
             (out / "history.json").write_text(json.dumps(hist, ensure_ascii=False, indent=2))
             print(f"정책 저장: {d}", flush=True)
             return
