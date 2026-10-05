@@ -173,5 +173,6 @@ def use_piper_in_lerobot():
         #   블록(4.5cm)을 쥐면 0.0225, 막대(4cm) 0.020 → 0.030 으로
         sx.GRIPPER_OPEN_QPOS = 0.030
         sx.GRIPPER_MIN_QPOS = 0.005           # 빈손으로 끝까지 닫히면 0.000 — 쥔 것으로 보지 않는다 (10/4)
+        sx.HOLD_CONTACT = True                # 두 손가락이 모두 물체에 닿아야 쥔 것 (10/5, 닫히는 도중 깜박임 막기)
     except ImportError:
         pass

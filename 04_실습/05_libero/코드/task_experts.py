@@ -1313,7 +1313,18 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
     plans.sort(key=lambda x: x[0])                 # 여유 충분한 후보 먼저, 그 안에서는 원래 순서
     for _, (mg, gm, q_above), g in plans[:3]:
         keep = list(keepout) + pik.scene_keepout(ep) + (block_keepout(ep, exclude=(obj,)) if _is_blocks() else [])
-        pik.safe_servo_to_q(ep, q_above, -1.0, keep, record=record, tol=0.01)
+        q_go = q_above
+        if _is_blocks() and BLOCK_APPROACH_OFFSET > 0 and se._rng.random() < 0.7:
+            # 블록(10/5): 블록 바로 위가 아니라 옆으로 최대 2.5cm 빗나간 위치로 가서, 내려가며 맞춘다.
+            #   학생 모델은 지연 때문에 2~3cm 빗나간 채 내려와 손가락이 블록 윗면에 걸렸다 (b1c T8 3/20).
+            #   시범이 늘 정확히 위에서 똑바로 내려가면 '내려가며 바로잡기'를 한 번도 보지 못한다.
+            ang = se._rng.uniform(0, 2 * np.pi)
+            rr = BLOCK_APPROACH_OFFSET * np.sqrt(se._rng.random())
+            ikc = pik.ArmIK(ep)
+            q_off, err_off = ikc.solve(g + [rr * np.cos(ang), rr * np.sin(ang), above], gm, q_above)
+            if err_off < 0.003:                       # 풀린 자세만 (3mm 안)
+                q_go = q_off
+        pik.safe_servo_to_q(ep, q_go, -1.0, keep, record=record, tol=0.01)
         # 블록(10/4 밤): 내려가는 속도(0.15~0.4)와 바닥에서 멈추는 시간(0~4스텝)을 시범마다 다르게.
         #   늘 같은 속도로 내려가 같은 시간에 오므리면 학생은 높이 대신 '시간'으로 오므릴 때를 배운다 —
         #   b1 은 시범보다 40% 느리게 내려가며 같은 시간(45스텝째)에 96cm 에서 오므려 빈손이 됐다 (가설)
@@ -1405,6 +1416,7 @@ def block_grasp_candidates(ep, obj):
 
 
 PIPER_GRASP_DEEPER = 0.012
+BLOCK_APPROACH_OFFSET = 0.025   # 블록 집으러 내려가기 전 일부러 빗나가는 최대 거리 (10/5, 0 이면 끔)
 
 
 def grasp_bowl_safe(ep, obj="akita_black_bowl_1", off=None, record=None, above=0.08, prefer=None, keepout=(),
