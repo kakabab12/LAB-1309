@@ -160,6 +160,8 @@ def use_piper_in_lerobot():
     def get_path(key):
         if key == "bddl_files" and USE_PIPER_BDDL:
             if os.environ.get("PIPER_BLOCKS") == "1":
+                if os.environ.get("PIPER_BLOCKS_WIDE") == "1":
+                    return str(HERE / "bddl_blocks_wide")  # 10/6: 넓은 배치 (학습 데이터용)
                 return str(HERE / "bddl_blocks")          # 10/4: 색 블록만 있는 장면 (blocks.py)
             return str(HERE / "bddl")
         return orig_path(key)

@@ -93,6 +93,8 @@ def sample_actions(self, images, img_masks, lang_tokens, lang_masks, state, nois
     bsize, device = state.shape[0], state.device
     if noise is None:
         noise = self.sample_noise((bsize, self.config.chunk_size, self.config.max_action_dim), device)
+        if STATE.get("noise_scale", 1.0) != 1.0:      # 10/6: 잡음 크기 (0 이면 늘 같은 출발점 → 계획마다 덜 흔들림)
+            noise = noise * STATE["noise_scale"]
     prefix = STATE["prefix"]
     STATE["prefix"] = None
     d = 0

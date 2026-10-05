@@ -17,11 +17,18 @@ PiPER 블록 장면 (2026-10-04): 책상 위에 색깔 있는 정사각형·직�
 """
 from pathlib import Path
 
+import os
+
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
 ASSETS = HERE / "assets" / "blocks"
 BDDL_DIR = HERE / "bddl_blocks"
+# 10/6: 넓은 배치 (PIPER_BLOCKS_WIDE=1) — 학생 모델이 물체를 보지 않고 '평소 자리'로 가는 지름길을 막는다.
+#   기본 배치는 물체가 평균 ±2cm 안에만 놓여, 쥔 손 위치가 실제 블록 위치를 거의 따라가지 않았다 (기울기 0.1~0.2, b1c)
+WIDE = os.environ.get("PIPER_BLOCKS_WIDE") == "1"
+if WIDE:
+    BDDL_DIR = HERE / "bddl_blocks_wide"
 
 CUBE = 0.045
 PAD = (0.10, 0.10, 0.005)       # 10cm: 12cm 는 책상에 4장 + 블록 4개를 두기에 좁았다
@@ -107,6 +114,8 @@ def _bddl(task):
         a, b = BLOCKS[INSTANCES[inst]][1][:2]
         r = float(np.hypot(a, b) / 2)
         jit = 0.015 if b >= 0.1 else 0.02          # 판 ±1.5cm, 블록 ±2cm
+        if WIDE:
+            jit = 0.035 if b >= 0.1 else 0.045     # 넓은 배치: 판 ±3.5cm, 블록 ±4.5cm
         regions += f'''      ({inst.rsplit("_", 1)[0]}_region
           (:target main_table)
           (:ranges (

@@ -31,9 +31,10 @@ wait $P1 $P2 $P3
 log "교정 시범 끝: $(ls $OUTD/episodes 2>/dev/null | wc -l) — $(grep -h STATS outputs/piper/dagger_ba1_*.log | tr '\n' ' ')"
 $PY piper_sim/trim_stalls.py $OUTD ${OUTD}_t
 until grep -q "회복 시범 수집 끝" outputs/piper/blk_recovery.log 2>/dev/null; do sleep 120; done
-log "[2] ba2 학습 (ba1 에서, 절대 목표, 16000스텝, + 회복 시범 $(ls data/piper_blk_recovery_t/episodes | wc -l))"
+until grep -q "넓은 배치 수집 끝" outputs/piper/blk_collect_wide.log 2>/dev/null; do sleep 120; done   # 10/6: 물체를 보고 가게
+log "[2] ba2 학습 (ba1 에서, 절대 목표, 20000스텝, + 넓은 배치 + 회복 시범 $(ls data/piper_blk_recovery_t/episodes | wc -l))"
 touch outputs/piper/TRAINING
-$PY train_lora.py --policy $B --data $DATA ${OUTD}_t data/piper_blk_recovery_t $TR --abs-pos --dagger-frac 0.35 --steps 16000 --lr 3e-5 --eval-every 2000 --save-every 4000 \
+$PY train_lora.py --policy $B --data $DATA ${OUTD}_t data/piper_blk_recovery_t data/piper_blk_wide_normal_t data/piper_blk_wide_switch_t $TR --abs-pos --dagger-frac 0.3 --steps 20000 --lr 4e-5 --eval-every 2000 --save-every 4000 \
   --out outputs/piper_ba2_model 2>&1 | grep --line-buffered -E '에피소드 학습|val_loss|모델 저장|Traceback|Error'
 rm -f outputs/piper/TRAINING
 POL=outputs/piper_ba2_model/merged
