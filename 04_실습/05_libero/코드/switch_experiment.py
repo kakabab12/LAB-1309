@@ -262,6 +262,7 @@ class Episode:
         self.plan_norm = None  # 같은 동작의 정규화 값 (RTC guidance 에 필요)
         self.bon_active = False  # bon: 전환 이후에만 후보 선택
         self.pending = None  # 지연 모사: [동작, 정규화 동작, 남은 도착 스텝]
+        self.loose_hit = {}  # 단계별 '판 안' 성공 (10/5)
         self.last_grip = -1.0
         self.hold_steps = 0
         self.rtc_active = False  # rtc: 전환 이후에만 guidance
@@ -709,11 +710,16 @@ class Episode:
 
     def run_policy(self, instruction, phase, max_steps, success_fn=None, trigger_fn=None, watch_fn=None):
         """success_fn/trigger_fn 이 True 가 되거나 max_steps 까지. (끝난 이유, 스텝 수) 반환."""
+        loose = getattr(success_fn, "loose", None)
         for t in range(max_steps):
             self.step(self.policy_action(instruction), phase)
             if watch_fn is not None:
                 watch_fn()
+            # 10/5: '판 안' 기준 (블록 중심이 판 안 + 닿음 + 손에서 놓임) 을 함께 기록 — 3cm 기준과 둘 다 보고 (사용자 결정)
+            if loose is not None and not self.loose_hit.get(phase) and loose(self.env):
+                self.loose_hit[phase] = True
             if success_fn is not None and success_fn(self.env):
+                self.loose_hit[phase] = True
                 return "success", t + 1
             if trigger_fn is not None and trigger_fn(t + 1):
                 return "trigger", t + 1
@@ -971,7 +977,7 @@ class Runner:
         rec.update(grasp_step=grasp_step["t"], a_steps_before_switch=n_a)
         if why != "trigger":
             # A 가 전환 전에 끝났거나(성공) 잡지 못한 채 시간초과 → 전환 조건 미충족, 집계 제외
-            rec.update(switched=False, a_success=why == "success")
+            rec.update(switched=False, a_success=why == "success", a_success_loose=bool(ep.loose_hit.get("A")))
             return self.finish(ep, rec, t0, ep_idx)
 
         ts = len(ep.log["pos"])
@@ -985,7 +991,7 @@ class Runner:
 
         if a.strategy == "none" or self.chk_b is None:
             why, n = ep.run_policy(self.chk_a.language, "A", a.max_steps, self.chk_a)
-            rec.update(a_success=why == "success", a_total_steps=n_a + n)
+            rec.update(a_success=why == "success", a_total_steps=n_a + n, a_success_loose=bool(ep.loose_hit.get("A")))
             rec.update(switch_metrics(ep.log, ts, len(ep.log["pos"]), ep.held))
             return self.finish(ep, rec, t0, ep_idx)
 
@@ -1009,6 +1015,7 @@ class Runner:
         rec["home_dist_after_cm"] = round(100 * float(np.linalg.norm(eef_pos(ep.obs) - ep.home[0])), 1)
         why, n_b = ep.run_policy(b_lang, "B", a.max_steps, self.chk_b, watch_fn=watch_b)
         b_end = len(ep.log["pos"])
+        rec["b_success_loose"] = bool(ep.loose_hit.get("B"))
         rec.update(b_success=why == "success", b_steps=n_b, a_completed_during_b=a_during_b["v"],
                    escape_count=ep.escape_count, escape_at=list(ep.escape_at))
         rec.update(switch_metrics(ep.log, ts, b_end, ep.held))
@@ -1042,6 +1049,7 @@ class Runner:
         #   A1='그릇을 스토브 위에' + B7='스토브 켜기' 처럼 장소가 겹치면,
         #   B 를 하는 동안 A 의 목표가 **저절로** 달성된다 (9/10 이 0스텝 성공).
         #   그걸 재개로 세면 90% 가 나오지만 **돌아가서 다시 해낸 것이 아니다.**
+        rec["a_resume_genuine_loose"] = bool(n_a2 > 0 and ep.loose_hit.get("A2"))
         rec.update(a_resume_success=ok, a_resume_steps=n_a2,
                    a_resume_incidental=bool(ok and n_a2 == 0),
                    a_resume_genuine=bool(ok and n_a2 > 0),
@@ -1094,7 +1102,15 @@ def summarize(recs):
     sw = [r for r in recs if r.get("switched")]
     out = {"n": len(recs), "n_switched": len(sw)}
     # 전환이 한 번도 없는 실행(태스크 단독 평가)에서는 전체 에피소드로 집계한다
-    base = sw if sw else recs
+    # 10/5: 단독 평가(strategy none)는 늘 전체 에피소드로 — 쥠 판정이 엄격해져(두 손가락 닿음) 못 쥔 시도가 빠지면 부풀었다
+    base = sw if (sw and recs[0].get("task_b") is not None) else recs
+    if recs and recs[0].get("task_b") is not None:
+        for k in ["b_success", "b_success_loose", "a_resume_genuine", "a_resume_genuine_loose"]:
+            out[k + "_rate_all"] = round(float(np.mean([bool(r.get(k)) for r in recs])), 3)   # 못 쥔 시도 = 실패
+    for k in ["a_success_loose"]:
+        vals = [bool(r.get(k)) for r in base if k in r]
+        if vals:
+            out[k + "_rate"] = round(float(np.mean(vals)), 3)
     for k in ["holding_at_switch", "a_success", "b_success", "a_resume_success",
               "a_resume_genuine", "a_resume_incidental", "both_success", "drop"]:
         vals = [r[k] for r in base if r.get(k) is not None]

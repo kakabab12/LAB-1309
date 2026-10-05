@@ -199,6 +199,7 @@ def install():
         orig(self, suite, task_id)
         self.language = LANGUAGE.get(self.language.lower(), self.language)
     sx.GoalChecker.__init__ = init
+    sx.GoalChecker.loose = _loose_on_pad
     # 시범 프로그램: 모든 일을 block_task 로, 일 바꾸기(쥔 채 방향 틀기)의 목적지도 블록 표로
     import scripted_expert as se
     import task_experts as te
@@ -222,3 +223,30 @@ def install():
         if hasattr(mod, "WINE_DST"):
             mod.WINE_DST.clear()
     _installed = True
+
+PADS = {i for i, k in INSTANCES.items() if BLOCKS[k][1][2] <= 0.01}     # 두께 1cm 이하 = 판
+
+
+def _loose_on_pad(self, env):
+    """'판 안' 기준 (10/5, 사용자 결정: LIBERO 3cm 기준과 둘 다 보고).
+    목표가 '블록을 판 위에'면: 블록 중심이 판(10cm) 안 + 판에 닿음 + 블록이 판보다 위 + 손가락이 블록에 안 닿음(놓았음).
+    LIBERO 의 On 은 중심끼리 3cm 안이어야 해서, 판 위에 올라가 있어도 가장자리 쪽이면 실패였다.
+    블록 위에 쌓는 과제는 원래 기준 그대로."""
+    inner = env._env.env
+    g = self.goal
+    if len(g) != 1 or str(g[0][0]).lower() != "on" or g[0][2] not in PADS:
+        return self(env)
+    _, o, t = g[0]
+    d, m = inner.sim.data, inner.sim.model
+    po, pt = d.body_xpos[inner.obj_body_id[o]], d.body_xpos[inner.obj_body_id[t]]
+    half = BLOCKS[INSTANCES[t]][1][0] / 2
+    if po[2] < pt[2] or abs(po[0] - pt[0]) > half or abs(po[1] - pt[1]) > half:
+        return False
+    if not inner.object_states_dict[o].check_contact(inner.object_states_dict[t]):
+        return False
+    for i in range(d.ncon):
+        c = d.contact[i]
+        a, b = m.geom_id2name(c.geom1) or "", m.geom_id2name(c.geom2) or ""
+        if ("finger" in a and b.startswith(o)) or ("finger" in b and a.startswith(o)):
+            return False
+    return True

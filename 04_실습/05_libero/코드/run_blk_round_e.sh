@@ -48,12 +48,16 @@ log "[3] b3 28항목 ‖ b3 A2C2"
 $PY a2c2.py gen --policy $POL --ttrtc --data $DATA --frac 0.5 --stride 16 --batch 8 --out data/a2c2_piper_b3 2>&1 | grep -E "끝|Traceback|Error"
 $PY a2c2.py train --gen data/a2c2_piper_b3 --out outputs/a2c2_piper_b3 --steps 30000 --batch 64 --workers 4 2>&1 | grep -E "끝|val|Traceback|Error" | tail -3
 wait $P1 $P2 $P3
-$PY scoreboard.py --forget outputs/piper_b3h_forget --switch outputs/piper_b3h_switch --name "블록 3차 piper_b3 (새 배치 20장면, 지연 11)" \
+$PY scoreboard.py --blocks --forget outputs/piper_b3h_forget --switch outputs/piper_b3h_switch --name "블록 3차 piper_b3 (새 배치 20장면, 지연 11)" \
   --png outputs/media/score_piper_b3.png --md outputs/piper/score_piper_b3.md | tail -1
+$PY scoreboard.py --blocks --loose --forget outputs/piper_b3h_forget --switch outputs/piper_b3h_switch --name "블록 3차 piper_b3 (판 안 기준, 새 배치 20장면, 지연 11)" \
+  --png outputs/media/score_piper_b3_loose.png --md outputs/piper/score_piper_b3_loose.md | tail -1
 log "[4] b3 + A2C2"
 A="--a2c2 outputs/a2c2_piper_b3"
 ( ev_t $POL piper_b3ah "$EVQ $A" 0 1 2 3 4 5 6 7 8 9 ) & P1=$!; ( ev_p $POL piper_b3ah "$EVQ $A" 8:0 8:3 8:5 8:7 8:9 4:5 ) & P2=$!; ( ev_p $POL piper_b3ah "$EVQ $A" 4:9 1:7 8:1 8:4 1:8 4:1 ) & P3=$!
 wait $P1 $P2 $P3
-$PY scoreboard.py --forget outputs/piper_b3ah_forget --switch outputs/piper_b3ah_switch --name "블록 3차 + A2C2 (새 배치 20장면, 지연 11)" \
+$PY scoreboard.py --blocks --forget outputs/piper_b3ah_forget --switch outputs/piper_b3ah_switch --name "블록 3차 + A2C2 (새 배치 20장면, 지연 11)" \
   --png outputs/media/score_piper_b3a.png --md outputs/piper/score_piper_b3a.md | tail -1
+$PY scoreboard.py --blocks --loose --forget outputs/piper_b3ah_forget --switch outputs/piper_b3ah_switch --name "블록 3차 + A2C2 (판 안 기준, 새 배치 20장면, 지연 11)" \
+  --png outputs/media/score_piper_b3a_loose.png --md outputs/piper/score_piper_b3a_loose.md | tail -1
 log "끝"
