@@ -43,6 +43,7 @@ run_round() {  # name, episodes, max_parallel, data...
   train_round "$@"
   say "$name trained; evaluating"
   [ -f results/eval/$name/results.json ] || evalset $name $STEPS --out results/eval/$name --gifs 3
+  case $name in n100|n200) ;; *) say "eval $name done"; return ;; esac  # learning-curve evals only for n100/n200
   for mid in $((STEPS / 3)) $((2 * STEPS / 3)); do
     [ -f results/eval/${name}_ckpt$mid/results.json ] || \
       EVAL_TAG=_mid evalset $name $mid --out results/eval/${name}_ckpt$mid --gifs 0 --mode per_stage --trials 30
@@ -66,11 +67,19 @@ say "queue v4 start (steps=$STEPS save=$SAVE trials=$TRIALS)"
   for s in 1 2 3; do gen_pack stage${s}_more --stage $s --episodes 800 --seed 5000; done
   echo done > logs/more_data.done ) &
 
+variant() {  # name, tag, extra eval args: inference-only variants of a trained model set
+  local name=$1 tag=$2; shift 2
+  [ -f results/eval/${name}_${tag}/results.json ] || { EVAL_TAG=_$tag evalset $name $STEPS --out results/eval/${name}_${tag} --gifs 2 "$@"; say "eval ${name}_${tag} done"; }
+}
+
 run_round n100 100 3 "data/stage{stage}.jpk.npz"
+variant n100 k25 --n-action-steps 25
 run_round n200 200 3 "data/stage{stage}.jpk.npz"
-[ -f results/eval/n200_te/results.json ] || { EVAL_TAG=_te evalset n200 $STEPS --out results/eval/n200_te --gifs 2 --temporal-ensemble 0.01; say "eval n200_te done"; }
+variant n200 k25 --n-action-steps 25
+variant n200 te --temporal-ensemble 0.01
 wait_files logs/dart_data.done
 run_round dart200 200 3 "data/dart_stage{stage}.jpk.npz"
+variant dart200 k25 --n-action-steps 25
 wait_files logs/more_data.done
 run_round n500 500 2 "data/stage{stage}.jpk.npz data/stage{stage}_more.jpk.npz"
 run_round n1000 1000 1 "data/stage{stage}.jpk.npz data/stage{stage}_more.jpk.npz"

@@ -29,8 +29,10 @@ EVAL_SEED0 = 500000
 HORIZON = 270
 
 
-def load_policy(path: str, device: str, temporal_ensemble: float | None) -> ACTPolicy:
+def load_policy(path: str, device: str, temporal_ensemble: float | None, n_action_steps: int | None = None) -> ACTPolicy:
     policy = ACTPolicy.from_pretrained(path)
+    if n_action_steps is not None:
+        policy.config.n_action_steps = n_action_steps  # re-plan every k steps instead of executing the whole chunk
     if temporal_ensemble is not None:
         from lerobot.policies.act.modeling_act import ACTTemporalEnsembler
 
@@ -132,6 +134,7 @@ def main() -> None:
     ap.add_argument("--trials", type=int, default=50)
     ap.add_argument("--mode", choices=["per_stage", "chained", "both"], default="both")
     ap.add_argument("--temporal-ensemble", type=float, default=None)
+    ap.add_argument("--n-action-steps", type=int, default=None, help="execute only the first k actions of each chunk")
     ap.add_argument("--gifs", type=int, default=3, help="record this many trials per protocol as GIF")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
@@ -141,9 +144,10 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     env = StackEnv(render=True)
     home = ScriptedExpert(env).home_q()
-    policies = [load_policy(p, device, args.temporal_ensemble) for p in args.ckpt]
+    policies = [load_policy(p, device, args.temporal_ensemble, args.n_action_steps) for p in args.ckpt]
     rec = Recorder(env, enabled=args.gifs > 0)
     results = {"ckpt": args.ckpt, "trials": args.trials, "temporal_ensemble": args.temporal_ensemble,
+               "n_action_steps": args.n_action_steps,
                "device": torch.cuda.get_device_name(0) if device == "cuda" else "cpu"}
 
     if args.mode in ("per_stage", "both"):

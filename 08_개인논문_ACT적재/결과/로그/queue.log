@@ -16,3 +16,11 @@
 [10-06 17:18:43] 15:53 PC powered off (queue lost; training had stalled: h5py reads held the GIL). v4: JPEG packs in RAM (10.5 it/s alone), DART sigma 0.005
 [10-06 17:18:43] queue v4 start (steps=30000 save=10000 trials=50)
 [10-06 17:18:43] train n100
+[10-06 20:35:24] n100 trained; evaluating
+[10-06 21:31:10] eval n100 done
+[10-06 21:31:10] train n200
+[10-07 00:21:01] 22:37 systemd-oomd killed act-queue (throttling at MemoryHigh registered as pressure while PiPER ran). Restart: MemoryMax=8G, no MemoryHigh; + k25 re-planning variants
+[10-07 00:21:01] queue v4 start (steps=30000 save=10000 trials=50)
+[10-07 00:21:01] train n100
+[10-07 00:21:01] n100 trained; evaluating
+[10-07 00:21:01] eval n100 done
