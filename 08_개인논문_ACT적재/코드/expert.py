@@ -137,7 +137,7 @@ class ScriptedExpert:
     """
 
     GRASP_DEPTH = 0.022  # gripperframe below the rim while grasping
-    CLEAR = 0.0015       # fixed-jaw clearance from the wall before closing
+    CLEAR = 0.009        # fixed-jaw clearance from the wall before closing (v2: centre of the capture window; v1 was 1.5 mm)
     CARRY_Z = 0.125
     APPROACH_DZ = 0.045
     EPISODE_STEPS = 270
