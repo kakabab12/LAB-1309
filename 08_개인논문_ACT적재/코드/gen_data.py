@@ -1,0 +1,84 @@
+"""Collect scripted-expert demonstrations for one stacking stage into an HDF5 file.
+
+Each episode: 270 control steps at 30 Hz with joint state, joint-target action and the
+"front" (wrist) / "top" (overhead) 160x120 RGB images. Only episodes whose final bin pose
+passes the stage success check are kept (like discarding failed teleoperation takes).
+
+usage: python gen_data.py --stage 1 --episodes 100 --seed 1000
+"""
+
+import argparse
+import json
+import time
+from pathlib import Path
+
+import h5py
+import numpy as np
+
+from expert import ScriptedExpert
+from stack_env import BIN_H, BIN_NAMES, TARGETS, StackEnv, sample_scene
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--stage", type=int, required=True)
+    ap.add_argument("--episodes", type=int, default=100)
+    ap.add_argument("--seed", type=int, default=1000)
+    ap.add_argument("--out", default="data")
+    args = ap.parse_args()
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / f"stage{args.stage}.hdf5"
+    env = StackEnv(render=True)
+    rng = np.random.default_rng(args.seed + args.stage * 100000)
+    ex = ScriptedExpert(env, rng)
+    home = ex.home_q()
+    kept, tried, t0 = 0, 0, time.time()
+    log = []
+    with h5py.File(path, "w") as f:
+        f.attrs["stage"] = args.stage
+        f.attrs["fps"] = 30
+        f.attrs["home"] = home
+        while kept < args.episodes:
+            tried += 1
+            spec = sample_scene(args.stage, rng)
+            obs = env.reset(spec, home)
+            refs = {n: env.bin_state(n).pos.copy() for n in BIN_NAMES[: args.stage - 1]}
+            bs = env.bin_state(BIN_NAMES[args.stage - 1])
+            tgt = TARGETS[args.stage] if args.stage < 3 else env.bin_state("bin_a").pos + np.array([0, 0, BIN_H])
+            traj = ex.plan(env.qpos(), bs.pos, bs.yaw, tgt)
+            S, A, F, T = [], [], [], []
+            for a in traj:
+                S.append(obs["state"])
+                A.append(a)
+                F.append(obs["front"])
+                T.append(obs["top"])
+                env.step(a)
+                obs = env.observe()
+            env.settle(10)
+            r = env.evaluate_stage(args.stage, ref_positions=refs)
+            log.append({"try": tried, "success": r["success"], "xy_err_mm": r["xy_err_mm"], "ik_err_mm": ex.last_ik_err * 1000})
+            if not r["success"]:
+                continue
+            g = f.create_group(f"episode_{kept:04d}")
+            g.create_dataset("state", data=np.array(S, np.float32))
+            g.create_dataset("action", data=np.array(A, np.float32))
+            g.create_dataset("front", data=np.array(F, np.uint8), compression="lzf", chunks=(1, *F[0].shape))
+            g.create_dataset("top", data=np.array(T, np.uint8), compression="lzf", chunks=(1, *T[0].shape))
+            g.attrs["xy_err_mm"] = r["xy_err_mm"]
+            kept += 1
+            if kept % 10 == 0:
+                print(f"stage {args.stage}: kept {kept}/{tried} ({time.time() - t0:.0f}s)", flush=True)
+        f.attrs["tried"] = tried
+        f.attrs["kept"] = kept
+    summary = {"stage": args.stage, "kept": kept, "tried": tried, "expert_success_rate": kept / tried,
+               "mean_xy_err_mm": float(np.mean([l["xy_err_mm"] for l in log if l["success"]])),
+               "seconds": time.time() - t0}
+    (out / f"stage{args.stage}_gen.json").write_text(json.dumps({"summary": summary, "log": log}, indent=1))
+    print(json.dumps(summary))
+    env.close()
+
+
+if __name__ == "__main__":
+    main()
