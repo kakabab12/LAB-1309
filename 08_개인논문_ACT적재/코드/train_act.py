@@ -69,15 +69,56 @@ def make_config(img_hw: tuple[int, int], device: str) -> ACTConfig:
 
 
 class Sampler:
-    def __init__(self, eps: list[dict], chunk: int, rng: np.random.Generator):
+    """Random (episode, t) samples with ACT action chunks and padding flags.
+
+    Images live on a slow HDD, so a buffer of `buffer` fully decoded episodes is kept in RAM and one
+    episode is swapped in by a background thread every `refresh` steps (sequential reads only).
+    """
+
+    def __init__(self, eps: list[dict], chunk: int, rng: np.random.Generator, buffer: int = 16, refresh: int = 10):
+        import queue
+        import threading
+
         self.eps, self.chunk, self.rng = eps, chunk, rng
         self.lengths = np.array([len(e["action"]) for e in eps])
-        self.p = self.lengths / self.lengths.sum()
+        self.refresh, self.calls = refresh, 0
+        k = min(buffer, len(eps))
+        self.slots = list(rng.choice(len(eps), size=k, replace=False))
+        self.cache = [self._decode(i) for i in self.slots]
+        self.q = queue.Queue(maxsize=2)
+        self.stop = False
+
+        def loader():
+            lrng = np.random.default_rng(int(rng.integers(1 << 30)))
+            while not self.stop:
+                i = int(lrng.integers(len(self.eps)))
+                self.q.put((i, self._decode(i)))
+
+        if len(eps) > k:
+            threading.Thread(target=loader, daemon=True).start()
+
+    def _decode(self, i: int) -> dict:
+        e = self.eps[i]
+        return {c: np.asarray(e[c][()] if hasattr(e[c], "shape") and not isinstance(e[c], np.ndarray) else e[c])
+                for c in CAMS}
+
+    def _maybe_swap(self) -> None:
+        self.calls += 1
+        if self.calls % self.refresh or self.q.empty():
+            return
+        i, imgs = self.q.get_nowait()
+        if i in self.slots:
+            return
+        j = int(self.rng.integers(len(self.slots)))
+        self.slots[j], self.cache[j] = i, imgs
 
     def batch(self, bs: int, device: str) -> dict:
+        self._maybe_swap()
         st, act, pad, imgs = [], [], [], {c: [] for c in CAMS}
+        lens = np.array([self.lengths[i] for i in self.slots], dtype=float)
         for _ in range(bs):
-            ei = self.rng.choice(len(self.eps), p=self.p)
+            j = self.rng.choice(len(self.slots), p=lens / lens.sum())
+            ei = self.slots[j]
             e = self.eps[ei]
             T = self.lengths[ei]
             t = self.rng.integers(0, T)
@@ -88,7 +129,7 @@ class Sampler:
             act.append(e["action"][idx])
             pad.append(is_pad)
             for c in CAMS:
-                imgs[c].append(e[c][t])
+                imgs[c].append(self.cache[j][c][t])
         b = {
             "observation.state": torch.from_numpy(np.stack(st)),
             "action": torch.from_numpy(np.stack(act)),
@@ -103,7 +144,9 @@ class Sampler:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", type=int, required=True)
-    ap.add_argument("--data", nargs="+", default=["data/stage{stage}.hdf5", "data/stage{stage}_b.hdf5"])
+    ap.add_argument("--data", nargs="+", default=["data/stage{stage}.hdf5", "data/stage{stage}_more.hdf5"])
+    ap.add_argument("--buffer", type=int, default=16, help="episodes kept decoded in RAM (~31 MB each)")
+    ap.add_argument("--refresh", type=int, default=10, help="swap one buffered episode every N steps")
     ap.add_argument("--episodes", type=int, default=50)
     ap.add_argument("--steps", type=int, default=80000)
     ap.add_argument("--batch", type=int, default=8)
@@ -127,7 +170,7 @@ def main() -> None:
     policy = ACTPolicy(cfg, dataset_stats=stats).to(device)
     policy.train()
     opt = torch.optim.AdamW(policy.get_optim_params(), lr=cfg.optimizer_lr, weight_decay=cfg.optimizer_weight_decay)
-    sampler = Sampler(eps, cfg.chunk_size, rng)
+    sampler = Sampler(eps, cfg.chunk_size, rng, buffer=args.buffer, refresh=args.refresh)
     n_params = sum(p.numel() for p in policy.parameters())
     meta = {"stage": args.stage, "episodes": len(eps), "frames": int(sampler.lengths.sum()), "steps": args.steps,
             "batch": args.batch, "lr": cfg.optimizer_lr, "params": n_params, "img_hw": list(img_hw),
