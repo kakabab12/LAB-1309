@@ -24,3 +24,5 @@
 [10-07 00:21:01] train n100
 [10-07 00:21:01] n100 trained; evaluating
 [10-07 00:21:01] eval n100 done
+[10-07 00:53:04] eval n100_k25 done
+[10-07 00:53:04] train n200
