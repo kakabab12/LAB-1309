@@ -2,7 +2,7 @@
  "stage": 1,
  "episodes": 100,
  "frames": 27000,
- "image_bytes": 243584838,
+ "image_bytes": 244144078,
  "data": [
   "data/stage1.jpk.npz"
  ],

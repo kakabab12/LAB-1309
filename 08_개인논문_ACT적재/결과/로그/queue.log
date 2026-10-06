@@ -28,3 +28,7 @@
 [10-07 00:53:04] train n200
 [10-07 02:09:58] v2 demo design (9 mm clearance): v1 n100 archived as v1_n100; regenerating all data, queue v6
 [10-07 02:09:58] queue v6 start (v2 demos, steps=30000 trials=50)
+[10-07 02:37:58] train n100
+[10-07 06:38:39] n100 trained; evaluating
+[10-07 07:22:17] eval n100 done
+[10-07 07:22:17] train n200

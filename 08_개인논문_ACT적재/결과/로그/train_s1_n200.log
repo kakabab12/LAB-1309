@@ -1,5 +1,1 @@
-{"stage": 1, "episodes": 200, "frames": 54000, "image_bytes": 487451384, "data": ["data/stage1.jpk.npz"], "steps": 30000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti"}
-{"step": 2000, "loss": 1.099330366551876, "l1_loss": 0.1547844037786126, "kld_loss": 0.09445459634065628, "elapsed_s": 780.6820785999298}
-{"step": 4000, "loss": 0.41985375866293906, "l1_loss": 0.12295387215912341, "kld_loss": 0.029689988642930983, "elapsed_s": 1637.2123103141785}
-{"step": 6000, "loss": 0.220127507224679, "l1_loss": 0.10655558353289962, "kld_loss": 0.01135719234123826, "elapsed_s": 2490.056870698929}
-{"step": 8000, "loss": 0.15950542323291303, "l1_loss": 0.10062470111995936, "kld_loss": 0.005888072215020657, "elapsed_s": 3463.270236492157}
+{"stage": 1, "episodes": 200, "frames": 54000, "image_bytes": 488430794, "data": ["data/stage1.jpk.npz"], "steps": 30000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti"}

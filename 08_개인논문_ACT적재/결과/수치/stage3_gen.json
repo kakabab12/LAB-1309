@@ -1,8 +1,9 @@
 {
  "stage": 3,
+ "dart_sigma": 0.0,
  "kept": 200,
- "tried": 207,
- "expert_success_rate": 0.966183574879227,
- "mean_xy_err_mm": 2.234792686552333,
- "seconds": 1820.4026505947113
+ "tried": 203,
+ "expert_success_rate": 0.9852216748768473,
+ "mean_xy_err_mm": 2.281959335287458,
+ "seconds": 1623.1043946743011
 }
