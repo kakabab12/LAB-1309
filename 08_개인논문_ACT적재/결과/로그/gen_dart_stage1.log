@@ -16,3 +16,7 @@ stage 1: kept 150/167 (1105s)
 stage 1: kept 160/178 (1179s)
 stage 1: kept 170/190 (1260s)
 stage 1: kept 180/202 (1342s)
+stage 1: kept 190/212 (1411s)
+stage 1: kept 200/222 (1479s)
+{"stage": 1, "dart_sigma": 0.005, "kept": 200, "tried": 222, "expert_success_rate": 0.9009009009009009, "mean_xy_err_mm": 6.530396907787882, "seconds": 1479.0981600284576}
+dart_stage1.hdf5: 200 episodes x 270 -> dart_stage1.jpk.npz 487 MB (123s)

@@ -60,10 +60,26 @@ def err(name: str, stage: int) -> str:
     return MISSING if v != v else f"{v:.1f}"
 
 
+def _yolo() -> dict:
+    p = ROOT / "results" / "yolo" / "yolo_train_records.json"
+    return json.loads(p.read_text()) if p.exists() else {}
+
+
+YOLO = _yolo()
+
+
+def ym(model: str, key: str) -> str:
+    try:
+        return f"{100 * YOLO[model]['train_metrics'][key]:.1f}"
+    except KeyError:
+        return MISSING
+
+
 ABSTRACT = (
     "This paper presents an edge-AI smart-factory cell that sorts products by weight and stacks them with a "
     "low-cost robot arm. A colour-sorting conveyor routes blue (normal) cubes into a bin on a digital scale, "
-    "and a YOLOv8 model running with ONNX Runtime on a Jetson Orin Nano reads the scale's 7-segment display. "
+    "and a YOLOv8n model (validation mAP50 86.3%) running with ONNX Runtime on a Jetson Orin Nano reads the "
+    "scale's 7-segment display. "
     "When the bin reaches 118 g, a Model Context Protocol (MCP) trigger starts stage-specific ACT (Action "
     "Chunking with Transformers) policies on an SO-101 arm, which stack the bin on the first floor, beside the "
     "first bin and on top of it. Separating capture and inference threads raised the capture rate from 1.2 to "
@@ -114,7 +130,8 @@ def body(media, b) -> str:
           "빨강·초록 큐브(불량)는 불량함으로, 파랑 큐브(정상)는 디지털 저울 위의 파란 통으로 보낸다. 컨베이어의 "
           "스테퍼 모터와 분류 서보는 Arduino Mega 2560이 제어하고 인식과 판단은 Jetson Orin Nano가 맡아, 저수준 "
           "모터 제어와 AI 추론을 분리하였다. Jetson은 저울 표시부를 USB 카메라(640×480)로 촬영해 무게를 판독하고, "
-          "통의 무게가 118g 이상이면 로봇 실행기에 MCP 트리거를 보낸다. 로봇은 통의 벽을 집어 팔레트에 적재한 뒤 "
+          "통의 무게가 118g 이상이면 로봇 실행기에 MCP 트리거를 보낸다. 두 번째 USB 카메라에서는 큰 상자와 작은 "
+          "상자를 구분하는 YOLOv8n-seg 모델을 함께 실행한다. 로봇은 통의 벽을 집어 팔레트에 적재한 뒤 "
           "홈 자세로 돌아오며, 저울이 비면 빈 통을 저울에 올려 공정을 반복한다. FastAPI 서버는 영상 스트리밍, 성능 "
           "지표, 원격 시작·정지, LLM 기반 공정 질의 기능을 제공한다."))
     add(fig(media, FIG / "fig1_system.png", "그림 1. 시스템 구성"))
@@ -179,18 +196,28 @@ def body(media, b) -> str:
     # ------------------------------------------------------------ IV
     add(h1("Ⅳ. 실험 결과"))
     add(h2("4.1 무게 인식"))
+    add(P(f"표 1은 두 YOLOv8 모델의 학습 결과(50 에폭, 입력 640, 마지막 에폭의 검증 집합 기준)이다. 숫자 모델은 "
+          f"숫자 0~9와 부호, 표시부(screen)의 13개 클래스를 학습하여 mAP50 {ym('number', 'metrics/mAP50(B)')}%, "
+          f"mAP50-95 {ym('number', 'metrics/mAP50-95(B)')}%를 얻었다. mAP50-95가 낮은 것은 작은 숫자의 상자 위치가 "
+          "엄격한 IoU 기준에서 어긋나기 때문이며, 이를 2단계 디지털 줌과 숫자 조합 규칙으로 보완하였다."))
+    add(table("표 1. YOLOv8 모델 학습 결과 (%)", [1250, 500, 650, 650, 650, 700],
+              [["모델", "클래스", "정밀도", "재현율", "mAP50", "mAP50-95"],
+               ["숫자 (v8n)", "13", ym("number", "metrics/precision(B)"), ym("number", "metrics/recall(B)"),
+                ym("number", "metrics/mAP50(B)"), ym("number", "metrics/mAP50-95(B)")],
+               ["상자 (v8n-seg)", "2", ym("box", "metrics/precision(B)"), ym("box", "metrics/recall(B)"),
+                ym("box", "metrics/mAP50(B)"), ym("box", "metrics/mAP50-95(B)")]]))
     add(P("Jetson Orin Nano에서 조건별 20회 반복 측정하였다. 캡처·추론 분리로 캡처 속도는 1.2에서 59.5 FPS로 약 "
-          "50배 향상되었다(표 1). 2단계 디지털 줌은 중거리 정확도를 45%에서 90%, 원거리를 15%에서 80%로 높였다"
-          "(표 2). NMS만으로는 '118'처럼 같은 숫자가 반복되는 경우 자릿수가 사라졌으나 ④단계 보완으로 복원되었고"
-          "(표 3), 전체 후처리를 적용한 3자리 조합 정확도는 87.5%(70/80)였다. 기준값 자동 분류의 정분류율은 "
+          "50배 향상되었다(표 2). 2단계 디지털 줌은 중거리 정확도를 45%에서 90%, 원거리를 15%에서 80%로 높였다"
+          "(표 3). NMS만으로는 '118'처럼 같은 숫자가 반복되는 경우 자릿수가 사라졌으나 ④단계 보완으로 복원되었고"
+          "(표 4), 전체 후처리를 적용한 3자리 조합 정확도는 87.5%(70/80)였다. 기준값 자동 분류의 정분류율은 "
           "91.7%(55/60), 인식부터 명령 전송까지 평균 응답 시간은 약 810ms였다. 오분류 5건은 주로 조명이 "
           "고르지 않은 조건에서 '8'을 '1'로 읽은 경우였다."))
-    add(table("표 1. 캡처 속도", [1700, 1300, 1400],
+    add(table("표 2. 캡처 속도", [1700, 1300, 1400],
               [["구분", "캡처 FPS", "추론 주기"], ["단일 루프", "1.2", "매 프레임"], ["캡처·추론 분리", "59.5", "5초"]]))
-    add(table("표 2. 거리별 인식 정확도 (%)", [1900, 1250, 1250],
+    add(table("표 3. 거리별 인식 정확도 (%)", [1900, 1250, 1250],
               [["촬영 거리", "1단계만", "2단계 줌"], ["근거리 (20cm 이내)", "95", "95"],
                ["중거리 (30~50cm)", "45", "90"], ["원거리 (50cm 이상)", "15", "80"]]))
-    add(table("표 3. 숫자 조합 결과", [1000, 1250, 900, 1250],
+    add(table("표 4. 숫자 조합 결과", [1000, 1250, 900, 1250],
               [["표시값", "후처리 없음", "NMS만", "전체 파이프라인"], ["118g", "111111888", "18", "118"],
                ["291g", "222999111", "291", "291"]]))
 
@@ -199,13 +226,13 @@ def body(media, b) -> str:
     for name, label in (("n100", "시연 100"), ("n200", "시연 200"), ("n500", "시연 500"), ("n1000", "시연 1000"),
                         ("n200_te", "시연 200 + 시간 앙상블"), ("dart200", "DART 200")):
         rows.append([label, pct(name, 1), pct(name, 2), pct(name, 3), chain(name, 2)])
-    add(table("표 4. 적재 성공률 (%, 단계별·연속 각 50회)", [1700, 650, 650, 650, 750], rows))
+    add(table("표 5. 적재 성공률 (%, 단계별·연속 각 50회)", [1700, 650, 650, 650, 750], rows))
     if (FIG / "fig3_scaling.png").exists():
         add(fig(media, FIG / "fig3_scaling.png", "그림 4. 시연 수에 따른 적재 성공률"))
     if (FIG / "fig4_rollout.png").exists():
         add(fig(media, FIG / "fig4_rollout.png",
                 "그림 5. ACT 정책의 연속 적재 장면"))
-    add(P(f"표 4는 단계별 성공률과 연속 3단계 성공률이다. 시연 100회에서 단계별 성공률은 1층 {pct('n100', 1)}%, "
+    add(P(f"표 5는 단계별 성공률과 연속 3단계 성공률이다. 시연 100회에서 단계별 성공률은 1층 {pct('n100', 1)}%, "
           f"옆 {pct('n100', 2)}%, 2층 {pct('n100', 3)}%였고, 시연 200회에서는 {pct('n200', 1)}%, {pct('n200', 2)}%, "
           f"{pct('n200', 3)}%였다. 연속 평가에서는 앞 단계의 배치 오차가 다음 단계의 목표 위치에 그대로 반영되어, "
           f"시연 200회 정책의 누적 성공률이 1층 {chain('n200', 0)}%, 옆까지 {chain('n200', 1)}%, 2층까지 "
