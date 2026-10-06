@@ -131,7 +131,8 @@ def body(media, b) -> str:
           "확대한 뒤 숫자를 다시 탐지하여, 거리와 관계없이 숫자가 입력 전체를 차지하게 하였다."))
     add(P("**4단계 숫자 조합.** YOLO는 한 숫자에 여러 상자를 내어 '118'이 '111111888'로 조합되었다. ① 숫자가 아닌 "
           "클래스 제거, ② IoU 0.4 기준 NMS, ③ x 범위를 자릿수(3)로 나눠 구역별 최고 신뢰도 선택, ④ 자릿수가 "
-          "모자라면 원래 탐지의 밀도로 같은 숫자가 반복된 자리를 복원하는 순서로 무게를 조합한다."))
+          "모자라면 원래 탐지의 밀도로 같은 숫자가 반복된 자리를 복원하는 순서로 무게를 조합한다(그림 2)."))
+    add(fig(media, FIG / "fig_vision.png", "그림 2. 7-segment 무게 인식 파이프라인"))
 
     add(h2("2.3 ACT 기반 순차 적재"))
     add(P("로봇은 그리퍼를 포함해 6개 관절을 갖는 SO-101 팔로워암이며, 손목 카메라(front)와 상단 카메라(top)를 쓴다. "
@@ -152,15 +153,16 @@ def body(media, b) -> str:
     add(h1("Ⅲ. 시뮬레이션 기반 적재 평가"))
     add(h2("3.1 시뮬레이션 셀"))
     add(P("현장 시험 이후 로봇팔이 파손되어 적재 결과를 다시 측정할 수 없었다. 이에 MuJoCo[8]로 실제 셀을 "
-          "재현하였다(그림 2). 로봇은 공식 SO-101 모델[14]의 손목 카메라 버전으로 STS3215 서보의 위치 제어 특성을 "
+          "재현하였다(그림 3). 로봇은 공식 SO-101 모델[14]의 손목 카메라 버전으로 STS3215 서보의 위치 제어 특성을 "
           "포함하며, 카메라 배치, 제어 주기(30Hz), 관절 목표값 행동 공간을 실제와 같게 하였다. 영상은 실제 경량 "
           "추론 설정과 같은 160×120을 쓴다. 분류 통은 공개 모델의 출력 무게(통 33g)와 시연 영상으로부터 "
           "64×64×52mm(벽 2mm)로 정하고 내부 큐브를 포함해 123g으로 두었다. 저울 위 통은 위치 ±20mm, 방향 ±20°, "
           "먼저 쌓인 통은 목표에서 ±8mm, ±5°로 무작위화하였다."))
-    add(fig(media, FIG / "fig2_sim.png", "그림 2. 시뮬레이션 셀 (a) 전체 (b) 손목 카메라 (c) 상단 카메라"))
+    add(fig(media, FIG / "fig2_sim.png", "그림 3. 시뮬레이션 셀 (a) 전체 (b) 손목 카메라 (c) 상단 카메라"))
     add(h2("3.2 시연 생성과 학습"))
     add(P("원격조작 대신 역기구학 기반 스크립트 전문가로 시연을 만들었으며, ACT 원 논문도 시뮬레이션 과제에서 "
-          "스크립트 시연을 사용하였다[4]. 전문가는 로봇 쪽 통 벽을 고정 집게는 바깥, 움직이는 집게는 안쪽에 두고 "
+          "스크립트 시연을 사용하였고[4], 시연을 자동으로 만들어 데이터 양을 늘리는 방법도 연구되고 있다[15]. "
+          "전문가는 로봇 쪽 통 벽을 고정 집게는 바깥, 움직이는 집게는 안쪽에 두고 "
           "집어 옮기며, 경유점 사이를 최소 저크 궤적으로 잇고 구간 속도(±10%)와 경유점 위치(최대 ±6mm)를 흔들어 "
           "사람 시연의 변동을 흉내 냈다. 시연은 270스텝(9초)이며 성공한 것만 남겼다(전문가 성공률 1층 "
           f"{expert_rate(1)}%, 옆 {expert_rate(2)}%, 2층 {expert_rate(3)}%)."))
@@ -199,10 +201,10 @@ def body(media, b) -> str:
         rows.append([label, pct(name, 1), pct(name, 2), pct(name, 3), chain(name, 2)])
     add(table("표 4. 적재 성공률 (%, 단계별·연속 각 50회)", [1700, 650, 650, 650, 750], rows))
     if (FIG / "fig3_scaling.png").exists():
-        add(fig(media, FIG / "fig3_scaling.png", "그림 3. 시연 수에 따른 적재 성공률"))
+        add(fig(media, FIG / "fig3_scaling.png", "그림 4. 시연 수에 따른 적재 성공률"))
     if (FIG / "fig4_rollout.png").exists():
         add(fig(media, FIG / "fig4_rollout.png",
-                "그림 4. ACT 정책의 연속 적재 (a) MCP 신호 (b) 1층 (c) 옆 (d) 2층 집기 (e) 2층 적재 완료"))
+                "그림 5. ACT 정책의 연속 적재 장면"))
     add(P(f"표 4는 단계별 성공률과 연속 3단계 성공률이다. 시연 100회에서 단계별 성공률은 1층 {pct('n100', 1)}%, "
           f"옆 {pct('n100', 2)}%, 2층 {pct('n100', 3)}%였고, 시연 200회에서는 {pct('n200', 1)}%, {pct('n200', 2)}%, "
           f"{pct('n200', 3)}%였다. 연속 평가에서는 앞 단계의 배치 오차가 다음 단계의 목표 위치에 그대로 반영되어, "
@@ -245,6 +247,10 @@ def body(media, b) -> str:
         "CVPR, pp. 770-778, 2016.",
         "A. Vaswani et al., “Attention Is All You Need,” in Proc. NeurIPS, pp. 5998-6008, 2017.",
         "TheRobotStudio, SO-ARM100 / SO-101 Robot Arm, https://github.com/TheRobotStudio/SO-ARM100, 2025.",
+        "A. Mandlekar et al., \u201cMimicGen: A Data Generation System for Scalable Robot Learning using Human "
+        "Demonstrations,\u201d in Proc. CoRL, 2023.",
+        "F. Lin, Y. Hu, P. Sheng, C. Wen, J. You, and Y. Gao, \u201cData Scaling Laws in Imitation Learning for "
+        "Robotic Manipulation,\u201d in Proc. ICLR, 2025.",
     ]
     add(b["references"](refs))
     return "".join(out)

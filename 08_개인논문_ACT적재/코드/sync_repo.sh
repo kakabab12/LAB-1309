@@ -42,10 +42,11 @@ for f in logs/train_*.log logs/eval_*.log logs/gen_*.log; do [ -f "$f" ] && tail
 
 # figures and paper
 cp paper/fig*.png "$R/결과/그림/" 2>/dev/null || true
+cp results/stack_*.png results/pallet_expert_final.png "$R/결과/그림/" 2>/dev/null || true
 [ -f paper/out/paper.docx ] && cp paper/out/paper.docx "$R/논문/"
 [ -f paper/out/paper.pdf ] && cp paper/out/paper.pdf "$R/논문/"
 
 # code
-cp stack_env.py expert.py gen_data.py train_act.py eval_act.py make_gif.py batch_expert.py run_queue3.sh sync_repo.sh analyze.py dataset_preview.py "$R/코드/"
+cp stack_env.py expert.py gen_data.py train_act.py eval_act.py make_gif.py batch_expert.py run_queue3.sh sync_repo.sh analyze.py dataset_preview.py convert_jpeg.py run_queue4.sh publish.sh stack_photos.py "$R/코드/"
 mkdir -p "$R/코드/paper" && cp paper/*.py "$R/코드/paper/"
 echo "synced to $R"
