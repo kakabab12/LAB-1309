@@ -27,7 +27,7 @@ def _load(name: str) -> dict | None:
     return json.loads(p.read_text()) if p.exists() else None
 
 
-RES = {k: _load(k) for k in ("n100", "n200", "n500", "n1000", "n200_te", "dart200")}
+RES = {k: _load(k) for k in ("v1_n100", "n100", "n200", "n500", "n1000", "n200_te", "dart200", "dart1000")}
 
 
 def pct(name: str, stage: int) -> str:
@@ -77,20 +77,20 @@ def ym(model: str, key: str) -> str:
 
 ABSTRACT = (
     "This paper presents an edge-AI smart-factory cell that sorts products by weight and stacks them with a "
-    "low-cost robot arm. A colour-sorting conveyor routes blue (normal) cubes into a bin on a digital scale, "
-    "and a YOLOv8n model (validation mAP50 86.3%) running with ONNX Runtime on a Jetson Orin Nano reads the "
-    "scale's 7-segment display. "
-    "When the bin reaches 118 g, a Model Context Protocol (MCP) trigger starts stage-specific ACT (Action "
-    "Chunking with Transformers) policies on an SO-101 arm, which stack the bin on the first floor, beside the "
-    "first bin and on top of it. Separating capture and inference threads raised the capture rate from 1.2 to "
-    "59.5 FPS, two-stage digital-zoom inference raised mid-range recognition accuracy from 45% to 90%, and a "
-    "four-step digit-assembly rule gave 87.5% three-digit accuracy, 91.7% sorting accuracy and an 810 ms "
-    "response time. Because the arm was damaged after the field tests, the stacking policies were re-evaluated "
-    "in a MuJoCo replica of the cell with the same robot model, cameras and 30 Hz control. With 200 "
-    f"demonstrations per stage the policies succeeded in {pct('n200', 1)}%, {pct('n200', 2)}% and "
-    f"{pct('n200', 3)}% of the first-floor, side and second-floor placements, and {chain('n200', 2)}% of "
-    "three-stage sequences; injecting correlated noise into the demonstrations (DART) raised the sequence "
-    f"success to {chain('dart200', 2)}%."
+    "low-cost robot arm. On a Jetson Orin Nano, a YOLOv8n model (validation mAP50 86.3%) reads the 7-segment "
+    "display of a digital scale; separating capture and inference threads raised the capture rate from 1.2 to "
+    "59.5 FPS, two-stage digital-zoom inference raised mid-range accuracy from 45% to 90%, and the cell sorted "
+    "91.7% of items correctly with an 810 ms response. When a bin reaches 118 g, a Model Context Protocol (MCP) "
+    "trigger runs stage-specific ACT (Action Chunking with Transformers) policies on an SO-101 arm that stack the "
+    "bin on the first floor, beside the first bin and on top of it. Because the arm was damaged after the field "
+    "tests, the cell was rebuilt in MuJoCo with the same robot model, cameras and 30 Hz control to evaluate the "
+    "stacking quantitatively. Per-stage success hides error accumulation: with the initial 100 demonstrations "
+    f"per stage the placements succeeded in {pct('v1_n100', 1)}%, {pct('v1_n100', 2)}% and {pct('v1_n100', 3)}% "
+    f"of trials but only {chain('v1_n100', 2)}% of three-stage sequences. Most failures were grasps in which the "
+    "fixed jaw landed on the bin wall; demonstrations that approach the wall with a 9 mm clearance widened the "
+    "tolerated grasp error from 3 mm to 11 mm and raised the sequence success to "
+    f"{chain('n100', 2)}% with 100, {chain('n1000', 2)}% with 1000 demonstrations and {chain('dart1000', 2)}% "
+    "with DART noise injection."
 )
 
 
@@ -116,12 +116,14 @@ def body(media, b) -> str:
           "앞선 적재 결과에 따라 다음 목표가 정해지는 순차 적재를 정량적으로 분석한 사례는 드물다. 모방학습은 앞선 "
           "동작의 작은 오차가 다음 상태를 학습 분포 밖으로 밀어내 오차가 누적되는 문제가 알려져 있으며[6], 순차 "
           "적재에서는 이 오차가 단계를 넘어 쌓인다."))
-    add(P("본 논문은 Jetson Orin Nano를 중심으로 (1) 디지털 저울의 7-segment 표시값을 YOLOv8로 실시간 판독하여 "
-          "기준 무게(118g) 이상인 통을 선별하고, (2) MCP(Model Context Protocol)[7] 트리거로 단계별 ACT 정책을 "
-          "호출하여 SO-101 로봇팔이 통을 1층, 첫 통 옆, 첫 통 위(2층) 순서로 적재하는 시스템을 구현한다. 또한 현장 "
-          "시험 이후 로봇팔이 파손되어 적재 성능을 다시 실측할 수 없었으므로, 같은 로봇 모델·카메라·제어 주기를 갖는 "
-          "MuJoCo[8] 시뮬레이션 셀을 구성하여 시연 수, 연속 적재에서의 오차 누적, 시연 잡음 주입(DART)[9]의 효과를 "
-          "정량적으로 평가한다."))
+    add(P("본 논문은 Jetson Orin Nano를 중심으로 디지털 저울의 7-segment 표시값을 YOLOv8로 판독하여 기준 무게(118g) "
+          "이상인 통을 선별하고, MCP(Model Context Protocol)[7] 트리거로 단계별 ACT 정책을 호출하여 SO-101 로봇팔이 "
+          "통을 1층, 첫 통 옆, 첫 통 위(2층) 순서로 적재하는 셀을 구현한다. 현장 시험 이후 로봇팔이 파손되어 적재 "
+          "성능을 다시 실측할 수 없었으므로, 같은 로봇 모델·카메라·제어 주기를 갖는 MuJoCo[8] 셀을 구성하여 적재를 "
+          "정량적으로 평가한다. 기여는 다음과 같다. ① 무게 인식부터 순차 적재까지 이어지는 에지 셀을 구현하고 인식 "
+          "성능을 실측하였다. ② 단계별 성공률과 함께 세 단계를 이어 수행하는 연속 성공률로 평가하여 순차 적재의 "
+          "오차 누적을 보였다. ③ 주된 실패가 파지 순간의 위치 오차임을 밝히고, 시연의 파지 여유 설계, 시연 수, "
+          "시연 잡음 주입(DART)[9]의 효과를 정량화하였다."))
 
     # ------------------------------------------------------------ II
     add(h1("Ⅱ. 시스템 구성"))
@@ -176,13 +178,19 @@ def body(media, b) -> str:
           "64×64×52mm(벽 2mm)로 정하고 내부 큐브를 포함해 123g으로 두었다. 저울 위 통은 위치 ±20mm, 방향 ±20°, "
           "먼저 쌓인 통은 목표에서 ±8mm, ±5°로 무작위화하였다."))
     add(fig(media, FIG / "fig2_sim.png", "그림 3. 시뮬레이션 셀 (a) 전체 (b) 손목 카메라 (c) 상단 카메라"))
-    add(h2("3.2 시연 생성과 학습"))
+    add(h2("3.2 시연 설계와 학습"))
     add(P("원격조작 대신 역기구학 기반 스크립트 전문가로 시연을 만들었으며, ACT 원 논문도 시뮬레이션 과제에서 "
           "스크립트 시연을 사용하였고[4], 시연을 자동으로 만들어 데이터 양을 늘리는 방법도 연구되고 있다[15]. "
           "전문가는 로봇 쪽 통 벽을 고정 집게는 바깥, 움직이는 집게는 안쪽에 두고 "
           "집어 옮기며, 경유점 사이를 최소 저크 궤적으로 잇고 구간 속도(±10%)와 경유점 위치(최대 ±6mm)를 흔들어 "
-          "사람 시연의 변동을 흉내 냈다. 시연은 270스텝(9초)이며 성공한 것만 남겼다(전문가 성공률 1층 "
+          "사람 시연의 변동을 흉내 냈다. 특히 고정 집게를 벽 바깥 9mm에 두고 내려가도록 하여, 집게가 벽을 사이에 둘 수 있는 "
+          "범위(바깥 0~17mm)의 가운데로 접근하게 하였다. 초기 설계(여유 1.5mm)는 안쪽으로 3mm만 어긋나도 집게가 벽 위에 "
+          "걸렸으나, 이 설계는 ±9mm의 위치 오차에서도 파지에 성공하였다(표 1, 전문가 시험 각 4~6회). 시연은 270스텝(9초)이며 성공한 것만 남겼다(전문가 성공률 1층 "
           f"{expert_rate(1)}%, 옆 {expert_rate(2)}%, 2층 {expert_rate(3)}%)."))
+    add(table("표 1. 파지 위치 오차에 따른 시연 성공률 (%)", [1250, 470, 470, 470, 470, 470, 470, 470],
+              [["벽 법선 오차(mm)", "−12", "−9", "−6", "−3", "0", "+6", "+9"],
+               ["여유 1.5mm", "0", "0", "17", "100", "100", "100", "100"],
+               ["여유 9mm", "75", "100", "100", "100", "100", "100", "100"]]))
     add(P("개선안으로 DART[9] 잡음 주입을 적용하였다. 시연 중 실제로 실행하는 관절 목표에 상관 잡음(Ornstein-"
           "Uhlenbeck, σ=0.005rad)을 더하되 기록하는 정답은 원래 궤적으로 두어, 궤도에서 벗어난 상태에서 되돌아오는 "
           "동작을 함께 학습하게 하였다. 학습은 실제 시스템과 같은 LeRobot 0.3.3 ACT 기본 설정(청크 100, 배치 8, "
@@ -196,61 +204,68 @@ def body(media, b) -> str:
     # ------------------------------------------------------------ IV
     add(h1("Ⅳ. 실험 결과"))
     add(h2("4.1 무게 인식"))
-    add(P(f"표 1은 두 YOLOv8 모델의 학습 결과(50 에폭, 입력 640, 마지막 에폭의 검증 집합 기준)이다. 숫자 모델은 "
+    add(P(f"표 2는 두 YOLOv8 모델의 학습 결과(50 에폭, 입력 640, 마지막 에폭의 검증 집합 기준)이다. 숫자 모델은 "
           f"숫자 0~9와 부호, 표시부(screen)의 13개 클래스를 학습하여 mAP50 {ym('number', 'metrics/mAP50(B)')}%, "
           f"mAP50-95 {ym('number', 'metrics/mAP50-95(B)')}%를 얻었다. mAP50-95가 낮은 것은 작은 숫자의 상자 위치가 "
           "엄격한 IoU 기준에서 어긋나기 때문이며, 이를 2단계 디지털 줌과 숫자 조합 규칙으로 보완하였다."))
-    add(table("표 1. YOLOv8 모델 학습 결과 (%)", [1250, 500, 650, 650, 650, 700],
+    add(table("표 2. YOLOv8 모델 학습 결과 (%)", [1250, 500, 650, 650, 650, 700],
               [["모델", "클래스", "정밀도", "재현율", "mAP50", "mAP50-95"],
                ["숫자 (v8n)", "13", ym("number", "metrics/precision(B)"), ym("number", "metrics/recall(B)"),
                 ym("number", "metrics/mAP50(B)"), ym("number", "metrics/mAP50-95(B)")],
                ["상자 (v8n-seg)", "2", ym("box", "metrics/precision(B)"), ym("box", "metrics/recall(B)"),
                 ym("box", "metrics/mAP50(B)"), ym("box", "metrics/mAP50-95(B)")]]))
     add(P("Jetson Orin Nano에서 조건별 20회 반복 측정하였다. 캡처·추론 분리로 캡처 속도는 1.2에서 59.5 FPS로 약 "
-          "50배 향상되었다(표 2). 2단계 디지털 줌은 중거리 정확도를 45%에서 90%, 원거리를 15%에서 80%로 높였다"
-          "(표 3). NMS만으로는 '118'처럼 같은 숫자가 반복되는 경우 자릿수가 사라졌으나 ④단계 보완으로 복원되었고"
-          "(표 4), 전체 후처리를 적용한 3자리 조합 정확도는 87.5%(70/80)였다. 기준값 자동 분류의 정분류율은 "
+          "50배 향상되었다(표 3). 2단계 디지털 줌은 중거리 정확도를 45%에서 90%, 원거리를 15%에서 80%로 높였다"
+          "(표 4). NMS만으로는 '118'처럼 같은 숫자가 반복되는 경우 자릿수가 사라졌으나 ④단계 보완으로 복원되었고"
+          "(표 5), 전체 후처리를 적용한 3자리 조합 정확도는 87.5%(70/80)였다. 기준값 자동 분류의 정분류율은 "
           "91.7%(55/60), 인식부터 명령 전송까지 평균 응답 시간은 약 810ms였다. 오분류 5건은 주로 조명이 "
           "고르지 않은 조건에서 '8'을 '1'로 읽은 경우였다."))
-    add(table("표 2. 캡처 속도", [1700, 1300, 1400],
+    add(table("표 3. 캡처 속도", [1700, 1300, 1400],
               [["구분", "캡처 FPS", "추론 주기"], ["단일 루프", "1.2", "매 프레임"], ["캡처·추론 분리", "59.5", "5초"]]))
-    add(table("표 3. 거리별 인식 정확도 (%)", [1900, 1250, 1250],
+    add(table("표 4. 거리별 인식 정확도 (%)", [1900, 1250, 1250],
               [["촬영 거리", "1단계만", "2단계 줌"], ["근거리 (20cm 이내)", "95", "95"],
                ["중거리 (30~50cm)", "45", "90"], ["원거리 (50cm 이상)", "15", "80"]]))
-    add(table("표 4. 숫자 조합 결과", [1000, 1250, 900, 1250],
+    add(table("표 5. 숫자 조합 결과", [1000, 1250, 900, 1250],
               [["표시값", "후처리 없음", "NMS만", "전체 파이프라인"], ["118g", "111111888", "18", "118"],
                ["291g", "222999111", "291", "291"]]))
 
     add(h2("4.2 ACT 순차 적재 (시뮬레이션)"))
     rows = [["조건", "1층", "옆", "2층", "연속"]]
-    for name, label in (("n100", "시연 100"), ("n200", "시연 200"), ("n500", "시연 500"), ("n1000", "시연 1000"),
-                        ("n200_te", "시연 200 + 시간 앙상블"), ("dart200", "DART 200")):
+    for name, label in (("v1_n100", "시연 100 (여유 1.5mm)"), ("n100", "시연 100"), ("n200", "시연 200"),
+                        ("n500", "시연 500"), ("n1000", "시연 1000"), ("n200_te", "시연 200 + 시간 앙상블"),
+                        ("dart200", "DART 200"), ("dart1000", "DART 1000")):
         rows.append([label, pct(name, 1), pct(name, 2), pct(name, 3), chain(name, 2)])
-    add(table("표 5. 적재 성공률 (%, 단계별·연속 각 50회)", [1700, 650, 650, 650, 750], rows))
+    add(table("표 6. 적재 성공률 (%, 시뮬레이션, 각 50회)", [1700, 650, 650, 650, 750], rows))
     if (FIG / "fig3_scaling.png").exists():
         add(fig(media, FIG / "fig3_scaling.png", "그림 4. 시연 수에 따른 적재 성공률"))
     if (FIG / "fig4_rollout.png").exists():
         add(fig(media, FIG / "fig4_rollout.png",
                 "그림 5. ACT 정책의 연속 적재 장면"))
-    add(P(f"표 5는 단계별 성공률과 연속 3단계 성공률이다. 시연 100회에서 단계별 성공률은 1층 {pct('n100', 1)}%, "
-          f"옆 {pct('n100', 2)}%, 2층 {pct('n100', 3)}%였고, 시연 200회에서는 {pct('n200', 1)}%, {pct('n200', 2)}%, "
-          f"{pct('n200', 3)}%였다. 연속 평가에서는 앞 단계의 배치 오차가 다음 단계의 목표 위치에 그대로 반영되어, "
-          f"시연 200회 정책의 누적 성공률이 1층 {chain('n200', 0)}%, 옆까지 {chain('n200', 1)}%, 2층까지 "
-          f"{chain('n200', 2)}%로 낮아졌다. 시연 잡음을 주입한 DART 정책은 연속 성공률이 {chain('dart200', 2)}%로 "
-          "오차 누적에 더 강건하였다. 성공한 시행의 평균 배치 오차는 시연 200회 기준 "
-          f"{err('n200', 1)}, {err('n200', 2)}, {err('n200', 3)}mm였다."))
+    add(P(f"표 6은 단계별 성공률(각 50회)과 세 단계를 이어 수행한 연속 성공률(50회)이다. 초기 시연(여유 1.5mm, "
+          f"100회)의 단계별 성공률은 1층 {pct('v1_n100', 1)}%, 옆 {pct('v1_n100', 2)}%, 2층 {pct('v1_n100', 3)}%였으나, "
+          f"앞 단계의 배치 오차가 다음 단계로 넘어가 연속 성공률은 {chain('v1_n100', 2)}%에 그쳤다. 실패의 대부분은 "
+          "고정 집게가 통 벽 위에 걸려 끝까지 내려가지 못한 채 닫힌 경우였고, 정책은 평균 5mm가량 벽 쪽으로 "
+          f"치우쳤다. 파지 여유를 9mm로 둔 시연으로 같은 100회를 학습하면 단계별 {pct('n100', 1)}%, "
+          f"{pct('n100', 2)}%, {pct('n100', 3)}%, 연속 {chain('n100', 2)}%로 바뀌었다."))
+    add(P(f"시연 수를 200, 500, 1000회로 늘리면 연속 성공률은 {chain('n200', 2)}%, {chain('n500', 2)}%, "
+          f"{chain('n1000', 2)}%였다(그림 4). 시연 잡음을 주입한 DART 정책은 같은 1000회에서 단계별 "
+          f"{pct('dart1000', 1)}%, {pct('dart1000', 2)}%, {pct('dart1000', 3)}%, 연속 {chain('dart1000', 2)}%였고, "
+          f"200회에서는 연속 {chain('dart200', 2)}%(일반 200회 {chain('n200', 2)}%)였다. 시간 앙상블[4]은 "
+          f"200회 정책의 연속 성공률을 {chain('n200', 2)}%에서 {chain('n200_te', 2)}%로 바꾸었다. 모방학습 성능이 "
+          "시연 수보다 환경 다양성에 좌우된다는 보고[16]와 같이, 시연 수를 늘리는 것만으로는 파지 설계의 효과를 "
+          "대신하기 어렵다."))
     add(P("실제 셀에서도 1층 적재 정책이 MCP 신호에 따라 통을 집어 적재하는 것을 확인하였으나, 위치 오차와 제어 "
           "지연으로 실패하는 경우가 관찰되었다. 현장 측정 기록이 남아 있지 않아 실제 수치와의 비교는 하지 않았다."))
 
     # ------------------------------------------------------------ V
     add(h1("Ⅴ. 결론"))
     add(P("본 논문은 Jetson Orin Nano에서 YOLOv8 기반 7-segment 무게 인식과 MCP 트리거로 호출되는 단계별 ACT "
-          "정책을 결합하여, 무게 판정부터 1층·옆·2층 순차 적재까지 이어지는 스마트 팩토리 셀을 구현하였다. 캡처·추론 "
-          "분리, 2단계 디지털 줌, 4단계 숫자 조합으로 캡처 59.5 FPS, 중거리 정확도 90%, 정분류율 91.7%, 응답 810ms를 "
-          "얻었다. 로봇 파손 이후 실제 셀을 재현한 시뮬레이션에서 순차 적재는 앞 단계 오차가 누적되어 연속 성공률이 "
-          "단계별 성공률보다 낮아짐을 확인하였고, DART 잡음 주입이 이를 완화하였다. 다만 시뮬레이션 결과는 스크립트 "
-          "시연과 단순화된 접촉 모델에 기반하므로 실제 원격조작 시연의 성능과 다를 수 있다. 향후 로봇을 복구하여 "
-          "실측으로 검증하고, TensorRT 가속과 시간 앙상블·DAgger 등 실행 중 보정 기법을 실제 셀에 적용할 예정이다."))
+          "정책을 결합하여, 무게 판정부터 1층·옆·2층 순차 적재까지 이어지는 스마트 팩토리 셀을 구현하였다. 인식부는 "
+          "캡처 59.5 FPS, 중거리 정확도 90%, 정분류율 91.7%, 응답 810ms를 실측으로 확인하였다. 로봇 파손 이후 같은 "
+          "조건을 재현한 시뮬레이션에서는 단계별 성공률이 높아도 연속 적재에서 오차가 누적됨을 보였고, 그 주된 원인인 "
+          "파지 위치 오차를 시연의 파지 여유 설계로 줄인 뒤 시연 수와 DART로 연속 성공률을 높였다. 시뮬레이션 결과는 "
+          "스크립트 시연과 단순화된 접촉 모델에 기반하므로 실제 원격조작 시연의 성능과 다를 수 있으며, 향후 로봇을 "
+          "복구하여 같은 파지 설계로 실측 검증할 예정이다."))
 
     refs = [
         "International Federation of Robotics, World Robotics 2024: Industrial Robots, IFR, 2024.",

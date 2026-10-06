@@ -55,11 +55,13 @@ def main(out: Path, demo: bool = False) -> None:
             ys = [100 * data[n]["chained"]["cumulative_success"][2] for n in xs]
         ax.plot(xs, ys, color=col, lw=1.4, ls=ls, marker=mk, ms=3.6, mec="white", mew=0.6, zorder=3)
         ends.append([ys[-1], label, col])
-    dart = None if demo else load("dart200")
-    if dart:
-        y = 100 * dart["chained"]["cumulative_success"][2]
-        ax.plot([200], [y], marker="*", ms=8, color="#4a3aa7", mec="white", mew=0.5, zorder=4, ls="none")
-        ax.annotate("DART 200 (연속)", (200, y), xytext=(6, -2), textcoords="offset points", fontsize=6.2,
+    darts = [] if demo else [(n, load(f"dart{n}")) for n in (200, 1000)]
+    darts = [(n, d) for n, d in darts if d and "chained" in d]
+    if darts:
+        dx = [n for n, _ in darts]
+        dy = [100 * d["chained"]["cumulative_success"][2] for _, d in darts]
+        ax.plot(dx, dy, marker="*", ms=8, color="#4a3aa7", mec="white", mew=0.5, zorder=4, lw=1.0, ls=":")
+        ax.annotate("DART (연속)", (dx[-1], dy[-1]), xytext=(6, 6), textcoords="offset points", fontsize=6.2,
                     color=INK2, va="center")
     # direct labels at the right end, nudged apart
     ends.sort(key=lambda e: e[0])
