@@ -1,0 +1,8 @@
+{
+ "stage": 3,
+ "kept": 200,
+ "tried": 207,
+ "expert_success_rate": 0.966183574879227,
+ "mean_xy_err_mm": 2.234792686552333,
+ "seconds": 1820.4026505947113
+}

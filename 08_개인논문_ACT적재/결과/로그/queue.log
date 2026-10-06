@@ -1,0 +1,18 @@
+[10-06 13:28:08] queue start (steps=40000 trials=50)
+[10-06 13:39:04] queue v1 stopped (plan changed to 100/200/500/1000)
+[10-06 13:39:04] queue v2 start (steps=30000 save=10000 trials=50)
+[10-06 13:53:04] 200-demo data ready
+[10-06 13:53:04] train n100
+[10-06 14:39:43] (14:32 systemd-oomd killed the Claude scope incl. this queue; restarting in a memory-capped user service)
+[10-06 14:39:43] queue v2 start (steps=30000 save=10000 trials=50)
+[10-06 14:39:43] 200-demo data ready
+[10-06 14:39:43] train n100
+[10-06 14:47:37] queue v2 stopped (training used 2.5GB each); restarting as v3 with MemoryMax=6G while PiPER runs
+[10-06 14:47:37] queue v3 start (steps=30000 save=10000 trials=50)
+[10-06 14:47:37] train n100
+[10-06 14:49:56] restart v3: buffer 6 / refresh 5, MALLOC_MMAP_THRESHOLD_=1MB (training was 2GB each)
+[10-06 14:49:56] queue v3 start (steps=30000 save=10000 trials=50)
+[10-06 14:49:56] train n100
+[10-06 17:18:43] 15:53 PC powered off (queue lost; training had stalled: h5py reads held the GIL). v4: JPEG packs in RAM (10.5 it/s alone), DART sigma 0.005
+[10-06 17:18:43] queue v4 start (steps=30000 save=10000 trials=50)
+[10-06 17:18:43] train n100

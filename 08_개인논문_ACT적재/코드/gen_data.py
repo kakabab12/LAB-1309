@@ -25,11 +25,16 @@ def main() -> None:
     ap.add_argument("--episodes", type=int, default=100)
     ap.add_argument("--seed", type=int, default=1000)
     ap.add_argument("--out", default="data")
+    ap.add_argument("--dart-sigma", type=float, default=0.0,
+                    help="DART: Ornstein-Uhlenbeck noise (rad) added to the executed arm targets; the "
+                         "recorded action stays the clean expert target, so the demos show recoveries")
+    ap.add_argument("--name", default=None, help="output file stem (default stage{N})")
     args = ap.parse_args()
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    path = out / f"stage{args.stage}.hdf5"
+    stem = args.name or f"stage{args.stage}"
+    path = out / f"{stem}.hdf5"
     env = StackEnv(render=True)
     rng = np.random.default_rng(args.seed + args.stage * 100000)
     ex = ScriptedExpert(env, rng)
@@ -40,6 +45,7 @@ def main() -> None:
         f.attrs["stage"] = args.stage
         f.attrs["fps"] = 30
         f.attrs["home"] = home
+        f.attrs["dart_sigma"] = args.dart_sigma
         while kept < args.episodes:
             tried += 1
             spec = sample_scene(args.stage, rng)
@@ -49,12 +55,15 @@ def main() -> None:
             tgt = TARGETS[args.stage] if args.stage < 3 else env.bin_state("bin_a").pos + np.array([0, 0, BIN_H])
             traj = ex.plan(env.qpos(), bs.pos, bs.yaw, tgt)
             S, A, F, T = [], [], [], []
+            noise = np.zeros(6)
             for a in traj:
                 S.append(obs["state"])
                 A.append(a)
                 F.append(obs["front"])
                 T.append(obs["top"])
-                env.step(a)
+                if args.dart_sigma > 0:
+                    noise[:5] += 0.1 * (-noise[:5]) + args.dart_sigma * rng.standard_normal(5)
+                env.step(a + noise)
                 obs = env.observe()
             env.settle(10)
             r = env.evaluate_stage(args.stage, ref_positions=refs)
@@ -72,10 +81,10 @@ def main() -> None:
                 print(f"stage {args.stage}: kept {kept}/{tried} ({time.time() - t0:.0f}s)", flush=True)
         f.attrs["tried"] = tried
         f.attrs["kept"] = kept
-    summary = {"stage": args.stage, "kept": kept, "tried": tried, "expert_success_rate": kept / tried,
+    summary = {"stage": args.stage, "dart_sigma": args.dart_sigma, "kept": kept, "tried": tried, "expert_success_rate": kept / tried,
                "mean_xy_err_mm": float(np.mean([l["xy_err_mm"] for l in log if l["success"]])),
                "seconds": time.time() - t0}
-    (out / f"stage{args.stage}_gen.json").write_text(json.dumps({"summary": summary, "log": log}, indent=1))
+    (out / f"{stem}_gen.json").write_text(json.dumps({"summary": summary, "log": log}, indent=1))
     print(json.dumps(summary))
     env.close()
 

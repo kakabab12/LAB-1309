@@ -85,6 +85,8 @@ def run_stage(env, policy, home, device, rec: Recorder, frame_every: int = 4) ->
     policy.reset()
     obs = env.observe()
     infer_ms = []
+    bin0 = env.bin_state(env.active_bin).pos.copy()
+    grasp_site, opened = None, False
     for t in range(HORIZON):
         b = to_batch(obs, device)
         t0 = time.perf_counter()
@@ -94,8 +96,13 @@ def run_stage(env, policy, home, device, rec: Recorder, frame_every: int = 4) ->
             torch.cuda.synchronize()
         dt = (time.perf_counter() - t0) * 1000
         infer_ms.append(dt)
-        env.step(a.squeeze(0).cpu().numpy())
+        act = a.squeeze(0).cpu().numpy()
+        env.step(act)
         obs = env.observe()
+        # where does the policy close the gripper, relative to where the bin really was?
+        opened = opened or act[5] > 0.2
+        if grasp_site is None and opened and act[5] < 0.0:
+            grasp_site = env.d.site_xpos[env.site].copy()
         if t % frame_every == 0:
             rec.snap()
     q0 = env.qpos()  # RETURN_HOME, as in the real runner
@@ -104,7 +111,19 @@ def run_stage(env, policy, home, device, rec: Recorder, frame_every: int = 4) ->
         if i % frame_every == 0:
             rec.snap()
     env.settle(15)
-    return {"infer_ms_max": float(np.max(infer_ms)), "infer_ms_mean": float(np.mean(infer_ms))}
+    return {"infer_ms_max": float(np.max(infer_ms)), "infer_ms_mean": float(np.mean(infer_ms)),
+            "bin0": bin0.tolist(), "grasp_site": None if grasp_site is None else grasp_site.tolist()}
+
+
+def follow_slopes(trials: list[dict]) -> dict:
+    """Slope of grasp position vs true bin position (1 = the policy tracks the bin it sees)."""
+    pts = [(t["bin0"], t["grasp_site"]) for t in trials if t.get("grasp_site") is not None]
+    if len(pts) < 5:
+        return {}
+    b = np.array([p[0] for p in pts])
+    g = np.array([p[1] for p in pts])
+    return {"slope_x": float(np.polyfit(b[:, 0], g[:, 0], 1)[0]), "slope_y": float(np.polyfit(b[:, 1], g[:, 1], 1)[0]),
+            "n": len(pts)}
 
 
 def main() -> None:
@@ -144,6 +163,7 @@ def main() -> None:
             per[stage] = {"success_rate": float(np.mean([r["success"] for r in rs])),
                           "n": len(rs),
                           "xy_err_mm_mean_success": float(np.mean([r["xy_err_mm"] for r in rs if r["success"]] or [np.nan])),
+                          "follow": follow_slopes(rs),
                           "trials": rs}
             print(f"[per-stage] stage {stage}: {per[stage]['success_rate']*100:.1f}% ({sum(r['success'] for r in rs)}/{len(rs)})", flush=True)
         results["per_stage"] = per

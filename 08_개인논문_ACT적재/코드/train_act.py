@@ -11,7 +11,7 @@ import json
 import time
 from pathlib import Path
 
-import h5py
+import cv2
 import numpy as np
 import torch
 
@@ -22,35 +22,77 @@ from lerobot.policies.act.modeling_act import ACTPolicy
 CAMS = ("front", "top")
 
 
-def load_episodes(paths: list[Path], n: int, images_in_ram: bool = False) -> list[dict]:
-    """State/action go to RAM; images stay in the (lzf, per-frame chunked) HDF5 files and are
-    read per batch so several jobs can share this PC with other experiments."""
-    eps = []
-    for path in paths:
-        f = h5py.File(path, "r")
-        for k in sorted(k for k in f.keys() if k.startswith("episode_")):
-            if len(eps) >= n:
+class Demos:
+    """Demonstrations from JPEG packs (convert_jpeg.py), held entirely in RAM.
+
+    Only the bytes of the episodes actually used are kept, so n=100 from a 200-episode pack costs half.
+    """
+
+    def __init__(self, paths: list[Path], n: int):
+        self.state, self.action, self.off, self.size, self.blobs, self.which = [], [], [], [], [], []
+        need = n
+        for path in paths:
+            if need <= 0:
                 break
-            g = f[k]
-            e = {"state": g["state"][()], "action": g["action"][()]}
-            for c in CAMS:
-                e[c] = g[c][()] if images_in_ram else g[c]
-            eps.append(e)
-    assert len(eps) == n, f"only {len(eps)} episodes available, wanted {n}"
-    return eps
+            with np.load(path) as z:
+                E = min(need, z["state"].shape[0])
+                off, size = z["off"][:E], z["size"][:E]
+                lo, hi = int(off.min()), int((off + size).max())
+                self.blobs.append(np.array(z["blob"][lo:hi]))
+                self.off.append(off - lo)
+                self.size.append(size)
+                self.state.append(z["state"][:E])
+                self.action.append(z["action"][:E])
+                self.which += [(len(self.blobs) - 1, e) for e in range(E)]
+            need -= E
+        assert len(self.which) == n, f"only {len(self.which)} episodes available, wanted {n}"
+        self.T = self.state[0].shape[1]
+        self.nbytes = sum(b.nbytes for b in self.blobs)
+
+    def __len__(self) -> int:
+        return len(self.which)
+
+    def episode(self, i: int):
+        p, e = self.which[i]
+        return self.state[p][e], self.action[p][e]
+
+    def image(self, i: int, t: int, cam: int) -> np.ndarray:
+        p, e = self.which[i]
+        o, n = self.off[p][e, t, cam], self.size[p][e, t, cam]
+        bgr = cv2.imdecode(self.blobs[p][o : o + n], cv2.IMREAD_COLOR)
+        return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 
-def compute_stats(eps: list[dict]) -> dict:
-    S = np.concatenate([e["state"] for e in eps])
-    A = np.concatenate([e["action"] for e in eps])
+def compute_stats(d: Demos) -> dict:
+    """Mean/std for state, action and each camera (images: every 15th frame of up to 40 episodes)."""
+    S = np.concatenate([d.episode(i)[0] for i in range(len(d))])
+    A = np.concatenate([d.episode(i)[1] for i in range(len(d))])
     stats = {
         "observation.state": {"mean": S.mean(0), "std": S.std(0) + 1e-3},
         "action": {"mean": A.mean(0), "std": A.std(0) + 1e-3},
     }
-    for c in CAMS:
-        px = np.concatenate([e[c][::15].reshape(-1, 3) for e in eps[:: max(1, len(eps) // 40)]]).astype(np.float32) / 255.0
-        stats[f"observation.images.{c}"] = {"mean": px.mean(0).reshape(3, 1, 1), "std": px.std(0).reshape(3, 1, 1)}
-    return {k: {s: torch.tensor(v, dtype=torch.float32) for s, v in d.items()} for k, d in stats.items()}
+    for c, cam in enumerate(CAMS):
+        s1, s2, n = np.zeros(3), np.zeros(3), 0
+        for i in range(0, len(d), max(1, len(d) // 40)):
+            for t in range(0, d.T, 15):
+                x = d.image(i, t, c).reshape(-1, 3).astype(np.float64) / 255.0
+                s1 += x.sum(0)
+                s2 += (x * x).sum(0)
+                n += len(x)
+        mean = s1 / n
+        std = np.sqrt(np.maximum(s2 / n - mean**2, 1e-8))
+        stats[f"observation.images.{cam}"] = {"mean": mean.reshape(3, 1, 1), "std": std.reshape(3, 1, 1)}
+    return {k: {s: torch.tensor(v, dtype=torch.float32) for s, v in d_.items()} for k, d_ in stats.items()}
+
+
+def release_heap() -> None:
+    """Hand freed heap pages back to the OS (glibc keeps them otherwise)."""
+    try:
+        import ctypes
+
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except OSError:
+        pass
 
 
 def make_config(img_hw: tuple[int, int], device: str) -> ACTConfig:
@@ -69,84 +111,38 @@ def make_config(img_hw: tuple[int, int], device: str) -> ACTConfig:
 
 
 class Sampler:
-    """Random (episode, t) samples with ACT action chunks and padding flags.
+    """Uniform random (episode, t) samples with ACT action chunks and padding flags."""
 
-    Images live on a slow HDD, so a buffer of `buffer` fully decoded episodes is kept in RAM and one
-    episode is swapped in by a background thread every `refresh` steps (sequential reads only).
-    """
-
-    def __init__(self, eps: list[dict], chunk: int, rng: np.random.Generator, buffer: int = 16, refresh: int = 10):
-        import queue
-        import threading
-
-        self.eps, self.chunk, self.rng = eps, chunk, rng
-        self.lengths = np.array([len(e["action"]) for e in eps])
-        self.refresh, self.calls = refresh, 0
-        k = min(buffer, len(eps))
-        self.slots = list(rng.choice(len(eps), size=k, replace=False))
-        self.cache = [self._decode(i) for i in self.slots]
-        self.q = queue.Queue(maxsize=2)
-        self.stop = False
-
-        def loader():
-            lrng = np.random.default_rng(int(rng.integers(1 << 30)))
-            while not self.stop:
-                i = int(lrng.integers(len(self.eps)))
-                self.q.put((i, self._decode(i)))
-
-        if len(eps) > k:
-            threading.Thread(target=loader, daemon=True).start()
-
-    def _decode(self, i: int) -> dict:
-        e = self.eps[i]
-        return {c: np.asarray(e[c][()] if hasattr(e[c], "shape") and not isinstance(e[c], np.ndarray) else e[c])
-                for c in CAMS}
-
-    def _maybe_swap(self) -> None:
-        self.calls += 1
-        if self.calls % self.refresh or self.q.empty():
-            return
-        i, imgs = self.q.get_nowait()
-        if i in self.slots:
-            return
-        j = int(self.rng.integers(len(self.slots)))
-        self.slots[j], self.cache[j] = i, imgs
+    def __init__(self, demos: Demos, chunk: int, rng: np.random.Generator):
+        self.d, self.chunk, self.rng = demos, chunk, rng
 
     def batch(self, bs: int, device: str) -> dict:
-        self._maybe_swap()
+        T = self.d.T
         st, act, pad, imgs = [], [], [], {c: [] for c in CAMS}
-        lens = np.array([self.lengths[i] for i in self.slots], dtype=float)
         for _ in range(bs):
-            j = self.rng.choice(len(self.slots), p=lens / lens.sum())
-            ei = self.slots[j]
-            e = self.eps[ei]
-            T = self.lengths[ei]
-            t = self.rng.integers(0, T)
+            i = int(self.rng.integers(len(self.d)))
+            t = int(self.rng.integers(T))
+            S, A = self.d.episode(i)
             idx = np.arange(t, t + self.chunk)
-            is_pad = idx >= T
-            idx = np.minimum(idx, T - 1)
-            st.append(e["state"][t])
-            act.append(e["action"][idx])
-            pad.append(is_pad)
-            for c in CAMS:
-                imgs[c].append(self.cache[j][c][t])
+            pad.append(idx >= T)
+            st.append(S[t])
+            act.append(A[np.minimum(idx, T - 1)])
+            for c, cam in enumerate(CAMS):
+                imgs[cam].append(self.d.image(i, t, c))
         b = {
             "observation.state": torch.from_numpy(np.stack(st)),
             "action": torch.from_numpy(np.stack(act)),
             "action_is_pad": torch.from_numpy(np.stack(pad)),
         }
-        for c in CAMS:
-            x = torch.from_numpy(np.stack(imgs[c])).permute(0, 3, 1, 2).float() / 255.0
-            b[f"observation.images.{c}"] = x
+        for cam in CAMS:
+            b[f"observation.images.{cam}"] = torch.from_numpy(np.stack(imgs[cam])).permute(0, 3, 1, 2).float() / 255.0
         return {k: v.to(device, non_blocking=True) for k, v in b.items()}
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", type=int, required=True)
-    ap.add_argument("--data", nargs="+", default=["data/stage{stage}.hdf5", "data/stage{stage}_more.hdf5"])
-    ap.add_argument("--buffer", type=int, default=16, help="episodes kept decoded in RAM (~31 MB each)")
-    ap.add_argument("--refresh", type=int, default=10, help="swap one buffered episode every N steps")
+    ap.add_argument("--data", nargs="+", default=["data/stage{stage}.jpk.npz", "data/stage{stage}_more.jpk.npz"])
     ap.add_argument("--episodes", type=int, default=50)
     ap.add_argument("--steps", type=int, default=80000)
     ap.add_argument("--batch", type=int, default=8)
@@ -163,16 +159,18 @@ def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     paths = [Path(p.format(stage=args.stage)) for p in args.data]
-    eps = load_episodes([p for p in paths if p.exists()], args.episodes)
-    img_hw = eps[0]["front"].shape[1:3]
-    stats = compute_stats(eps)
+    demos = Demos([p for p in paths if p.exists()], args.episodes)
+    img_hw = demos.image(0, 0, 0).shape[:2]
+    stats = compute_stats(demos)
     cfg = make_config(img_hw, device)
     policy = ACTPolicy(cfg, dataset_stats=stats).to(device)
     policy.train()
     opt = torch.optim.AdamW(policy.get_optim_params(), lr=cfg.optimizer_lr, weight_decay=cfg.optimizer_weight_decay)
-    sampler = Sampler(eps, cfg.chunk_size, rng, buffer=args.buffer, refresh=args.refresh)
+    sampler = Sampler(demos, cfg.chunk_size, rng)
+    release_heap()
     n_params = sum(p.numel() for p in policy.parameters())
-    meta = {"stage": args.stage, "episodes": len(eps), "frames": int(sampler.lengths.sum()), "steps": args.steps,
+    meta = {"stage": args.stage, "episodes": len(demos), "frames": len(demos) * demos.T, "image_bytes": demos.nbytes,
+            "data": [str(p) for p in paths if p.exists()], "steps": args.steps,
             "batch": args.batch, "lr": cfg.optimizer_lr, "params": n_params, "img_hw": list(img_hw),
             "chunk_size": cfg.chunk_size, "kl_weight": cfg.kl_weight, "device": torch.cuda.get_device_name(0)}
     (out / "train_meta.json").write_text(json.dumps(meta, indent=1))
@@ -191,6 +189,8 @@ def main() -> None:
         acc["loss"] += loss.item()
         acc["l1_loss"] += info.get("l1_loss", 0.0)
         acc["kld_loss"] += info.get("kld_loss", 0.0)
+        if step % 5000 == 0:
+            release_heap()
         if step % 200 == 0:
             rec = {"step": step, **{k: v / 200 for k, v in acc.items()}, "elapsed_s": time.time() - t0}
             log.append(rec)
