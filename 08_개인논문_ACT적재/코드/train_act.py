@@ -8,7 +8,9 @@ usage: python train_act.py --stage 1 --episodes 50 --steps 80000 --out runs/stag
 
 import argparse
 import json
+import struct
 import time
+import zipfile
 from pathlib import Path
 
 import cv2
@@ -19,13 +21,32 @@ from lerobot.configs.types import FeatureType, PolicyFeature
 from lerobot.policies.act.configuration_act import ACTConfig
 from lerobot.policies.act.modeling_act import ACTPolicy
 
+import preprocess
+
 CAMS = ("front", "top")
 
 
-class Demos:
-    """Demonstrations from JPEG packs (convert_jpeg.py), held entirely in RAM.
+def npz_memmap(path: Path, key: str) -> np.ndarray:
+    """Memory-map one array of an uncompressed .npz (np.savez) without reading it."""
+    with zipfile.ZipFile(path) as zf:
+        info = zf.getinfo(key + ".npy")
+        assert info.compress_type == zipfile.ZIP_STORED, "pack must be written with np.savez (no compression)"
+    with open(path, "rb") as f:
+        f.seek(info.header_offset)
+        n_name, n_extra = struct.unpack("<HH", f.read(30)[26:30])
+        f.seek(info.header_offset + 30 + n_name + n_extra)
+        version = np.lib.format.read_magic(f)
+        read = np.lib.format.read_array_header_1_0 if version == (1, 0) else np.lib.format.read_array_header_2_0
+        shape, fortran, dtype = read(f)
+        return np.memmap(path, dtype=dtype, mode="r", offset=f.tell(), shape=shape, order="F" if fortran else "C")
 
-    Only the bytes of the episodes actually used are kept, so n=100 from a 200-episode pack costs half.
+
+class Demos:
+    preprocess = None  # set by the trainer, see preprocess.py
+    """Demonstrations from JPEG packs (convert_jpeg.py).
+
+    The JPEG bytes are memory-mapped from the pack, so trainings that use the same pack share one copy in
+    the page cache (and the kernel may drop it under memory pressure); state/action/offsets are loaded.
     """
 
     def __init__(self, paths: list[Path], n: int):
@@ -38,7 +59,7 @@ class Demos:
                 E = min(need, z["state"].shape[0])
                 off, size = z["off"][:E], z["size"][:E]
                 lo, hi = int(off.min()), int((off + size).max())
-                self.blobs.append(np.array(z["blob"][lo:hi]))
+                self.blobs.append(npz_memmap(path, "blob")[lo:hi])
                 self.off.append(off - lo)
                 self.size.append(size)
                 self.state.append(z["state"][:E])
@@ -60,7 +81,7 @@ class Demos:
         p, e = self.which[i]
         o, n = self.off[p][e, t, cam], self.size[p][e, t, cam]
         bgr = cv2.imdecode(self.blobs[p][o : o + n], cv2.IMREAD_COLOR)
-        return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        return preprocess.apply(self.preprocess, cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
 
 
 def compute_stats(d: Demos) -> dict:
@@ -148,6 +169,7 @@ def main() -> None:
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--save-every", type=int, default=20000)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--preprocess", choices=["clahe"], default=None, help="camera preprocessing (also used at eval)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -160,6 +182,7 @@ def main() -> None:
 
     paths = [Path(p.format(stage=args.stage)) for p in args.data]
     demos = Demos([p for p in paths if p.exists()], args.episodes)
+    demos.preprocess = args.preprocess
     img_hw = demos.image(0, 0, 0).shape[:2]
     stats = compute_stats(demos)
     cfg = make_config(img_hw, device)
@@ -172,7 +195,8 @@ def main() -> None:
     meta = {"stage": args.stage, "episodes": len(demos), "frames": len(demos) * demos.T, "image_bytes": demos.nbytes,
             "data": [str(p) for p in paths if p.exists()], "steps": args.steps,
             "batch": args.batch, "lr": cfg.optimizer_lr, "params": n_params, "img_hw": list(img_hw),
-            "chunk_size": cfg.chunk_size, "kl_weight": cfg.kl_weight, "device": torch.cuda.get_device_name(0)}
+            "chunk_size": cfg.chunk_size, "kl_weight": cfg.kl_weight, "device": torch.cuda.get_device_name(0),
+            "preprocess": args.preprocess}
     (out / "train_meta.json").write_text(json.dumps(meta, indent=1))
     print(json.dumps(meta), flush=True)
 

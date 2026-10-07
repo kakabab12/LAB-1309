@@ -1,0 +1,2 @@
+{"stage": 3, "episodes": 100, "frames": 27000, "image_bytes": 256426465, "data": ["data/v5_stage3.jpk.npz"], "steps": 30000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti"}
+{"step": 2000, "loss": 1.0827745631337167, "l1_loss": 0.15938930347561836, "kld_loss": 0.092338526584208, "elapsed_s": 517.02530169487}

@@ -29,13 +29,16 @@ def main() -> None:
                     help="DART: Ornstein-Uhlenbeck noise (rad) added to the executed arm targets; the "
                          "recorded action stays the clean expert target, so the demos show recoveries")
     ap.add_argument("--name", default=None, help="output file stem (default stage{N})")
+    ap.add_argument("--dr", action="store_true", help="domain randomisation: lights, table colour, camera mounts, "
+                    "distractors, wider pick range (+-28 mm, +-30 deg)")
     args = ap.parse_args()
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     stem = args.name or f"stage{args.stage}"
     path = out / f"{stem}.hdf5"
-    env = StackEnv(render=True)
+    env = StackEnv(render=True, dr=args.dr)
+    vis_rng = np.random.default_rng(args.seed + args.stage * 100000 + 7)
     rng = np.random.default_rng(args.seed + args.stage * 100000)
     ex = ScriptedExpert(env, rng)
     home = ex.home_q()
@@ -48,8 +51,11 @@ def main() -> None:
         f.attrs["dart_sigma"] = args.dart_sigma
         while kept < args.episodes:
             tried += 1
-            spec = sample_scene(args.stage, rng)
+            spec = sample_scene(args.stage, rng, wide=args.dr)
             obs = env.reset(spec, home)
+            vis = env.randomize(vis_rng) if args.dr else None
+            if args.dr:
+                obs = env.observe()
             refs = {n: env.bin_state(n).pos.copy() for n in BIN_NAMES[: args.stage - 1]}
             bs = env.bin_state(BIN_NAMES[args.stage - 1])
             tgt = TARGETS[args.stage] if args.stage < 3 else env.bin_state("bin_a").pos + np.array([0, 0, BIN_H])
@@ -67,7 +73,8 @@ def main() -> None:
                 obs = env.observe()
             env.settle(10)
             r = env.evaluate_stage(args.stage, ref_positions=refs)
-            log.append({"try": tried, "success": r["success"], "xy_err_mm": r["xy_err_mm"], "ik_err_mm": ex.last_ik_err * 1000})
+            log.append({"try": tried, "success": r["success"], "xy_err_mm": r["xy_err_mm"], "ik_err_mm": ex.last_ik_err * 1000,
+                        **({"vis": vis} if vis else {})})
             if not r["success"]:
                 continue
             g = f.create_group(f"episode_{kept:04d}")
@@ -81,7 +88,7 @@ def main() -> None:
                 print(f"stage {args.stage}: kept {kept}/{tried} ({time.time() - t0:.0f}s)", flush=True)
         f.attrs["tried"] = tried
         f.attrs["kept"] = kept
-    summary = {"stage": args.stage, "design": DESIGN, "dart_sigma": args.dart_sigma, "kept": kept, "tried": tried, "expert_success_rate": kept / tried,
+    summary = {"stage": args.stage, "design": DESIGN, "dr": args.dr, "dart_sigma": args.dart_sigma, "kept": kept, "tried": tried, "expert_success_rate": kept / tried,
                "mean_xy_err_mm": float(np.mean([l["xy_err_mm"] for l in log if l["success"]])),
                "seconds": time.time() - t0}
     (out / f"{stem}_gen.json").write_text(json.dumps({"summary": summary, "log": log}, indent=1))

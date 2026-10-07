@@ -31,6 +31,7 @@ ROBOT_DIR = ROOT / "so_arm100" / "Simulation" / "SO101"
 ROBOT_SRC = ROBOT_DIR / "so101_new_calib_camera.xml"
 ROBOT_OUT = ROBOT_DIR / "_so101_cam_front.xml"
 SCENE_OUT = ROBOT_DIR / "_stack_scene.xml"
+SCENE_DR_OUT = ROBOT_DIR / "_stack_scene_dr.xml"  # + visual distractors for domain randomisation
 
 JOINTS = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"]
 CONTROL_HZ = 30
@@ -133,7 +134,7 @@ def _bin_xml(name: str, pos: np.ndarray) -> str:
     </body>'''
 
 
-def build_model_files() -> Path:
+def build_model_files(dr: bool = False) -> Path:
     src = ROBOT_SRC.read_text()
     tmp = ROBOT_DIR / f"_tmp_probe_{os.getpid()}.xml"
     tmp.write_text(src)
@@ -202,11 +203,37 @@ def build_model_files() -> Path:
     <camera name="top" pos="0.20 0.0 0.62" xyaxes="0 -1 0 1 0 0" fovy="55"/>
     <camera name="overview" pos="0.66 -0.46 0.46" xyaxes="0.62 0.78 0 -0.36 0.29 0.89" fovy="45"/>
 {bins}
+{DISTRACTORS if dr else ""}
   </worldbody>
 </mujoco>
 """
-    _atomic_write(SCENE_OUT, scene)
-    return SCENE_OUT
+    out = SCENE_DR_OUT if dr else SCENE_OUT
+    _atomic_write(out, scene)
+    return out
+
+
+# Domain randomisation (v6 data): visual-only distractors (mocap, no collisions), parked out of view by default.
+N_DISTRACT = 3
+DISTRACT_PARK = np.array([-0.6, -0.6, 0.02])
+DISTRACTORS = "\n".join(
+    f'    <body name="distract{i}" mocap="true" pos="{-0.6 - 0.1 * i} -0.6 0.02">'
+    f'<geom name="distract{i}_g" type="{t}" size="{sz}" rgba="0.8 0.2 0.2 1" contype="0" conaffinity="0"/></body>'
+    for i, (t, sz) in enumerate([("box", "0.018 0.028 0.02"), ("cylinder", "0.02 0.025"), ("sphere", "0.022")]))
+# areas clear of the scale, the pallet and the arm's paths (x range, y range)
+DISTRACT_AREAS = [((0.30, 0.38), (-0.25, 0.25)), ((0.08, 0.28), (0.25, 0.31))]
+
+
+def distractor_colour(rng: np.random.Generator) -> tuple:
+    """Any colour except blues: the bin colour (blue = good product) stays the task's fixed reference."""
+    import colorsys
+    while True:
+        h = rng.random()
+        if not 0.50 <= h <= 0.75:
+            return colorsys.hsv_to_rgb(h, rng.uniform(0.3, 1.0), rng.uniform(0.3, 1.0))
+
+
+PICK_RANGE_DR = np.array([0.028, 0.028])  # wider than the evaluation range (+-20 mm, +-20 deg)
+PICK_YAW_RANGE_DR = math.radians(30)
 
 
 def _atomic_write(path: Path, text: str) -> None:
@@ -242,8 +269,8 @@ class SceneSpec:
 
 
 class StackEnv:
-    def __init__(self, render: bool = True, img_hw: tuple[int, int] = (IMG_H, IMG_W)):
-        path = build_model_files()
+    def __init__(self, render: bool = True, img_hw: tuple[int, int] = (IMG_H, IMG_W), dr: bool = False):
+        path = build_model_files(dr)
         self.m = mujoco.MjModel.from_xml_path(str(path))
         self.d = mujoco.MjData(self.m)
         self.jnt_qadr = np.array([self.m.joint(j).qposadr[0] for j in JOINTS])
@@ -257,6 +284,58 @@ class StackEnv:
         self.render_enabled = render
         self.renderer = mujoco.Renderer(self.m, img_hw[0], img_hw[1]) if render else None
         self.active_bin = None
+        self.dr = dr
+        self._vis0 = {k: getattr(self.m, k).copy() for k in ("light_diffuse", "light_dir", "mat_rgba", "mat_texid",
+                                                              "cam_pos", "cam_quat")}
+        self._head0 = (self.m.vis.headlight.diffuse.copy(), self.m.vis.headlight.ambient.copy())
+
+    def reset_visuals(self) -> None:
+        for k, v in self._vis0.items():
+            getattr(self.m, k)[:] = v
+        self.m.vis.headlight.diffuse[:], self.m.vis.headlight.ambient[:] = self._head0
+
+    def randomize(self, rng: np.random.Generator) -> dict:
+        """Domain randomisation of everything the cameras see but the task does not depend on:
+        light strength/direction, table colour, camera mounting (top +-12 mm/2.5 deg, wrist +-3 mm/2.5 deg)
+        and up to three distractor objects. Returns the drawn values (logged with the episode)."""
+        m = self.m
+        self.reset_visuals()
+        f_key, f_head = rng.uniform(0.45, 1.7), rng.uniform(0.5, 1.6)
+        m.light_diffuse[:] = self._vis0["light_diffuse"] * f_key
+        m.vis.headlight.diffuse[:] = self._head0[0] * f_head
+        m.vis.headlight.ambient[:] = self._head0[1] * f_head
+        tilt, az = math.radians(rng.uniform(0, 30)), rng.uniform(0, 2 * math.pi)
+        m.light_dir[0] = [math.sin(tilt) * math.cos(az), math.sin(tilt) * math.sin(az), -math.cos(tilt)]
+        tab = m.material("table").id
+        table = "wood"
+        if rng.random() < 0.75:
+            import colorsys
+            rgb = colorsys.hsv_to_rgb(rng.random(), rng.uniform(0, 0.6), rng.uniform(0.2, 0.9))
+            m.mat_texid[tab, :] = -1
+            m.mat_rgba[tab] = (*rgb, 1)
+            table = [round(c, 3) for c in rgb]
+        for name, dp, da in (("top", 0.012, 2.5), ("front", 0.003, 2.5)):
+            c = m.camera(name).id
+            m.cam_pos[c] = self._vis0["cam_pos"][c] + rng.uniform(-dp, dp, size=3)
+            ax = rng.normal(size=3)
+            ang = math.radians(rng.uniform(-da, da)) / 2
+            dq = np.array([math.cos(ang), *(math.sin(ang) * ax / np.linalg.norm(ax))])
+            q = np.zeros(4)
+            mujoco.mju_mulQuat(q, self._vis0["cam_quat"][c], dq)
+            m.cam_quat[c] = q
+        placed = 0
+        if self.dr:
+            for i in range(N_DISTRACT):
+                mid = m.body_mocapid[m.body(f"distract{i}").id]
+                if rng.random() < 0.6:
+                    (x0, x1), (y0, y1) = DISTRACT_AREAS[rng.integers(len(DISTRACT_AREAS))]
+                    self.d.mocap_pos[mid] = [rng.uniform(x0, x1), rng.uniform(y0, y1), 0.025]
+                    m.geom_rgba[m.geom(f"distract{i}_g").id] = (*distractor_colour(rng), 1)
+                    placed += 1
+                else:
+                    self.d.mocap_pos[mid] = DISTRACT_PARK + [-0.1 * i, 0, 0]
+        mujoco.mj_forward(m, self.d)
+        return {"key_light": float(f_key), "headlight": float(f_head), "table": table, "distractors": placed}
 
     # ------------------------------------------------------------------ state
     def qpos(self) -> np.ndarray:
@@ -361,16 +440,17 @@ class StackEnv:
             self.renderer = None
 
 
-def sample_pick(rng: np.random.Generator) -> tuple[np.ndarray, float]:
-    xy = SCALE_C + rng.uniform(-PICK_RANGE, PICK_RANGE)
-    yaw = rng.uniform(-PICK_YAW_RANGE, PICK_YAW_RANGE)
+def sample_pick(rng: np.random.Generator, wide: bool = False) -> tuple[np.ndarray, float]:
+    pr, yr = (PICK_RANGE_DR, PICK_YAW_RANGE_DR) if wide else (PICK_RANGE, PICK_YAW_RANGE)
+    xy = SCALE_C + rng.uniform(-pr, pr)
+    yaw = rng.uniform(-yr, yr)
     return xy, float(yaw)
 
 
 def sample_scene(stage: int, rng: np.random.Generator, placed_noise_xy: float = 0.008,
-                 placed_noise_yaw: float = math.radians(5)) -> SceneSpec:
+                 placed_noise_yaw: float = math.radians(5), wide: bool = False) -> SceneSpec:
     """Previously stacked bins sit near their targets with placement-like noise."""
-    xy, yaw = sample_pick(rng)
+    xy, yaw = sample_pick(rng, wide)
     placed = {}
     for s in range(1, min(stage, 3)):
         n = BIN_NAMES[s - 1]

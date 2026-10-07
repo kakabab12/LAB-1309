@@ -37,6 +37,35 @@ def _wallswitch(run: str = "n100") -> dict:
 
 
 WS = _wallswitch()
+
+
+def _robust() -> dict:
+    p = ROOT / "results" / "robust_summary.json"
+    return json.loads(p.read_text()) if p.exists() else {}
+
+
+ROB = _robust()
+ROB_CONDS = ["dark", "bright", "light_side", "table_gray", "table_dark", "cam_top", "cam_wrist", "distractor",
+             "pos_out", "yaw_out", "placed_out"]
+
+
+def rob(tag: str, cond: str) -> str:
+    """Mean per-stage success (%) of a model under one environment change."""
+    try:
+        return f"{100 * ROB[tag][cond]['mean']:.0f}"
+    except KeyError:
+        return MISSING
+
+
+def rob_avg(tag: str) -> str:
+    """Average over all changed conditions (not the base)."""
+    v = [ROB[tag][c]["mean"] for c in ROB_CONDS if c in ROB.get(tag, {})]
+    return f"{100 * sum(v) / len(v):.0f}" if v else MISSING
+
+
+def rob_min(tag: str) -> str:
+    v = [ROB[tag][c]["mean"] for c in ROB_CONDS if c in ROB.get(tag, {})]
+    return f"{100 * min(v):.0f}" if v else MISSING
 WS200 = _wallswitch("n200")
 
 
@@ -162,18 +191,13 @@ def body(media, b) -> str:
     add(fig(media, FIG / "fig1_system.png", "그림 1. 시스템 구성"))
 
     add(h2("2.2 7-segment 무게 인식"))
-    add(P("**멀티스레드 비동기 처리.** 단일 루프에서는 YOLO 추론이 카메라 캡처를 막아 캡처 속도가 1.2 FPS까지 "
-          "떨어졌다. 캡처 스레드는 최신 프레임만 공유 버퍼에 쓰고, 추론 스레드는 5초 주기로 그 프레임을 가져와 "
-          "추론하며, 스트리밍은 비동기 생성기로 MJPEG를 보낸다. 공유 변수는 잠금(lock)으로 보호한다."))
-    add(P("**ONNX Runtime 병렬 추론.** ONNX Runtime[11] 세션에 연산 스레드 6개, 병렬 실행 모드, 전체 그래프 최적화를 "
-          "적용하여 단일 스레드 대비 추론 속도를 약 3배 높였다. 입력 크기는 세션에서 읽어 모델을 바꿔도 코드를 "
-          "고치지 않도록 하였다."))
-    add(P("**2단계 디지털 줌.** 카메라와 저울의 거리가 멀어지면 숫자가 작아져 '8'을 '1'로 오인식하였다. 1단계에서 "
-          "전체 프레임으로 표시부(screen) 영역을 찾고, 2단계에서 그 영역을 여백 15화소와 함께 잘라 640×640으로 "
-          "확대한 뒤 숫자를 다시 탐지하여, 거리와 관계없이 숫자가 입력 전체를 차지하게 하였다."))
-    add(P("**4단계 숫자 조합.** YOLO는 한 숫자에 여러 상자를 내어 '118'이 '111111888'로 조합되었다. ① 숫자가 아닌 "
-          "클래스 제거, ② IoU 0.4 기준 NMS, ③ x 범위를 자릿수(3)로 나눠 구역별 최고 신뢰도 선택, ④ 자릿수가 "
-          "모자라면 원래 탐지의 밀도로 같은 숫자가 반복된 자리를 복원하는 순서로 무게를 조합한다(그림 2)."))
+    add(P("인식부는 네 가지로 구성하였다. 캡처 스레드는 최신 프레임만 공유 버퍼에 쓰고 추론 스레드가 5초 주기로 이를 "
+          "가져와 추론하여, 단일 루프에서 추론이 캡처를 막던 문제를 없앴다. ONNX Runtime[11] 세션에는 연산 스레드 6개, "
+          "병렬 실행, 전체 그래프 최적화를 적용하여 단일 스레드 대비 약 3배 빠르게 하였다. 거리가 멀어 숫자가 작아지면 "
+          "'8'을 '1'로 읽었으므로, 1단계에서 표시부(screen) 영역을 찾고 여백 15화소와 함께 잘라 640×640으로 확대한 뒤 "
+          "숫자를 다시 탐지하는 2단계 디지털 줌을 썼다. 한 숫자에 여러 상자가 겹쳐 '118'이 '111111888'로 조합되는 문제는 "
+          "① 비숫자 클래스 제거, ② IoU 0.4 NMS, ③ 자릿수 구역별 최고 신뢰도 선택, ④ 반복 숫자 복원의 4단계로 "
+          "해결하였다(그림 2)."))
     add(fig(media, FIG / "fig_vision.png", "그림 2. 7-segment 무게 인식 파이프라인"))
 
     add(h2("2.3 ACT 기반 순차 적재"))
@@ -221,6 +245,12 @@ def body(media, b) -> str:
           "Uhlenbeck, σ=0.005rad)을 더하되 기록하는 정답은 원래 궤적으로 두어, 궤도에서 벗어난 상태에서 되돌아오는 "
           "동작을 함께 학습하게 하였다. 학습은 실제 시스템과 같은 LeRobot 0.3.3 ACT 기본 설정(청크 100, 배치 8, "
           "AdamW 학습률 1×10^{-5})으로 단계별 30,000스텝 수행하였으며, 시연 영상은 JPEG(품질 90)로 저장하였다."))
+    add(P("현장의 조명, 작업대, 카메라 장착 위치는 시연 때와 달라질 수 있다. 이에 대비해 시연마다 조명 세기(0.45~1.7배)와 "
+          "방향, 작업대 색, 카메라 장착 위치(상단 ±12mm·±2.5°, 손목 ±3mm·±2.5°), 파란색이 아닌 주변 물건(최대 3개)을 "
+          "무작위로 바꾸고 통의 위치·방향 범위를 ±28mm, ±30°로 넓힌 도메인 랜덤화[17] 시연을 만들었다. 통의 색은 공정의 "
+          "판정 기준이므로 바꾸지 않았다. 또한 영상의 밝기 채널을 1~99 백분위수 기준으로 늘여 맞춘 뒤 CLAHE[18]를 "
+          "적용하는 전처리를 학습과 실행에 함께 썼다. CLAHE만으로는 조명을 절반으로 줄였을 때의 영상 변화가 8% 줄었으나, "
+          "밝기 정규화를 먼저 하면 약 1/5로 줄었다."))
     add(h2("3.3 평가 방법"))
     add(P("단계별 평가는 앞 단계 통을 목표 근처에 미리 둔 상태에서 해당 정책만 50회 실행한다. 연속 평가는 실제 "
           "셀처럼 π_{1}→π_{2}→π_{3}을 같은 장면에서 이어서 실행하고 실행마다 홈 자세로 복귀한다(50회). 통 중심이 "
@@ -230,30 +260,21 @@ def body(media, b) -> str:
     # ------------------------------------------------------------ IV
     add(h1("Ⅳ. 실험 결과"))
     add(h2("4.1 무게 인식"))
-    add(P(f"표 2는 두 YOLOv8 모델의 학습 결과(50 에폭, 입력 640, 마지막 에폭의 검증 집합 기준)이다. 숫자 모델은 "
-          f"숫자 0~9와 부호, 표시부(screen)의 13개 클래스를 학습하여 mAP50 {ym('number', 'metrics/mAP50(B)')}%, "
-          f"mAP50-95 {ym('number', 'metrics/mAP50-95(B)')}%를 얻었다. mAP50-95가 낮은 것은 작은 숫자의 상자 위치가 "
-          "엄격한 IoU 기준에서 어긋나기 때문이며, 이를 2단계 디지털 줌과 숫자 조합 규칙으로 보완하였다."))
-    add(table("표 2. YOLOv8 모델 학습 결과 (%)", [1250, 500, 650, 650, 650, 700],
-              [["모델", "클래스", "정밀도", "재현율", "mAP50", "mAP50-95"],
-               ["숫자 (v8n)", "13", ym("number", "metrics/precision(B)"), ym("number", "metrics/recall(B)"),
-                ym("number", "metrics/mAP50(B)"), ym("number", "metrics/mAP50-95(B)")],
-               ["상자 (v8n-seg)", "2", ym("box", "metrics/precision(B)"), ym("box", "metrics/recall(B)"),
-                ym("box", "metrics/mAP50(B)"), ym("box", "metrics/mAP50-95(B)")]]))
-    add(P("Jetson Orin Nano에서 조건별 20회 반복 측정하였다. 캡처·추론 분리로 캡처 속도는 1.2에서 59.5 FPS로 약 "
-          "50배 향상되었다(표 3). 2단계 디지털 줌은 중거리 정확도를 45%에서 90%, 원거리를 15%에서 80%로 높였다"
-          "(표 4). NMS만으로는 '118'처럼 같은 숫자가 반복되는 경우 자릿수가 사라졌으나 ④단계 보완으로 복원되었고"
-          "(표 5), 전체 후처리를 적용한 3자리 조합 정확도는 87.5%(70/80)였다. 기준값 자동 분류의 정분류율은 "
-          "91.7%(55/60), 인식부터 명령 전송까지 평균 응답 시간은 약 810ms였다. 오분류 5건은 주로 조명이 "
-          "고르지 않은 조건에서 '8'을 '1'로 읽은 경우였다."))
-    add(table("표 3. 캡처 속도", [1700, 1300, 1400],
-              [["구분", "캡처 FPS", "추론 주기"], ["단일 루프", "1.2", "매 프레임"], ["캡처·추론 분리", "59.5", "5초"]]))
-    add(table("표 4. 거리별 인식 정확도 (%)", [1900, 1250, 1250],
-              [["촬영 거리", "1단계만", "2단계 줌"], ["근거리 (20cm 이내)", "95", "95"],
-               ["중거리 (30~50cm)", "45", "90"], ["원거리 (50cm 이상)", "15", "80"]]))
-    add(table("표 5. 숫자 조합 결과", [1000, 1250, 900, 1250],
-              [["표시값", "후처리 없음", "NMS만", "전체 파이프라인"], ["118g", "111111888", "18", "118"],
-               ["291g", "222999111", "291", "291"]]))
+    add(P("표 2는 Jetson Orin Nano에서 조건별 20회 반복 측정한 인식부 성능이다. YOLO 지표는 50 에폭 학습의 마지막 "
+          "검증 결과이며, 숫자 모델의 mAP50-95가 낮은 것은 작은 숫자의 상자가 엄격한 IoU 기준에서 어긋나기 때문으로, "
+          "2단계 줌과 숫자 조합으로 보완하였다. NMS만으로는 '118'의 반복 숫자가 사라져 '18'이 되었으나 ④단계에서 "
+          "복원되었다. 오분류 5건은 주로 조명이 고르지 않은 조건에서 '8'을 '1'로 읽은 경우로, 3.2절의 밝기 정규화·"
+          "CLAHE를 인식부에 적용하는 것은 향후 과제로 남긴다."))
+    add(table("표 2. 무게 인식부 실측 성능 (Jetson Orin Nano)", [2150, 2350],
+              [["항목", "결과"],
+               ["숫자 탐지 YOLOv8n (13 클래스)",
+                f"mAP50 {ym('number', 'metrics/mAP50(B)')}%, mAP50-95 {ym('number', 'metrics/mAP50-95(B)')}%"],
+               ["상자 분할 YOLOv8n-seg (2 클래스)", f"mAP50 {ym('box', 'metrics/mAP50(B)')}%"],
+               ["캡처 속도", "1.2 → 59.5 FPS (캡처·추론 분리)"],
+               ["중거리 / 원거리 정확도", "45 → 90% / 15 → 80% (2단계 줌)"],
+               ["3자리 조합 정확도", "87.5% (70/80)"],
+               ["기준값(118g) 분류 정분류율", "91.7% (55/60)"],
+               ["인식부터 명령 전송까지 응답", "약 810ms"]]))
 
     add(h2("4.2 ACT 순차 적재 (시뮬레이션)"))
     rows = [["시연 설계 / 수", "1층", "옆", "2층", "연속"]]
@@ -263,13 +284,13 @@ def body(media, b) -> str:
                         ("v4_n500", "같은 벽 / 500"), ("v4_n1000", "같은 벽 / 1000"),
                         ("v4_dart200", "같은 벽 + DART / 200"), ("v4_dart1000", "같은 벽 + DART / 1000")):
         rows.append([label, pct(name, 1), pct(name, 2), pct(name, 3), chain(name, 2)])
-    add(table("표 6. 적재 성공률 (%, 시뮬레이션, 각 50회)", [2050, 560, 560, 560, 620], rows))
+    add(table("표 3. 적재 성공률 (%, 시뮬레이션, 각 50회)", [2050, 560, 560, 560, 620], rows))
     nfig = 4
     if (FIG / "fig_wallswitch_n100.png").exists():
         add(fig(media, FIG / "fig_wallswitch_n100.png",
                 f"그림 {nfig}. 저울 위 통의 회전각과 단계별 결과 (여유 9mm, 로봇 쪽 벽, 시연 100)"))
         nfig += 1
-    add(P(f"표 6은 단계별 성공률(각 50회)과 세 단계를 이어 수행한 연속 성공률(50회)이다. 초기 시연(여유 1.5mm, "
+    add(P(f"표 3은 단계별 성공률(각 50회)과 세 단계를 이어 수행한 연속 성공률(50회)이다. 초기 시연(여유 1.5mm, "
           f"100회)의 단계별 성공률은 1층 {pct('v1_n100', 1)}%, 옆 {pct('v1_n100', 2)}%, 2층 {pct('v1_n100', 3)}%였으나, "
           f"앞 단계의 배치 오차가 다음 단계로 넘어가 연속 성공률은 {chain('v1_n100', 2)}%에 그쳤다. 실패의 대부분은 "
           "고정 집게가 통 벽 위에 걸려 끝까지 내려가지 못한 채 닫힌 경우였다. 파지 여유를 9mm로 둔 시연으로 같은 "
@@ -296,6 +317,18 @@ def body(media, b) -> str:
     if (FIG / "fig4_rollout.png").exists():
         add(fig(media, FIG / "fig4_rollout.png", f"그림 {nfig}. ACT 정책의 연속 적재 장면"))
         nfig += 1
+    if ROB:
+        add(h2("4.3 환경 변화에 대한 강인성 (시뮬레이션)"))
+        add(P("학습이 끝난 정책을 그대로 두고 조명(어둡게 50%, 밝게 160%, 옆 조명), 작업대 색(회색, 짙은 갈색), 카메라 "
+              "장착(상단 10mm·2°, 손목 3mm·2°), 주변 물건, 학습 범위 밖의 통 위치(22~28mm)·방향(22~30°), 아래 통의 "
+              "어긋남(10~14mm) 중 하나씩만 바꾸어 단계별로 20회씩 평가하였다(그림 7). 기존 시연 1000회 정책은 변화 "
+              f"조건 평균 {rob_avg('v5_n1000')}%(최저 {rob_min('v5_n1000')}%)였으나, 도메인 랜덤화 시연으로 학습하면 "
+              f"{rob_avg('v6_n1000')}%, 밝기 정규화·CLAHE를 더하면 {rob_avg('v6c_n1000')}%(최저 "
+              f"{rob_min('v6c_n1000')}%)였다. 어둡게 한 조건에서는 각각 {rob('v5_n1000', 'dark')}%, "
+              f"{rob('v6_n1000', 'dark')}%, {rob('v6c_n1000', 'dark')}%였다."))
+        if (FIG / "fig_robust.png").exists():
+            add(fig(media, FIG / "fig_robust.png", f"그림 {nfig}. 환경 변화별 단계 평균 성공률"))
+            nfig += 1
     add(P("실제 셀에서도 1층 적재 정책이 MCP 신호에 따라 통을 집어 적재하는 것을 확인하였으나, 위치 오차와 제어 "
           "지연으로 실패하는 경우가 관찰되었다. 현장 측정 기록이 남아 있지 않아 실제 수치와의 비교는 하지 않았다."))
 
@@ -336,6 +369,11 @@ def body(media, b) -> str:
         "Demonstrations,\u201d in Proc. CoRL, 2023.",
         "F. Lin, Y. Hu, P. Sheng, C. Wen, J. You, and Y. Gao, \u201cData Scaling Laws in Imitation Learning for "
         "Robotic Manipulation,\u201d in Proc. ICLR, 2025.",
+        "J. Tobin, R. Fong, A. Ray, J. Schneider, W. Zaremba, and P. Abbeel, \u201cDomain Randomization for "
+        "Transferring Deep Neural Networks from Simulation to the Real World,\u201d in Proc. IEEE/RSJ IROS, "
+        "pp. 23-30, 2017.",
+        "K. Zuiderveld, \u201cContrast Limited Adaptive Histogram Equalization,\u201d in Graphics Gems IV, "
+        "Academic Press, pp. 474-485, 1994.",
     ]
     add(b["references"](refs))
     return "".join(out)

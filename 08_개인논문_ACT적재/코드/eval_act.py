@@ -21,6 +21,8 @@ import numpy as np
 import torch
 from PIL import Image
 
+import preprocess
+
 from expert import ScriptedExpert
 from lerobot.policies.act.modeling_act import ACTPolicy
 from stack_env import BIN_H, BIN_NAMES, TARGETS, StackEnv, sample_pick, sample_scene
@@ -39,6 +41,8 @@ def load_policy(path: str, device: str, temporal_ensemble: float | None, n_actio
         policy.config.temporal_ensemble_coeff = temporal_ensemble
         policy.config.n_action_steps = 1
         policy.temporal_ensembler = ACTTemporalEnsembler(temporal_ensemble, policy.config.chunk_size)
+    meta = Path(path).parent / "train_meta.json"  # camera preprocessing the policy was trained with
+    policy.preprocess = json.loads(meta.read_text()).get("preprocess") if meta.exists() else None
     policy.to(device).eval()
     return policy
 
@@ -89,7 +93,10 @@ def run_stage(env, policy, home, device, rec: Recorder, frame_every: int = 4) ->
     infer_ms = []
     bin0 = env.bin_state(env.active_bin).pos.copy()
     grasp_site, opened = None, False
+    pre = getattr(policy, "preprocess", None)
     for t in range(HORIZON):
+        if pre:
+            obs = {**obs, **{c: preprocess.apply(pre, obs[c]) for c in ("front", "top")}}
         b = to_batch(obs, device)
         t0 = time.perf_counter()
         with torch.inference_mode():
