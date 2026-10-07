@@ -126,7 +126,21 @@ def evaluate(env, slots, k, refs, target) -> dict:
             "disturbed": disturbed}
 
 
+_build_orig = SE.build_model_files
+
+
+def _build_with_arena(dr: bool = False):
+    """Same scene, with a larger constraint arena (12+ bins in contact need more than the 16 MB default)."""
+    path = _build_orig(dr)
+    txt = path.read_text()
+    if "<size memory" not in txt:
+        txt = txt.replace("<option ", '<size memory="64M"/>\n  <option ', 1)
+        SE._atomic_write(path, txt)
+    return path
+
+
 def make_env(slots, render=False):
+    SE.build_model_files = _build_with_arena  # only in this process; the pallet scene files are pallet-only
     env = SE.StackEnv(render=render)
     m = env.m
     xs = [s["xy"][0] for s in slots]
@@ -147,12 +161,13 @@ def main():
     ap.add_argument("--seqs", type=int, default=3)
     ap.add_argument("--gif", action="store_true")
     ap.add_argument("--tag", default=None)
+    ap.add_argument("--seed", type=int, default=2024)
     a = ap.parse_args()
     slots = configure(a.rows, a.cols, a.layers, a.x0, a.y0)
     env = make_env(slots, render=False)
     ex = GridExpert(env, np.random.default_rng(11))
     home = ex.home_q()
-    rng = np.random.default_rng(2024)
+    rng = np.random.default_rng(a.seed)
     tag = a.tag or (f"{a.rows}x{a.cols}x{a.layers}_x{a.x0:.3f}_y{a.y0:.3f}"
                     + ("_viafar" if GridExpert.VIA_FAR_ONLY else ""))
     frames, res = [], []

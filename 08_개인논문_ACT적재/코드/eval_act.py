@@ -87,7 +87,8 @@ class Recorder:
             self.small.close()
 
 
-def run_stage(env, policy, home, device, rec: Recorder, frame_every: int = 4, obs_delay: int = 0) -> dict:
+def run_stage(env, policy, home, device, rec: Recorder, frame_every: int = 4, obs_delay: int = 0,
+              horizon: int = HORIZON) -> dict:
     """obs_delay > 0: the policy sees the camera images and joint state from that many control steps ago
     (sensing/communication latency; robustness test only)."""
     policy.reset()
@@ -97,7 +98,7 @@ def run_stage(env, policy, home, device, rec: Recorder, frame_every: int = 4, ob
     bin0 = env.bin_state(env.active_bin).pos.copy()
     grasp_site, opened = None, False
     pre = getattr(policy, "preprocess", None)
-    for t in range(HORIZON):
+    for t in range(horizon):
         x = hist[0] if obs_delay else obs
         if pre:
             x = {**x, **{c: preprocess.apply(pre, x[c]) for c in ("front", "top")}}
