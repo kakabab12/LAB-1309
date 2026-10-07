@@ -44,3 +44,6 @@
 [10-07 13:14:26] queue v6 stopped after n200 evals (v2 n200_te skipped; temporal ensemble will be tested on v4)
 [10-07 14:20:58] v4_n100 trained; evaluating in background
 [10-07 14:20:58] train v4_n200
+[10-07 16:29:47] queue v7 main script frozen (SIGSTOP) so it does not start v4_n500; its v4_n200 trainings and v4_n100 mid-evals keep running. Stage-3 demos move to v5 (back off before lifting): expert stage 3 on eval scenes v4 49/50 tilt>3deg 11 -> v5 50/50 tilt>3deg 1
+[10-07 16:29:59] gen v5 start (stage 3)
+[10-07 16:31:51] queue v8 start (stages 1-2 v4 data, stage 3 v5 data; steps=30000 trials=50)

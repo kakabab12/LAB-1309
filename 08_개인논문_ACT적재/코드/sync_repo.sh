@@ -36,20 +36,20 @@ done
 mkdir -p "$R/결과/시연데이터_미리보기" "$R/결과/로그"
 cp results/preview/* "$R/결과/시연데이터_미리보기/" 2>/dev/null || true
 [ -f results/summary.json ] && cp results/summary.json "$R/결과/수치/summary.json"
-for f in results/grasp_tolerance*.json results/grasp_offsets.json results/wall_rule_*.json results/wallswitch_*.json results/grip_check_*.json; do [ -f "$f" ] && cp "$f" "$R/결과/수치/"; done
+for f in results/grasp_tolerance*.json results/grasp_offsets.json results/wall_rule_*.json results/wallswitch_*.json results/grip_check_*.json results/expert_eval_*.json results/stage3_inspect.json; do [ -f "$f" ] && cp "$f" "$R/결과/수치/"; done
 .venv/bin/python analyze.py > "$R/결과/수치/분석요약.md" 2>/dev/null || true
 cp logs/queue.log "$R/결과/로그/" 2>/dev/null || true
 for f in logs/train_*.log logs/eval_*.log logs/gen_*.log; do [ -f "$f" ] && tail -n 40 "$f" > "$R/결과/로그/$(basename "$f")"; done
 
 # figures and paper
 cp paper/fig*.png "$R/결과/그림/" 2>/dev/null || true
-cp results/stack_*.png results/pallet_expert_final.png results/design_versions.png results/grip_check_*.png "$R/결과/그림/" 2>/dev/null || true
+cp results/stack_*.png results/pallet_expert_final.png results/design_versions.png results/grip_check_*.png results/stage3_inspect.png "$R/결과/그림/" 2>/dev/null || true
 [ -f paper/out/paper.docx ] && cp paper/out/paper.docx "$R/논문/"
 [ -f paper/out/paper.pdf ] && cp paper/out/paper.pdf "$R/논문/"
 
 # code
 cp stack_env.py expert.py gen_data.py train_act.py eval_act.py make_gif.py batch_expert.py sync_repo.sh analyze.py dataset_preview.py \
-   convert_jpeg.py publish.sh stack_photos.py grasp_tolerance.py grasp_offsets.py wall_rule_test.py design_photos.py grip_check.py \
-   run_queue3.sh run_queue4.sh run_queue6.sh run_queue7.sh gen_all_v2.sh gen_stage_v2.sh gen_more_v2.sh gen_v4.sh "$R/코드/" 2>/dev/null || true
+   convert_jpeg.py publish.sh stack_photos.py grasp_tolerance.py grasp_offsets.py wall_rule_test.py design_photos.py grip_check.py inspect_stage3.py expert_eval.py \
+   run_queue3.sh run_queue4.sh run_queue6.sh run_queue7.sh run_queue8.sh gen_all_v2.sh gen_stage_v2.sh gen_more_v2.sh gen_v4.sh gen_v5.sh "$R/코드/" 2>/dev/null || true
 mkdir -p "$R/코드/paper" && cp paper/*.py "$R/코드/paper/"
 echo "synced to $R"
