@@ -15,7 +15,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 
-from expert import ScriptedExpert
+from expert import DESIGN, ScriptedExpert
 from stack_env import BIN_H, BIN_NAMES, TARGETS, StackEnv, sample_scene
 
 
@@ -81,7 +81,7 @@ def main() -> None:
                 print(f"stage {args.stage}: kept {kept}/{tried} ({time.time() - t0:.0f}s)", flush=True)
         f.attrs["tried"] = tried
         f.attrs["kept"] = kept
-    summary = {"stage": args.stage, "dart_sigma": args.dart_sigma, "kept": kept, "tried": tried, "expert_success_rate": kept / tried,
+    summary = {"stage": args.stage, "design": DESIGN, "dart_sigma": args.dart_sigma, "kept": kept, "tried": tried, "expert_success_rate": kept / tried,
                "mean_xy_err_mm": float(np.mean([l["xy_err_mm"] for l in log if l["success"]])),
                "seconds": time.time() - t0}
     (out / f"{stem}_gen.json").write_text(json.dumps({"summary": summary, "log": log}, indent=1))

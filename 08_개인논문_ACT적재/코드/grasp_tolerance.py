@@ -13,9 +13,10 @@ import numpy as np
 import expert as E
 from stack_env import BIN_NAMES, TARGETS, StackEnv, sample_scene
 
-OFFSETS = [-12, -9, -6, -3, 0, 3, 6, 9]  # mm along the facing-wall normal
+OFFSETS = [-18, -15, -12, -9, -6, 0, 4]  # mm along the facing-wall normal
 import sys
-DESIGNS = {"v2a (여유 7mm, 열림 0.32)": (0.007, 0.32), "v2b (여유 9mm, 열림 0.32)": (0.009, 0.32)}
+DESIGNS = {"v3a (여유 11mm, 열림 0.42)": (0.011, 0.42), "v3b (여유 13mm, 열림 0.42)": (0.013, 0.42),
+           "v3c (여유 12mm, 열림 0.38)": (0.012, 0.38)}
 N = 4
 
 env = StackEnv(render=False)
@@ -44,6 +45,6 @@ for dname, (clear, opening) in DESIGNS.items():
         row[off] = ok / N
         print(f"{dname} offset {off:+d}mm: {ok}/{N}", flush=True)
     res[dname] = row
-json.dump(res, open("results/grasp_tolerance_v2.json", "w"), indent=1, ensure_ascii=False)
+json.dump(res, open("results/grasp_tolerance_v3.json", "w"), indent=1, ensure_ascii=False)
 print("saved results/grasp_tolerance.json")
 env.close()

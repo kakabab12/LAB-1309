@@ -7,6 +7,7 @@ converted to joint targets with damped-least-squares IK on the gripperframe site
 from __future__ import annotations
 
 import math
+import os
 
 import mujoco
 import numpy as np
@@ -14,6 +15,10 @@ import numpy as np
 from stack_env import BIN_H, BIN_W, CONTROL_HZ, GRIPPER_CLOSED, GRIPPER_OPEN, JOINTS, StackEnv
 
 ARM = 5  # first five joints; joint 6 is the gripper
+# Demonstration design. v4 grasps one fixed wall (normal nearest -x) over the whole pick-yaw range;
+# v1-v3 took the wall facing the robot, which switches walls near yaw +10 deg and makes the demos bimodal.
+DESIGN = os.environ.get("ACT_DESIGN", "v2")
+WALL_REF = np.array([-1.0, 0.0]) if DESIGN == "v4" else None
 
 
 def wrap(a: float) -> float:
@@ -168,9 +173,9 @@ class ScriptedExpert:
 
     @staticmethod
     def facing_wall_normal(center_xy: np.ndarray, yaw: float) -> np.ndarray:
-        to_robot = -center_xy / np.linalg.norm(center_xy)
+        ref = WALL_REF if WALL_REF is not None else -center_xy / np.linalg.norm(center_xy)
         cands = [np.array([math.cos(yaw + k * math.pi / 2), math.sin(yaw + k * math.pi / 2), 0.0]) for k in range(4)]
-        return max(cands, key=lambda n: n[:2] @ to_robot)
+        return max(cands, key=lambda n: n[:2] @ ref)
 
     def plan(self, q_start: np.ndarray, bin_pos: np.ndarray, bin_yaw: float, target: np.ndarray,
              jitter: bool = True) -> np.ndarray:

@@ -1,4 +1,3 @@
-stage 1: kept 420/420 (3938s)
 stage 1: kept 430/430 (4032s)
 stage 1: kept 440/440 (4126s)
 stage 1: kept 450/450 (4221s)
@@ -38,3 +37,4 @@ stage 1: kept 780/780 (7330s)
 stage 1: kept 790/790 (7423s)
 stage 1: kept 800/800 (7517s)
 {"stage": 1, "dart_sigma": 0.0, "kept": 800, "tried": 800, "expert_success_rate": 1.0, "mean_xy_err_mm": 2.0794906695949806, "seconds": 7516.91437458992}
+stage1_more.hdf5: 800 episodes -> stage1_more.jpk.npz 1952 MB (181s)

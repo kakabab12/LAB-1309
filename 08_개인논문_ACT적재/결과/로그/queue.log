@@ -32,3 +32,8 @@
 [10-07 06:38:39] n100 trained; evaluating
 [10-07 07:22:17] eval n100 done
 [10-07 07:22:17] train n200
+[10-07 07:32:51] act-gen OOM-killed at 05:07 (converter held 800 episodes in RAM); stage2/3 more lost -> regenerate in parts of 200, streaming converter
+[10-07 09:50:25] v2 more demos ready
+[10-07 10:01:02] v2 extra-demo generation stopped: n100 failures traced to the expert switching grasp walls near yaw +10 deg (24/25 failures at yaw>8 deg) -> v4 demos (one fixed wall), expert 108/108 on the yaw x position grid
+[10-07 10:01:02] gen v4 start
+[10-07 10:03:18] queue v7 start (v4 demos, steps=30000 trials=50)

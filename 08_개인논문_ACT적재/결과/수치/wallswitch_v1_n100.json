@@ -1,0 +1,8 @@
+{
+ "trials": 150,
+ "fail_total": 45,
+ "band_trials": 49,
+ "band_fails": 31,
+ "rest_trials": 101,
+ "rest_fails": 14
+}
