@@ -62,6 +62,9 @@ def parse_args():
     p.add_argument("--abs-pos", action="store_true",
                    help="10/5: 동작의 위치 3개를 '절대 목표 위치'로 (그때 손 위치 + 5cm×명령). 실행할 때 지금 손 위치와의 차이로 "
                         "명령을 만들어 묶음을 눈 감고 실행해도 오차가 쌓이지 않는다. --renorm-action 과 함께. 모델 폴더에 abs_pos 표시")
+    p.add_argument("--objfeat", action="store_true",
+                   help="10/6: 색·모양 검출(objdet.py)로 사진에서 계산한 물체 화면 위치 24개를 로봇 상태 뒤에 붙인다 "
+                        "(에피소드 옆 *.objfeat.npy, objfeat_cache.py 로 미리 계산). 모델 폴더에 objfeat 표시")
     p.add_argument("--renorm-action", action="store_true",
                    help="동작 정규화 통계(평균·표준편차)를 학습 데이터에서 다시 잰다. 원래 값은 LIBERO 사람 시범 기준이라 "
                         "선생 데이터에서는 위치 동작이 0.6배로 작고 손목 회전이 2배(최대 12.8배)로 커서, 학습이 위치 정밀도를 덜 본다")
@@ -113,8 +116,9 @@ def augment(img, rng):
 class ChunkDataset(Dataset):
     """(에피소드, 시점) → 이미지 2장 + 로봇 상태 + 앞으로 chunk_size 스텝의 동작."""
 
-    def __init__(self, files, chunk_size, aug=False, vis_cache=None, frame_stride=1, abs_pos=False):
+    def __init__(self, files, chunk_size, aug=False, vis_cache=None, frame_stride=1, abs_pos=False, objfeat=False):
         self.aug = aug
+        self.objfeat = objfeat
         self.chunk = chunk_size
         self.vis_cache = vis_cache
         self.eps, self.index = [], []
@@ -122,6 +126,8 @@ class ChunkDataset(Dataset):
             d = np.load(f, allow_pickle=True)
             keys = ["eef_pos", "eef_quat", "grip", "action"] + ([] if vis_cache else ["img", "wrist"])
             ep = {k: d[k] for k in keys}
+            if objfeat:     # 색·모양 검출 결과 (프레임 수, 24)
+                ep["objfeat"] = np.load(Path(f).with_suffix(".objfeat.npy")).astype(np.float32)
             if abs_pos:     # 위치 명령 → 그 스텝의 절대 목표 위치 (robosuite OSC: 입력 [-1,1] → 5cm, 목표 = 지금 손 위치 + 변화)
                 act = ep["action"].astype(np.float32).copy()
                 act[:, :3] = ep["eef_pos"].astype(np.float32) + 0.05 * np.clip(act[:, :3], -1, 1)
@@ -165,12 +171,15 @@ class ChunkDataset(Dataset):
         if self.aug:
             rng = np.random.default_rng()
             img, wrist = augment(img, rng), augment(wrist, rng)
-        return {
+        item = {
             "img": img,
             "wrist": wrist,
             "eef_pos": ep["eef_pos"][t], "eef_quat": ep["eef_quat"][t], "grip": ep["grip"][t],
             "action": actions.astype(np.float32), "is_pad": is_pad, "task": ep["task"],
         }
+        if self.objfeat:
+            item["objfeat"] = ep["objfeat"][t]
+        return item
 
 
 def collate(items):
@@ -184,6 +193,7 @@ def collate(items):
         "action_is_pad": torch.from_numpy(np.stack([x["is_pad"] for x in items])),
         "task": [x["task"] for x in items],
         **({"feats": torch.from_numpy(np.stack([x["feats"] for x in items]))} if "feats" in items[0] else {}),
+        **({"objfeat": torch.from_numpy(np.stack([x["objfeat"] for x in items]))} if "objfeat" in items[0] else {}),
     }
 
 
@@ -236,6 +246,35 @@ class Trainer:
         print(f"LoRA 적용: r={self.a.lora_r}, 학습 파라미터 {tr / 1e6:.2f}M / 전체 {tot / 1e6:.1f}M "
               f"({100 * tr / tot:.2f}%)", flush=True)
 
+    def setup_objfeat(self, ds):
+        """로봇 상태 정규화 통계를 8 → 32 로 늘리고(새 24개는 데이터에서 잼), 처음 붙일 때는 state_proj 의 새 입력 열을 0 으로
+        (학습 시작 때 모델이 이전과 똑같이 움직이게). 이미 objfeat 로 학습한 모델에서 이어 가면 열은 그대로 둔다."""
+        from lerobot.processor.converters import to_tensor
+        from lerobot.processor.normalize_processor import _NormalizationMixin
+        F = np.concatenate([ep["objfeat"] for ep in ds.eps]).astype(np.float64)
+        fm, fs = F.mean(0), F.std(0) + 1e-3
+        fresh = not (Path(self.a.policy) / "objfeat").exists()
+        for st in self.pre.steps:
+            if isinstance(st, _NormalizationMixin) and "observation.state" in (st.stats or {}):
+                ss = st.stats["observation.state"]
+                m0, s0 = np.asarray(ss["mean"], np.float32), np.asarray(ss["std"], np.float32)
+                if len(m0) == 8:
+                    ss["mean"] = np.concatenate([m0, fm]).astype(np.float32)
+                    ss["std"] = np.concatenate([s0, fs]).astype(np.float32)
+                    for k in ("min", "max", "q01", "q99"):
+                        ss.pop(k, None)
+                    st._tensor_stats = to_tensor(st.stats, device=st.device, dtype=st.dtype)
+        try:
+            from lerobot.configs.types import PolicyFeature
+            feat = self.policy.config.input_features["observation.state"]
+            self.policy.config.input_features["observation.state"] = PolicyFeature(type=feat.type, shape=(32,))
+        except Exception as e:
+            print("input_features 바꾸기 실패(무시):", e, flush=True)
+        if fresh:
+            with torch.no_grad():
+                self.policy.model.state_proj.weight[:, 8:].zero_()
+        print(f"물체 위치 입력 24개 붙임 (처음={fresh}): 평균 {np.round(fm, 2).tolist()}", flush=True)
+
     def renorm_action(self, mean, std):
         """전처리(정규화)·후처리(되돌리기) 양쪽의 동작 통계를 바꾼다. 저장하면 같이 저장된다."""
         from lerobot.processor.converters import to_tensor
@@ -255,6 +294,9 @@ class Trainer:
         b["task"] = batch["task"]
         b["action"] = batch["action"]
         b = self.env_step(b)
+        if "objfeat" in batch:      # 로봇 상태 8 + 물체 화면 위치 24 = 32 (max_state_dim)
+            st = b["observation.state"]
+            b["observation.state"] = torch.cat([st, batch["objfeat"].to(device=st.device, dtype=st.dtype)], -1)
         b = self.pre(b)
         b["actions_id_pad"] = batch["action_is_pad"].to(self.device)  # forward 가 읽는 키 이름
         return b
@@ -286,8 +328,11 @@ class Trainer:
             print(f"사진 특징 미리 계산본 사용: {vcache} (사진 증강 없음)", flush=True)
         fs = getattr(a, "frame_stride", 1)
         ab = getattr(a, "abs_pos", False)
-        train_ds = ChunkDataset(train_files, chunk, aug=a.aug and not vcache, vis_cache=vcache, frame_stride=fs, abs_pos=ab)
-        val_ds = ChunkDataset(val_files, chunk, vis_cache=vcache, frame_stride=fs, abs_pos=ab)
+        of = getattr(a, "objfeat", False)
+        train_ds = ChunkDataset(train_files, chunk, aug=a.aug and not vcache, vis_cache=vcache, frame_stride=fs, abs_pos=ab, objfeat=of)
+        val_ds = ChunkDataset(val_files, chunk, vis_cache=vcache, frame_stride=fs, abs_pos=ab, objfeat=of)
+        if of:
+            self.setup_objfeat(train_ds)
         print(f"에피소드 학습 {len(train_files)} / 검증 {len(val_files)}, "
               f"프레임 {len(train_ds)} / {len(val_ds)}", flush=True)
         if getattr(a, "renorm_action", False):
@@ -420,6 +465,8 @@ class Trainer:
             self.post.save_pretrained(d)
             if getattr(self.a, "abs_pos", False):
                 (d / "abs_pos").write_text("위치 동작 = 절대 목표 위치 (train_lora --abs-pos)\n")
+            if getattr(self.a, "objfeat", False):
+                (d / "objfeat").write_text("로봇 상태 뒤에 색·모양 검출 물체 위치 24개 (train_lora --objfeat, objdet.py)\n")
             (out / "history.json").write_text(json.dumps(hist, ensure_ascii=False, indent=2))
             print(f"정책 저장: {d}", flush=True)
             return

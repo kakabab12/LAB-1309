@@ -263,6 +263,8 @@ class Episode:
         self.bon_active = False  # bon: 전환 이후에만 후보 선택
         self.pending = None  # 지연 모사: [동작, 정규화 동작, 남은 도착 스텝]
         self.loose_hit = {}  # 단계별 '판 안' 성공 (10/5)
+        self.hold_segs = []  # 10/7: 쥔 구간 [시작, 끝, 물체, 끝날 때 그리퍼 명령] — 실패 분류(못 집음/미끄러짐/엉뚱한 곳)
+        self._hold_cur = None
         self.last_grip = -1.0
         self.hold_steps = 0
         self.rtc_active = False  # rtc: 전환 이후에만 guidance
@@ -333,7 +335,7 @@ class Episode:
         with ctx:
             batch = preprocess_observation(add_batch_dim(self.obs))
             batch["task"] = [self.maybe_repeat(instruction)]
-            batch = r.pre(r.env_step(batch))
+            batch = r.prep(batch, self.obs)
             kwargs = {}
             if use_rtc and self.plan_norm is not None and len(self.plan_norm) > 0:
                 delay = self.a.latency_steps if self.a.latency_steps > 0 else self.a.rtc_delay
@@ -356,7 +358,7 @@ class Episode:
                 # 음의 조건도 같은 횟수로 반복해야 한다 — 한쪽만 길면
                 # 토큰 수 차이가 증폭 효과에 섞인다
                 nb["task"] = [self.maybe_repeat(self.r.chk_a.language)]
-                nb = r.pre(r.env_step(nb))
+                nb = r.prep(nb, self.obs)
                 norm = instr_cfg.predict_chunk_cfg(r.policy, nb, batch, self.a.cfg_w,
                                                    noise=kwargs.get("noise"))
             else:
@@ -670,6 +672,15 @@ class Episode:
         self.log["gq"].append(float(self.obs["robot_state"]["gripper"]["qpos"][0]))
         self.log["phase"].append(phase)
         self.log["held_z"].append(self.obj_pos(self.held)[2] if self.held else np.nan)
+        if HOLD_CONTACT:
+            hobj = self.finger_object() if self.holding() else None
+            if hobj != self._hold_cur:
+                if self._hold_cur is not None:      # 놓았다(명령 -1) 또는 쥔 채 빠졌다(명령 +1)
+                    self.hold_segs[-1][1] = len(self.acts) - 1
+                    self.hold_segs[-1][3] = float(action[-1])
+                if hobj is not None:
+                    self.hold_segs.append([len(self.acts) - 1, None, hobj, None])
+                self._hold_cur = hobj
         if self.frames is not None:
             img = self.obs["pixels"]["image"][::-1, ::-1]
             wrist = self.obs["pixels"]["image2"][::-1, ::-1]
@@ -868,6 +879,16 @@ def fill_defaults(args):
 
 
 class Runner:
+    def prep(self, batch, obs):
+        """환경 관측 → 모델 입력. objfeat 모델이면 두 카메라 사진에서 색·모양으로 찾은 물체 위치 24개를 로봇 상태 뒤에 붙인다."""
+        b = self.env_step(batch)
+        if getattr(self, "objfeat", False):
+            import objdet
+            f = objdet.detect(np.asarray(obs["pixels"]["image"]), np.asarray(obs["pixels"]["image2"]))
+            st = b["observation.state"]
+            b["observation.state"] = torch.cat([st, torch.as_tensor(f, dtype=st.dtype, device=st.device)[None]], -1)
+        return self.pre(b)
+
     def __init__(self, args):
         self.args = fill_defaults(args)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -875,6 +896,8 @@ class Runner:
         self.policy.config.device = self.device
         # 10/5: 위치 동작이 절대 목표 위치인 모델 (train_lora --abs-pos 가 모델 폴더에 abs_pos 를 남김)
         self.abs_pos = (Path(args.policy) / "abs_pos").exists()
+        # 10/6: 로봇 상태 뒤에 색·모양 검출 물체 위치 24개를 붙이는 모델 (train_lora --objfeat 가 objfeat 를 남김)
+        self.objfeat = (Path(args.policy) / "objfeat").exists()
         if getattr(args, "strategy", None) in ("rtc", "flush_rtc", "rtc_all"):
             from lerobot.policies.rtc.configuration_rtc import RTCConfig
             self.policy.config.rtc_config = RTCConfig(enabled=True, execution_horizon=args.rtc_horizon,
@@ -1072,6 +1095,10 @@ class Runner:
 
     def finish(self, ep, rec, t0, ep_idx):
         rec["wall_sec"] = round(time.time() - t0, 1)
+        if HOLD_CONTACT:            # 10/7: 실패 분류용 (끝난 뒤 물체 자리, 쥔 구간)
+            rec["hold_segs"] = ep.hold_segs
+            rec["objects_final"] = ep.object_layout()
+            rec["eef_final"] = [round(float(x), 4) for x in eef_pos(ep.obs)]
         if self.args.latency_steps > 0:
             rec["latency_steps"] = self.args.latency_steps
             rec["hold_steps"] = ep.hold_steps

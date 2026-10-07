@@ -7,14 +7,14 @@ W=outputs/piper/watchdog.log; S=outputs/piper/STATUS.txt
 idle=0; gzero=0; done_said=0
 while true; do
   now=$(date +%m/%d\ %H:%M)
-  jobs=$(ps -eo args | grep -cE "^\.venv/bin/python (train_lora|piper_sim/|a2c2|vis_cache)")
-  rounds=$(ps -eo args | grep -cE "^bash \./run_(blk|piper)")
+  jobs=$(ps -eo args | grep -cE "^\.venv/bin/python (train_lora|piper_sim/|a2c2|vis_cache|objfeat_cache)")
+  rounds=$(ps -eo args | grep -cE "^bash \./run_(blk|piper|abs|ns|a2c2|obj|bo1)")
   gpu=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1)
   mem=$(awk '/MemAvailable/ {printf "%.1f", $2/1048576}' /proc/meminfo)
   {
     echo "$now  작업 $jobs  순서 스크립트 $rounds  GPU ${gpu}%  남은 메모리 ${mem}GB"
     ps -eo etime,args | grep -E "^ *[0-9:-]+ (\.venv/bin/python|bash \./run_)" | sed -E 's/--(data|policy) [^ ]+//' | cut -c1-150
-    for m in piper_b1c piper_b2 piper_b3 piper_b4; do
+    for m in piper_ba2 piper_bo1 piper_bo2 piper_bo3; do
       [ -f outputs/${m}_model/history.json ] && echo "$m 학습: $(python3 -c "import json; h=json.load(open('outputs/${m}_model/history.json')); print(h[-1])")"
     done
   } > $S

@@ -31,13 +31,23 @@ if WIDE:
     BDDL_DIR = HERE / "bddl_blocks_wide"
 
 CUBE = 0.045
+# 10/7: 작은 블록 시험 (PIPER_CUBE=0.035). 그리퍼가 최대 7cm 벌어져 4.5cm 블록은 한쪽 여유가 1.25cm 뿐이고,
+#   학생 모델 실패는 손가락이 1.4~1.5cm 어긋나 블록 윗면에 걸린 것이었다 → 3.5cm 면 여유 1.75cm.
+#   크기가 다르면 블록 파일·과제 정의를 다른 폴더에 써서, 같이 도는 4.5cm 작업(수집·평가)을 건드리지 않는다
+SIZE_TAG = ""
+if os.environ.get("PIPER_CUBE") and abs(float(os.environ["PIPER_CUBE"]) - CUBE) > 1e-6:
+    CUBE = float(os.environ["PIPER_CUBE"])
+    SIZE_TAG = f"_c{round(CUBE * 1000)}"
+    ASSETS = HERE / "assets" / f"blocks{SIZE_TAG}"
+    BDDL_DIR = BDDL_DIR.parent / (BDDL_DIR.name + SIZE_TAG)
+BAR = (0.09, min(0.04, CUBE), min(0.04, CUBE))    # 노란 막대 9x4x4cm. 작은 블록이면 블록과 같은 굵기 (3cm 면 쥐는 높이 1.5cm 에서 손끝이 책상에 걸려 시작도 못 함)
 PAD = (0.10, 0.10, 0.005)       # 10cm: 12cm 는 책상에 4장 + 블록 4개를 두기에 좁았다
 # 등록 이름 → (파일 이름, 크기 [m], 색 RGBA, 밀도)
 BLOCKS = {
     "akita_black_bowl": ("red_cube", (CUBE, CUBE, CUBE), (0.85, 0.10, 0.10, 1), 400),
     "cream_cheese": ("green_cube", (CUBE, CUBE, CUBE), (0.10, 0.70, 0.20, 1), 400),
     "blue_block": ("blue_cube", (CUBE, CUBE, CUBE), (0.10, 0.30, 0.90, 1), 400),
-    "wine_bottle": ("yellow_bar", (0.09, 0.04, 0.04), (0.95, 0.80, 0.10, 1), 400),
+    "wine_bottle": ("yellow_bar", BAR, (0.95, 0.80, 0.10, 1), 400),
     "plate": ("purple_pad", PAD, (0.55, 0.20, 0.75, 1), 3000),
     "gray_pad": ("gray_pad", PAD, (0.45, 0.45, 0.45, 1), 3000),
     "orange_pad": ("orange_pad", PAD, (0.95, 0.50, 0.10, 1), 3000),
