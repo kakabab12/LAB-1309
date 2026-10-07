@@ -145,6 +145,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ckpt", nargs=3, required=True, help="stage 1, 2, 3 checkpoint dirs")
     ap.add_argument("--trials", type=int, default=50)
+    ap.add_argument("--start", type=int, default=0, help="first trial index (to split a long evaluation)")
+    ap.add_argument("--device", default=None, help="cuda / cpu (default: cuda if available)")
     ap.add_argument("--mode", choices=["per_stage", "chained", "both"], default="both")
     ap.add_argument("--temporal-ensemble", type=float, default=None)
     ap.add_argument("--n-action-steps", type=int, default=None, help="execute only the first k actions of each chunk")
@@ -152,7 +154,7 @@ def main() -> None:
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     env = StackEnv(render=True)
@@ -167,7 +169,7 @@ def main() -> None:
         per = {}
         for stage in (1, 2, 3):
             rs = []
-            for i in range(args.trials):
+            for i in range(args.start, args.start + args.trials):
                 rng = np.random.default_rng(EVAL_SEED0 + 1000 * stage + i)
                 env.reset(sample_scene(stage, rng), home)
                 refs = {n: env.bin_state(n).pos.copy() for n in BIN_NAMES[: stage - 1]}
@@ -187,7 +189,7 @@ def main() -> None:
 
     if args.mode in ("chained", "both"):
         seqs = []
-        for i in range(args.trials):
+        for i in range(args.start, args.start + args.trials):
             rng = np.random.default_rng(EVAL_SEED0 + 90000 + i)
             env.reset(sample_scene(1, rng), home)
             rec.enabled = i < args.gifs

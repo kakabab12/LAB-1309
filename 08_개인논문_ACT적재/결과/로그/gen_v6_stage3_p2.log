@@ -14,3 +14,8 @@ stage 3: kept 130/131 (2056s)
 stage 3: kept 140/141 (2220s)
 stage 3: kept 150/151 (2396s)
 stage 3: kept 160/161 (2553s)
+stage 3: kept 170/171 (2721s)
+stage 3: kept 180/181 (2872s)
+stage 3: kept 190/191 (3026s)
+stage 3: kept 200/201 (3179s)
+{"stage": 3, "design": "v5", "dr": true, "dart_sigma": 0.0, "kept": 200, "tried": 201, "expert_success_rate": 0.9950248756218906, "mean_xy_err_mm": 2.208435077487127, "seconds": 3178.6682057380676}

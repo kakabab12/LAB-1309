@@ -406,5 +406,67 @@
     0.88
    ]
   }
+ },
+ "v5_n100": {
+  "name": "v5_n100",
+  "stage1": {
+   "success": 1.0,
+   "n": 50,
+   "modes": {
+    "success": 50
+   },
+   "xy_err_mm": 3.520963913335312,
+   "follow": {
+    "slope_x": 1.066262964203756,
+    "slope_y": 1.0865526714028795,
+    "n": 50
+   }
+  },
+  "stage2": {
+   "success": 1.0,
+   "n": 50,
+   "modes": {
+    "success": 50
+   },
+   "xy_err_mm": 5.2563891107730205,
+   "follow": {
+    "slope_x": 1.010368009207587,
+    "slope_y": 0.8792505165040662,
+    "n": 50
+   }
+  },
+  "stage3": {
+   "success": 1.0,
+   "n": 50,
+   "modes": {
+    "success": 50
+   },
+   "xy_err_mm": 6.09946158440403,
+   "follow": {
+    "slope_x": 1.004692783393155,
+    "slope_y": 1.081428144680071,
+    "n": 50
+   }
+  },
+  "chained": {
+   "cumulative": [
+    1.0,
+    0.96,
+    0.96
+   ],
+   "n": 50,
+   "first_failure_stage": {
+    "1": 0,
+    "2": 2,
+    "3": 0,
+    "none": 48
+   },
+   "conditional": [
+    1.0,
+    0.96,
+    1.0
+   ]
+  },
+  "learning_curve": {}
  }
 }

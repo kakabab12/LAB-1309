@@ -71,3 +71,9 @@
 [10-07 19:24:03] trained s3_v5_n100
 [10-07 19:24:26] train s3_v5_n500 (500 demos, preprocess -)
 [10-07 19:24:53] eval v5_n100 (s1_v4_n100 + s2_v4_n100 + s3_v5_n100)
+[10-07 20:07:01] robust v4_n100 start
+[10-07 20:34:35] robust v4_n100 done
+[10-07 20:36:53] gen v6: v6_stage1 ready
+[10-07 20:41:32] gen v6: v6_stage2 ready
+[10-07 20:55:53] eval v5_n100 done
+[10-07 20:57:42] v5_n100 extended evaluation: 200 trials per protocol on CPU (4 parts) for a tighter 95% interval
