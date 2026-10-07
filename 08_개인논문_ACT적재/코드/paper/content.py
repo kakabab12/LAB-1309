@@ -27,16 +27,17 @@ def _load(name: str) -> dict | None:
     return json.loads(p.read_text()) if p.exists() else None
 
 
-RES = {k: _load(k) for k in ("v1_n100", "n100", "n200", "n200_te", "v4_n100", "v4_n200", "v4_n500", "v4_n1000",
+RES = {k: _load(k) for k in ("v1_n100", "n100", "n200", "v4_n100_te", "v4_n200_te", "v4_n100", "v4_n200", "v4_n500", "v4_n1000",
                              "v4_dart200", "v4_dart1000")}
 
 
-def _wallswitch() -> dict:
-    p = ROOT / "results" / "wallswitch_n100.json"
+def _wallswitch(run: str = "n100") -> dict:
+    p = ROOT / "results" / f"wallswitch_{run}.json"
     return json.loads(p.read_text()) if p.exists() else {}
 
 
 WS = _wallswitch()
+WS200 = _wallswitch("n200")
 
 
 def ws(key: str) -> str:
@@ -257,6 +258,7 @@ def body(media, b) -> str:
     add(h2("4.2 ACT 순차 적재 (시뮬레이션)"))
     rows = [["시연 설계 / 수", "1층", "옆", "2층", "연속"]]
     for name, label in (("v1_n100", "여유 1.5mm, 로봇 쪽 벽 / 100"), ("n100", "여유 9mm, 로봇 쪽 벽 / 100"),
+                        ("n200", "여유 9mm, 로봇 쪽 벽 / 200"),
                         ("v4_n100", "여유 9mm, 같은 벽 / 100"), ("v4_n200", "같은 벽 / 200"),
                         ("v4_n500", "같은 벽 / 500"), ("v4_n1000", "같은 벽 / 1000"),
                         ("v4_dart200", "같은 벽 + DART / 200"), ("v4_dart1000", "같은 벽 + DART / 1000")):
@@ -275,7 +277,9 @@ def body(media, b) -> str:
           f"높아졌다. 남은 실패 {ws('fail_total')}건 중 {ws('band_fails')}건은 저울 위 통이 +7.5° 넘게 돌아간 시행에서 "
           f"일어났다(그림 4). 이 구간의 실패율은 {ws_rate('band')}%, 나머지는 {ws_rate('rest')}%로, 전문가가 잡는 벽을 "
           "바꾸는 구간과 일치한다. 이때 정책은 앞벽과 옆벽 시연의 중간인 모서리 쪽으로 가서 집게를 벽 위에 얹은 채 "
-          "닫았다. 늘 같은 벽을 잡는 시연으로 바꾸자 같은 100회에서 단계별 "
+          "닫았다. 같은 설계로 시연을 200회로 늘리면 연속 성공률은 오히려 "
+          f"{chain('n200', 2)}%로 낮아졌고, 이 구간의 실패가 {ws('band_fails')}건에서 "
+          f"{WS200.get('band_fails', MISSING)}건으로 늘었다. 늘 같은 벽을 잡는 시연으로 바꾸자 같은 100회에서 단계별 "
           f"{pct('v4_n100', 1)}%, {pct('v4_n100', 2)}%, {pct('v4_n100', 3)}%, 연속 {chain('v4_n100', 2)}%였다."))
     if (FIG / "fig3_scaling.png").exists():
         add(fig(media, FIG / "fig3_scaling.png", f"그림 {nfig}. 시연 수에 따른 적재 성공률 (같은 벽 시연)"))
@@ -284,8 +288,10 @@ def body(media, b) -> str:
           f"{chain('v4_n1000', 2)}%였다. 시연 잡음을 주입한 DART 정책은 같은 1000회에서 단계별 "
           f"{pct('v4_dart1000', 1)}%, {pct('v4_dart1000', 2)}%, {pct('v4_dart1000', 3)}%, 연속 "
           f"{chain('v4_dart1000', 2)}%였고, 200회에서는 연속 {chain('v4_dart200', 2)}%(일반 200회 "
-          f"{chain('v4_n200', 2)}%)였다. 추론만 바꾸는 시간 앙상블[4]은 로봇 쪽 벽 시연 200회 정책의 연속 성공률을 "
-          f"{chain('n200', 2)}%에서 {chain('n200_te', 2)}%로 바꾸었다. 모방학습 성능이 시연 수보다 시연의 다양성과 "
+          f"{chain('v4_n200', 2)}%)였다. "
+          + (f"추론만 바꾸는 시간 앙상블[4]은 같은 벽 시연 {te_n}회 정책의 연속 성공률을 {chain(f'v4_n{te_n}', 2)}%에서 "
+             f"{chain(f'v4_n{te_n}_te', 2)}%로 바꾸었다. " if (te_n := next((n for n in (200, 100) if RES.get(f'v4_n{n}_te')), None)) else "")
+          + "모방학습 성능이 시연 수보다 시연의 다양성과 "
           "일관성에 좌우된다는 보고[16]와 같이, 시연 수를 늘리는 것만으로는 시연 설계의 효과를 대신하기 어렵다."))
     if (FIG / "fig4_rollout.png").exists():
         add(fig(media, FIG / "fig4_rollout.png", f"그림 {nfig}. ACT 정책의 연속 적재 장면"))

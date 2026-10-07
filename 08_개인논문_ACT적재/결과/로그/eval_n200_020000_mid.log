@@ -2,5 +2,5 @@ Loading weights from local directory
 Loading weights from local directory
 Loading weights from local directory
 [per-stage] stage 1: 76.7% (23/30)
-[per-stage] stage 2: 63.3% (19/30)
-[per-stage] stage 3: 56.7% (17/30)
+[per-stage] stage 2: 86.7% (26/30)
+[per-stage] stage 3: 70.0% (21/30)
