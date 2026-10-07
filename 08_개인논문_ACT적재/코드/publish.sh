@@ -10,7 +10,20 @@ $PY analyze.py > results/analysis.md 2>&1 || true
 $PY paper/fig_scaling.py > /dev/null 2>&1 || true
 
 # rollout figure from the best available full model set (prefer larger data)
-for name in dart200 n1000 n500 n200 n100; do
+# best = highest chained success among finished model sets (v4 first on ties)
+BEST=$($PY - <<'EOF2'
+import json, pathlib
+best = None
+for n in ["v4_dart1000", "v4_n1000", "v4_n500", "v4_dart200", "v4_n200", "v4_n100", "n200", "n100"]:
+    p = pathlib.Path(f"results/eval/{n}/results.json")
+    if p.exists() and pathlib.Path(f"runs/s3_{n}/ckpt_030000/model.safetensors").exists():
+        c = json.loads(p.read_text()).get("chained", {}).get("cumulative_success", [0, 0, 0])[2]
+        if best is None or c > best[0]:
+            best = (c, n)
+print(best[1] if best else "")
+EOF2
+)
+for name in $BEST; do
   c=runs/s1_${name}/ckpt_030000
   if [ -f runs/s3_${name}/ckpt_030000/model.safetensors ] && [ -f results/eval/${name}/results.json ]; then
     if [ ! -f paper/fig4_rollout.json ] || ! grep -q "s1_${name}/" paper/fig4_rollout.json; then

@@ -27,7 +27,27 @@ def _load(name: str) -> dict | None:
     return json.loads(p.read_text()) if p.exists() else None
 
 
-RES = {k: _load(k) for k in ("v1_n100", "n100", "n200", "n500", "n1000", "n200_te", "dart200", "dart1000")}
+RES = {k: _load(k) for k in ("v1_n100", "n100", "n200", "n200_te", "v4_n100", "v4_n200", "v4_n500", "v4_n1000",
+                             "v4_dart200", "v4_dart1000")}
+
+
+def _wallswitch() -> dict:
+    p = ROOT / "results" / "wallswitch_n100.json"
+    return json.loads(p.read_text()) if p.exists() else {}
+
+
+WS = _wallswitch()
+
+
+def ws(key: str) -> str:
+    return str(WS[key]) if key in WS else MISSING
+
+
+def ws_rate(kind: str) -> str:
+    try:
+        return f"{100 * WS[kind + '_fails'] / WS[kind + '_trials']:.0f}"
+    except KeyError:
+        return MISSING
 
 
 def pct(name: str, stage: int) -> str:
@@ -45,11 +65,12 @@ def chain(name: str, k: int) -> str:
 
 
 def expert_rate(stage: int, stem: str = "stage") -> str:
-    p = ROOT / "data" / f"{stem}{stage}_gen.json"
-    if not p.exists():
+    """Expert success over every generated part of the given demo set (e.g. v4_stage1_p0, v4_stage1_more_p3)."""
+    files = [p for p in (ROOT / "data").glob(f"{stem}{stage}*_gen.json") if "dart" not in p.name]
+    if not files:
         return MISSING
-    s = json.loads(p.read_text())["summary"]
-    return f"{100 * s['expert_success_rate']:.0f}"
+    ss = [json.loads(p.read_text())["summary"] for p in files]
+    return f"{100 * sum(s['kept'] for s in ss) / sum(s['tried'] for s in ss):.0f}"
 
 
 def err(name: str, stage: int) -> str:
@@ -86,11 +107,12 @@ ABSTRACT = (
     "tests, the cell was rebuilt in MuJoCo with the same robot model, cameras and 30 Hz control to evaluate the "
     "stacking quantitatively. Per-stage success hides error accumulation: with the initial 100 demonstrations "
     f"per stage the placements succeeded in {pct('v1_n100', 1)}%, {pct('v1_n100', 2)}% and {pct('v1_n100', 3)}% "
-    f"of trials but only {chain('v1_n100', 2)}% of three-stage sequences. Most failures were grasps in which the "
-    "fixed jaw landed on the bin wall; demonstrations that approach the wall with a 9 mm clearance widened the "
-    "tolerated grasp error from 3 mm to 11 mm and raised the sequence success to "
-    f"{chain('n100', 2)}% with 100, {chain('n1000', 2)}% with 1000 demonstrations and {chain('dart1000', 2)}% "
-    "with DART noise injection."
+    f"of trials but only {chain('v1_n100', 2)}% of three-stage sequences. Locating where the policy closed the "
+    "gripper revealed two causes in the demonstration design rather than in the policy: the fixed jaw approached "
+    "too close to the bin wall, and the scripted demonstrator switched to another wall when the bin was rotated "
+    "by more than about 8 degrees, which made the demonstrations bimodal. A 9 mm grasp clearance and a single "
+    f"grasp wall raised the sequence success with the same 100 demonstrations to {chain('v4_n100', 2)}%, and "
+    f"1000 demonstrations reached {chain('v4_n1000', 2)}% ({chain('v4_dart1000', 2)}% with DART noise injection)."
 )
 
 
@@ -122,8 +144,8 @@ def body(media, b) -> str:
           "성능을 다시 실측할 수 없었으므로, 같은 로봇 모델·카메라·제어 주기를 갖는 MuJoCo[8] 셀을 구성하여 적재를 "
           "정량적으로 평가한다. 기여는 다음과 같다. ① 무게 인식부터 순차 적재까지 이어지는 에지 셀을 구현하고 인식 "
           "성능을 실측하였다. ② 단계별 성공률과 함께 세 단계를 이어 수행하는 연속 성공률로 평가하여 순차 적재의 "
-          "오차 누적을 보였다. ③ 주된 실패가 파지 순간의 위치 오차임을 밝히고, 시연의 파지 여유 설계, 시연 수, "
-          "시연 잡음 주입(DART)[9]의 효과를 정량화하였다."))
+          "오차 누적을 보였다. ③ 실패가 일어난 파지 위치와 장면을 분석하여 원인이 정책보다 시연 설계(파지 여유, "
+          "잡는 벽의 일관성)에 있음을 밝히고, 시연 설계, 시연 수, 시연 잡음 주입(DART)[9]의 효과를 정량화하였다."))
 
     # ------------------------------------------------------------ II
     add(h1("Ⅱ. 시스템 구성"))
@@ -181,12 +203,15 @@ def body(media, b) -> str:
     add(h2("3.2 시연 설계와 학습"))
     add(P("원격조작 대신 역기구학 기반 스크립트 전문가로 시연을 만들었으며, ACT 원 논문도 시뮬레이션 과제에서 "
           "스크립트 시연을 사용하였고[4], 시연을 자동으로 만들어 데이터 양을 늘리는 방법도 연구되고 있다[15]. "
-          "전문가는 로봇 쪽 통 벽을 고정 집게는 바깥, 움직이는 집게는 안쪽에 두고 "
+          "전문가는 통의 앞벽(로봇 쪽 벽)을 고정 집게는 바깥, 움직이는 집게는 안쪽에 두고 "
           "집어 옮기며, 경유점 사이를 최소 저크 궤적으로 잇고 구간 속도(±10%)와 경유점 위치(최대 ±6mm)를 흔들어 "
           "사람 시연의 변동을 흉내 냈다. 특히 고정 집게를 벽 바깥 9mm에 두고 내려가도록 하여, 집게가 벽을 사이에 둘 수 있는 "
           "범위(바깥 0~17mm)의 가운데로 접근하게 하였다. 초기 설계(여유 1.5mm)는 안쪽으로 3mm만 어긋나도 집게가 벽 위에 "
-          "걸렸으나, 이 설계는 ±9mm의 위치 오차에서도 파지에 성공하였다(표 1, 전문가 시험 각 4~6회). 시연은 270스텝(9초)이며 성공한 것만 남겼다(전문가 성공률 1층 "
-          f"{expert_rate(1)}%, 옆 {expert_rate(2)}%, 2층 {expert_rate(3)}%)."))
+          "걸렸으나, 이 설계는 ±9mm의 위치 오차에서도 파지에 성공하였다(표 1, 전문가 시험 각 4~6회). 또한 통이 "
+          "얼마나 돌아가 있든 늘 같은 벽을 잡게 하였다. 로봇을 가장 많이 향한 벽을 고르면 통이 약 8° 넘게 돌았을 때 "
+          "잡는 벽이 앞벽에서 옆벽으로 바뀌어, 카메라에는 거의 같은 장면인데 시연 동작이 두 갈래로 나뉘기 때문이다"
+          "(4.2절). 시연은 270스텝(9초)이며 성공한 것만 남겼다(전문가 성공률 1층 "
+          f"{expert_rate(1, 'v4_stage')}%, 옆 {expert_rate(2, 'v4_stage')}%, 2층 {expert_rate(3, 'v4_stage')}%)."))
     add(table("표 1. 파지 위치 오차에 따른 시연 성공률 (%)", [1250, 470, 470, 470, 470, 470, 470, 470],
               [["벽 법선 오차(mm)", "−12", "−9", "−6", "−3", "0", "+6", "+9"],
                ["여유 1.5mm", "0", "0", "17", "100", "100", "100", "100"],
@@ -230,30 +255,41 @@ def body(media, b) -> str:
                ["291g", "222999111", "291", "291"]]))
 
     add(h2("4.2 ACT 순차 적재 (시뮬레이션)"))
-    rows = [["조건", "1층", "옆", "2층", "연속"]]
-    for name, label in (("v1_n100", "시연 100 (여유 1.5mm)"), ("n100", "시연 100"), ("n200", "시연 200"),
-                        ("n500", "시연 500"), ("n1000", "시연 1000"), ("n200_te", "시연 200 + 시간 앙상블"),
-                        ("dart200", "DART 200"), ("dart1000", "DART 1000")):
+    rows = [["시연 설계 / 수", "1층", "옆", "2층", "연속"]]
+    for name, label in (("v1_n100", "여유 1.5mm, 로봇 쪽 벽 / 100"), ("n100", "여유 9mm, 로봇 쪽 벽 / 100"),
+                        ("v4_n100", "여유 9mm, 같은 벽 / 100"), ("v4_n200", "같은 벽 / 200"),
+                        ("v4_n500", "같은 벽 / 500"), ("v4_n1000", "같은 벽 / 1000"),
+                        ("v4_dart200", "같은 벽 + DART / 200"), ("v4_dart1000", "같은 벽 + DART / 1000")):
         rows.append([label, pct(name, 1), pct(name, 2), pct(name, 3), chain(name, 2)])
-    add(table("표 6. 적재 성공률 (%, 시뮬레이션, 각 50회)", [1700, 650, 650, 650, 750], rows))
-    if (FIG / "fig3_scaling.png").exists():
-        add(fig(media, FIG / "fig3_scaling.png", "그림 4. 시연 수에 따른 적재 성공률"))
-    if (FIG / "fig4_rollout.png").exists():
-        add(fig(media, FIG / "fig4_rollout.png",
-                "그림 5. ACT 정책의 연속 적재 장면"))
+    add(table("표 6. 적재 성공률 (%, 시뮬레이션, 각 50회)", [2050, 560, 560, 560, 620], rows))
+    nfig = 4
+    if (FIG / "fig_wallswitch_n100.png").exists():
+        add(fig(media, FIG / "fig_wallswitch_n100.png",
+                f"그림 {nfig}. 저울 위 통의 회전각과 단계별 결과 (여유 9mm, 로봇 쪽 벽, 시연 100)"))
+        nfig += 1
     add(P(f"표 6은 단계별 성공률(각 50회)과 세 단계를 이어 수행한 연속 성공률(50회)이다. 초기 시연(여유 1.5mm, "
           f"100회)의 단계별 성공률은 1층 {pct('v1_n100', 1)}%, 옆 {pct('v1_n100', 2)}%, 2층 {pct('v1_n100', 3)}%였으나, "
           f"앞 단계의 배치 오차가 다음 단계로 넘어가 연속 성공률은 {chain('v1_n100', 2)}%에 그쳤다. 실패의 대부분은 "
-          "고정 집게가 통 벽 위에 걸려 끝까지 내려가지 못한 채 닫힌 경우였고, 정책은 평균 5mm가량 벽 쪽으로 "
-          f"치우쳤다. 파지 여유를 9mm로 둔 시연으로 같은 100회를 학습하면 단계별 {pct('n100', 1)}%, "
-          f"{pct('n100', 2)}%, {pct('n100', 3)}%, 연속 {chain('n100', 2)}%로 바뀌었다."))
-    add(P(f"시연 수를 200, 500, 1000회로 늘리면 연속 성공률은 {chain('n200', 2)}%, {chain('n500', 2)}%, "
-          f"{chain('n1000', 2)}%였다(그림 4). 시연 잡음을 주입한 DART 정책은 같은 1000회에서 단계별 "
-          f"{pct('dart1000', 1)}%, {pct('dart1000', 2)}%, {pct('dart1000', 3)}%, 연속 {chain('dart1000', 2)}%였고, "
-          f"200회에서는 연속 {chain('dart200', 2)}%(일반 200회 {chain('n200', 2)}%)였다. 시간 앙상블[4]은 "
-          f"200회 정책의 연속 성공률을 {chain('n200', 2)}%에서 {chain('n200_te', 2)}%로 바꾸었다. 모방학습 성능이 "
-          "시연 수보다 환경 다양성에 좌우된다는 보고[16]와 같이, 시연 수를 늘리는 것만으로는 파지 설계의 효과를 "
-          "대신하기 어렵다."))
+          "고정 집게가 통 벽 위에 걸려 끝까지 내려가지 못한 채 닫힌 경우였다. 파지 여유를 9mm로 둔 시연으로 같은 "
+          f"100회를 학습하면 단계별 {pct('n100', 1)}%, {pct('n100', 2)}%, {pct('n100', 3)}%, 연속 {chain('n100', 2)}%로 "
+          f"높아졌다. 남은 실패 {ws('fail_total')}건 중 {ws('band_fails')}건은 저울 위 통이 +7.5° 넘게 돌아간 시행에서 "
+          f"일어났다(그림 4). 이 구간의 실패율은 {ws_rate('band')}%, 나머지는 {ws_rate('rest')}%로, 전문가가 잡는 벽을 "
+          "바꾸는 구간과 일치한다. 이때 정책은 앞벽과 옆벽 시연의 중간인 모서리 쪽으로 가서 집게를 벽 위에 얹은 채 "
+          "닫았다. 늘 같은 벽을 잡는 시연으로 바꾸자 같은 100회에서 단계별 "
+          f"{pct('v4_n100', 1)}%, {pct('v4_n100', 2)}%, {pct('v4_n100', 3)}%, 연속 {chain('v4_n100', 2)}%였다."))
+    if (FIG / "fig3_scaling.png").exists():
+        add(fig(media, FIG / "fig3_scaling.png", f"그림 {nfig}. 시연 수에 따른 적재 성공률 (같은 벽 시연)"))
+        nfig += 1
+    add(P(f"같은 벽 시연을 200, 500, 1000회로 늘리면 연속 성공률은 {chain('v4_n200', 2)}%, {chain('v4_n500', 2)}%, "
+          f"{chain('v4_n1000', 2)}%였다. 시연 잡음을 주입한 DART 정책은 같은 1000회에서 단계별 "
+          f"{pct('v4_dart1000', 1)}%, {pct('v4_dart1000', 2)}%, {pct('v4_dart1000', 3)}%, 연속 "
+          f"{chain('v4_dart1000', 2)}%였고, 200회에서는 연속 {chain('v4_dart200', 2)}%(일반 200회 "
+          f"{chain('v4_n200', 2)}%)였다. 추론만 바꾸는 시간 앙상블[4]은 로봇 쪽 벽 시연 200회 정책의 연속 성공률을 "
+          f"{chain('n200', 2)}%에서 {chain('n200_te', 2)}%로 바꾸었다. 모방학습 성능이 시연 수보다 시연의 다양성과 "
+          "일관성에 좌우된다는 보고[16]와 같이, 시연 수를 늘리는 것만으로는 시연 설계의 효과를 대신하기 어렵다."))
+    if (FIG / "fig4_rollout.png").exists():
+        add(fig(media, FIG / "fig4_rollout.png", f"그림 {nfig}. ACT 정책의 연속 적재 장면"))
+        nfig += 1
     add(P("실제 셀에서도 1층 적재 정책이 MCP 신호에 따라 통을 집어 적재하는 것을 확인하였으나, 위치 오차와 제어 "
           "지연으로 실패하는 경우가 관찰되었다. 현장 측정 기록이 남아 있지 않아 실제 수치와의 비교는 하지 않았다."))
 
@@ -262,8 +298,9 @@ def body(media, b) -> str:
     add(P("본 논문은 Jetson Orin Nano에서 YOLOv8 기반 7-segment 무게 인식과 MCP 트리거로 호출되는 단계별 ACT "
           "정책을 결합하여, 무게 판정부터 1층·옆·2층 순차 적재까지 이어지는 스마트 팩토리 셀을 구현하였다. 인식부는 "
           "캡처 59.5 FPS, 중거리 정확도 90%, 정분류율 91.7%, 응답 810ms를 실측으로 확인하였다. 로봇 파손 이후 같은 "
-          "조건을 재현한 시뮬레이션에서는 단계별 성공률이 높아도 연속 적재에서 오차가 누적됨을 보였고, 그 주된 원인인 "
-          "파지 위치 오차를 시연의 파지 여유 설계로 줄인 뒤 시연 수와 DART로 연속 성공률을 높였다. 시뮬레이션 결과는 "
+          "조건을 재현한 시뮬레이션에서는 단계별 성공률이 높아도 연속 적재에서 오차가 누적됨을 보였고, 실패의 원인이 "
+          "정책보다 시연 설계(파지 여유, 잡는 벽의 일관성)에 있음을 파지 위치와 장면 분석으로 밝혀 시연 100회의 연속 "
+          f"성공률을 {chain('v1_n100', 2)}%에서 {chain('v4_n100', 2)}%로 높였다. 시뮬레이션 결과는 "
           "스크립트 시연과 단순화된 접촉 모델에 기반하므로 실제 원격조작 시연의 성능과 다를 수 있으며, 향후 로봇을 "
           "복구하여 같은 파지 설계로 실측 검증할 예정이다."))
 
