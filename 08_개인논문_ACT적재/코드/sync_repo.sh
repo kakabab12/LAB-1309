@@ -32,6 +32,23 @@ EOF
   done
 done
 
+# robustness results (per model tag) and their GIFs; retry evaluations
+for d in results/robust/*/; do
+  [ -d "$d" ] || continue
+  t=$(basename "$d"); mkdir -p "$R/결과/수치/robust/$t"
+  cp "$d"*.json "$R/결과/수치/robust/$t/" 2>/dev/null || true
+  for g in $(ls "$d"gifs/*.gif 2>/dev/null); do
+    out="$R/결과/gif/robust_${t}_$(basename "$g")"
+    [ -f "$out" ] || .venv/bin/python -c "
+import sys
+from PIL import Image, ImageSequence
+im = Image.open(sys.argv[1])
+fr = [f.convert('RGB').resize((300, 150)).quantize(colors=96) for i, f in enumerate(ImageSequence.Iterator(im)) if i % 2 == 0]
+fr[0].save(sys.argv[2], save_all=True, append_images=fr[1:], duration=200, loop=0, optimize=True)" "$g" "$out"
+  done
+done
+[ -f results/robust_summary.json ] && cp results/robust_summary.json "$R/결과/수치/"
+
 # dataset previews, analysis summary, logs
 mkdir -p "$R/결과/시연데이터_미리보기" "$R/결과/로그"
 cp results/preview/* "$R/결과/시연데이터_미리보기/" 2>/dev/null || true
