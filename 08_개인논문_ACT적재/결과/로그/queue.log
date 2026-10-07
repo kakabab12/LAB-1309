@@ -68,3 +68,6 @@
 [10-07 19:09:52] gen v5 done
 [10-07 19:10:26] robustness eval of v4_n100 resumed
 [10-07 19:15:01] post-eval queue start
+[10-07 19:24:03] trained s3_v5_n100
+[10-07 19:24:26] train s3_v5_n500 (500 demos, preprocess -)
+[10-07 19:24:53] eval v5_n100 (s1_v4_n100 + s2_v4_n100 + s3_v5_n100)
