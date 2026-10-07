@@ -263,7 +263,7 @@ class Episode:
         self.bon_active = False  # bon: 전환 이후에만 후보 선택
         self.pending = None  # 지연 모사: [동작, 정규화 동작, 남은 도착 스텝]
         self.loose_hit = {}  # 단계별 '판 안' 성공 (10/5)
-        self.hold_segs = []  # 10/7: 쥔 구간 [시작, 끝, 물체, 끝날 때 그리퍼 명령] — 실패 분류(못 집음/미끄러짐/엉뚱한 곳)
+        self.hold_segs = []  # 10/7: 쥔 구간 [시작, 끝, 물체, 끝날 때 그리퍼 명령, 오므리는 방향 어긋남cm, 바닥 위 높이cm] — 실패 분류(못 집음/미끄러짐/엉뚱한 곳)
         self._hold_cur = None
         self.last_grip = -1.0
         self.hold_steps = 0
@@ -678,8 +678,11 @@ class Episode:
                 if self._hold_cur is not None:      # 놓았다(명령 -1) 또는 쥔 채 빠졌다(명령 +1)
                     self.hold_segs[-1][1] = len(self.acts) - 1
                     self.hold_segs[-1][3] = float(action[-1])
-                if hobj is not None:
-                    self.hold_segs.append([len(self.acts) - 1, None, hobj, None])
+                if hobj is not None:                # 쥔 순간 손 위치: 오므리는 방향(그리퍼 y) 어긋남, 물체 바닥 위 높이 [cm]
+                    M = self.obs["robot_state"]["eef"]["mat"]
+                    d3 = eef_pos(self.obs) - self.obj_pos(hobj)
+                    self.hold_segs.append([len(self.acts) - 1, None, hobj, None,
+                                           round(100 * float(d3 @ M[:, 1]), 2), round(100 * float(d3[2]), 2)])
                 self._hold_cur = hobj
         if self.frames is not None:
             img = self.obs["pixels"]["image"][::-1, ::-1]
