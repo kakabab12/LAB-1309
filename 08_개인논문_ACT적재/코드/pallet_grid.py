@@ -53,7 +53,9 @@ def configure(rows: int, cols: int, layers: int, x0: float, y0: float) -> list[d
 class GridExpert(E.ScriptedExpert):
     EPISODE_STEPS = 300
 
-    def plan(self, q_start, bin_pos, bin_yaw, target, jitter=True, upper=False):
+    VIA_FAR_ONLY = os.environ.get("PALLET_VIA", "all") == "far"  # skip the robot-side via point for the near row
+
+    def plan(self, q_start, bin_pos, bin_yaw, target, jitter=True, upper=False, far=True):
         rng = self.rng
         sp = (lambda: rng.uniform(0.9, 1.12)) if jitter else (lambda: 1.0)
         jx = (lambda s: rng.uniform(-s, s, size=3) * np.array([1, 1, 0.5])) if jitter else (lambda s: np.zeros(3))
@@ -75,10 +77,12 @@ class GridExpert(E.ScriptedExpert):
         backoff = place + (0.005 if upper else 0.0) * n_place
         retreat = backoff + np.array([0, 0, 0.06]) + jx(0.006)
         G_O, G_C = SE.GRIPPER_OPEN, SE.GRIPPER_CLOSED
+        via = [(stage_pt, yaw_place, G_C, 1.6 * sp()), (above, yaw_place, G_C, 0.8 * sp())]
+        if self.VIA_FAR_ONLY and not far:
+            via = [(above, yaw_place, G_C, 2.4 * sp())]
         wps = [(pre, yaw_pick, G_O, 1.6 * sp()), (grasp, yaw_pick, G_O, 0.9 * sp()), (grasp, yaw_pick, G_C, 0.6 * sp()),
-               (lift, yaw_pick, G_C, 0.9 * sp()), (stage_pt, yaw_place, G_C, 1.6 * sp()),
-               (above, yaw_place, G_C, 0.8 * sp()), (place, yaw_place, G_C, 1.0 * sp()),
-               (place, yaw_place, G_O, 0.5 * sp())]
+               (lift, yaw_pick, G_C, 0.9 * sp())] + via + [(place, yaw_place, G_C, 1.0 * sp()),
+                                                           (place, yaw_place, G_O, 0.5 * sp())]
         wps += ([(backoff, yaw_place, G_O, 0.3 * sp()), (retreat, yaw_place, G_O, 0.6 * sp())] if upper
                 else [(retreat, yaw_place, G_O, 0.8 * sp())])
         traj, q = [], q_start.copy()
@@ -149,7 +153,8 @@ def main():
     ex = GridExpert(env, np.random.default_rng(11))
     home = ex.home_q()
     rng = np.random.default_rng(2024)
-    tag = a.tag or f"{a.rows}x{a.cols}x{a.layers}_x{a.x0:.3f}_y{a.y0:.3f}"
+    tag = a.tag or (f"{a.rows}x{a.cols}x{a.layers}_x{a.x0:.3f}_y{a.y0:.3f}"
+                    + ("_viafar" if GridExpert.VIA_FAR_ONLY else ""))
     frames, res = [], []
     if a.gif:
         from PIL import Image
@@ -169,7 +174,8 @@ def main():
             refs = {s["name"]: env.bin_state(s["name"]).pos.copy() for s in slots[:k]}
             bs = env.bin_state(slots[k]["name"])
             tgt = slot_target(env, slots, k)
-            for t, act in enumerate(ex.plan(env.qpos(), bs.pos, bs.yaw, tgt, upper=slots[k]["layer"] > 0)):
+            for t, act in enumerate(ex.plan(env.qpos(), bs.pos, bs.yaw, tgt, upper=slots[k]["layer"] > 0,
+                                            far=slots[k]["row"] == a.rows - 1)):
                 env.step(act)
                 if a.gif and seq == 0 and t % 6 == 0:
                     big.update_scene(env.d, cam)

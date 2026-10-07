@@ -30,6 +30,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ckpt", nargs=3, required=True)
     ap.add_argument("--trials", type=int, default=50)
+    ap.add_argument("--start", type=int, default=0, help="first sequence index (to split a long evaluation)")
     ap.add_argument("--max-attempts", type=int, default=3)
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--gifs", type=int, default=0)
@@ -43,10 +44,10 @@ def main():
     pols = [load_policy(p, a.device, None) for p in a.ckpt]
     rec = Recorder(env, enabled=a.gifs > 0)
     seqs = []
-    for i in range(a.trials):
+    for i in range(a.start, a.start + a.trials):
         rng = np.random.default_rng(EVAL_SEED0 + 90000 + i)
         env.reset(sample_scene(1, rng), home)
-        rec.enabled = i < a.gifs
+        rec.enabled = i - a.start < a.gifs
         seq = []
         for stage in (1, 2, 3):
             if stage > 1:

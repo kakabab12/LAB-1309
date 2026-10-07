@@ -468,5 +468,68 @@
    ]
   },
   "learning_curve": {}
+ },
+ "v5_n200": {
+  "name": "v5_n200",
+  "stage1": {
+   "success": 1.0,
+   "n": 50,
+   "modes": {
+    "success": 50
+   },
+   "xy_err_mm": 4.474747567552026,
+   "follow": {
+    "slope_x": 1.155858697113441,
+    "slope_y": 1.1597982922984995,
+    "n": 50
+   }
+  },
+  "stage2": {
+   "success": 0.98,
+   "n": 50,
+   "modes": {
+    "success": 49,
+    "pushed_previous": 1
+   },
+   "xy_err_mm": 4.494597079802641,
+   "follow": {
+    "slope_x": 0.9421214700507174,
+    "slope_y": 0.987578917881794,
+    "n": 50
+   }
+  },
+  "stage3": {
+   "success": 1.0,
+   "n": 50,
+   "modes": {
+    "success": 50
+   },
+   "xy_err_mm": 5.50321599184273,
+   "follow": {
+    "slope_x": 1.0338311638436182,
+    "slope_y": 1.0374747169937044,
+    "n": 50
+   }
+  },
+  "chained": {
+   "cumulative": [
+    0.98,
+    0.92,
+    0.92
+   ],
+   "n": 50,
+   "first_failure_stage": {
+    "1": 1,
+    "2": 3,
+    "3": 0,
+    "none": 46
+   },
+   "conditional": [
+    0.98,
+    0.9387755102040817,
+    1.0
+   ]
+  },
+  "learning_curve": {}
  }
 }

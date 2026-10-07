@@ -173,6 +173,18 @@ def infer_ms(name: str) -> str:
     return f"{sum(v) / len(v):.1f}"
 
 
+def retry_ci(name: str) -> str:
+    """Sequence success with scale-verified retry and its 95% interval."""
+    p = ROOT / "results" / "eval" / f"{name}_retry" / "results.json"
+    if not p.exists():
+        return MISSING
+    r = json.loads(p.read_text())
+    n = r["n"]
+    k = round(r["cumulative_success"][2] * n)
+    lo, hi = wilson(k, n)
+    return f"{100 * k / n:.0f}%({k}/{n}, 95% CI {100 * lo:.1f}–{100 * hi:.0f}%)"
+
+
 def e2e(name: str, sort_acc: float = 55 / 60) -> str:
     """Whole-cell success estimate: weight-based sorting correct x 3-stage stacking success."""
     r = RES.get(name)
@@ -395,7 +407,8 @@ def body(media, b) -> str:
           f"1회로 줄었고, 정책은 단계별 {pct('v5_n100', 1)}%, {pct('v5_n100', 2)}%, {pct('v5_n100', 3)}%, 연속 "
           f"{chain('v5_n100', 2)}%였다. 같은 정책을 장면 200개로 늘려 평가하면(CPU 추론) 단계별 {big_txt('1')}, "
           f"{big_txt('2')}, {big_txt('3')}, 연속 {big_txt('c')}로, 팀의 원래 조건인 단계별 시연 100회만으로 연속 "
-          "성공률 95% 이상을 신뢰구간 하한까지 확인하였다."))
+          "성공률 95% 이상을 신뢰구간 하한까지 확인하였다. 남은 실패 2건은 옆 단계에서 통을 집지 못해 통이 저울에 "
+          f"그대로 남은 경우였으므로, 저울을 다시 읽어 같은 단계를 재실행하게 하자 연속 {retry_ci('v5_n100')}가 되었다."))
     if (FIG / "fig3_scaling.png").exists():
         add(fig(media, FIG / "fig3_scaling.png", f"그림 {nfig}. 시연 수에 따른 적재 성공률 (④ 시연)"))
         nfig += 1
