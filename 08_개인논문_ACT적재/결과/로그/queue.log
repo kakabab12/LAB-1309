@@ -96,3 +96,4 @@
 [10-07 22:49:27] train s3_v6c_n1000 (1000 demos, preprocess clahe)
 [10-07 23:44:17] gen pallet start (2x2x2, 100 demos per slot)
 [10-07 23:45:00] pallet queue waiting for queue v10 to launch all its jobs
+[10-08 00:08:58] eval v5_n500 done
