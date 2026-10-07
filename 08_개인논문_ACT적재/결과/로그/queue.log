@@ -140,3 +140,11 @@
 [10-08 06:08:15] train s2_v8_n100 (100 demos, v8)
 [10-08 06:09:55] trained s2_v6_n1000
 [10-08 06:14:15] retry v5_n1000 done: [retry] cumulative [100.0, 94.0, 94.0] (first attempt only [100.0, 94.0, 94.0]), retried stage runs 2
+[10-08 06:22:57] robust beyond-range v5_n1000 done
+[10-08 06:22:57] robust beyond-range v6c_n1000 start
+[10-08 06:23:13] robust beyond-range v6c_n1000 done
+[10-08 07:08:52] trained s3_v6_n1000
+[10-08 07:08:59] train s3_v5c_n200 (200 demos, preprocess clahe)
+[10-08 07:09:13] robust beyond-range v6_n1000 start
+[10-08 07:09:17] eval v6_n1000 (s1_v6_n1000 + s2_v6_n1000 + s3_v6_n1000)
+[10-08 07:10:15] robust v6_n1000 start

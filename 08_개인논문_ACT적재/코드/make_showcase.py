@@ -90,7 +90,7 @@ def save(frames, path: Path, hold: int = 8):
 
 
 def scene_for(stage, trial, chained):
-    if chained or stage < 3:
+    if chained:
         rng = np.random.default_rng(EVAL_SEED0 + 90000 + trial)
         return rng, sample_scene(1, rng)
     rng = np.random.default_rng(EVAL_SEED0 + 1000 * stage + trial)
@@ -133,11 +133,18 @@ def main():
     ap.add_argument("--trial", type=int, default=0)
     ap.add_argument("--stage", type=int, default=1)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--per-stage", action="store_true", help="use the per-stage evaluation scene (robust_eval seeds)")
+    ap.add_argument("--cond", default=None, help="robust_eval.py environment change applied to both runs (e.g. table_dark)")
     a = ap.parse_args()
     torch.set_num_threads(2)
-    env = StackEnv(render=True)
+    env = StackEnv(render=True, dr=a.cond is not None)
     home = ScriptedExpert(env).home_q()
     cam = Cam(env)
+    if a.cond:
+        from robust_eval import Perturb
+        pert = Perturb(env)
+        pert.renderers = [env.renderer, cam.r]
+        pert.apply(a.cond)
     out = Path(a.out)
     pols = [load_policy(p, "cpu", None) for p in a.ckpt]
     if a.mode == "chained":
@@ -150,7 +157,7 @@ def main():
         print({st: res[st][1] for st in res})
     else:
         pols2 = [load_policy(p, "cpu", None) for p in a.ckpt2]
-        chained = a.stage < 3
+        chained = a.stage < 3 and not a.per_stage
         r1 = play(env, cam, pols, home, a.label, a.stage, a.stage, a.trial, chained)[a.stage]
         r2 = play(env, cam, pols2, home, a.label2, a.stage, a.stage, a.trial, chained)[a.stage]
         n = max(len(r1[0]), len(r2[0]))
