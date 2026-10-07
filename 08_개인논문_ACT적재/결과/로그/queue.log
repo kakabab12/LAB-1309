@@ -97,3 +97,22 @@
 [10-07 23:44:17] gen pallet start (2x2x2, 100 demos per slot)
 [10-07 23:45:00] pallet queue waiting for queue v10 to launch all its jobs
 [10-08 00:08:58] eval v5_n500 done
+[10-08 00:30:03] trained s1_v4_n1000
+[10-08 00:30:20] train s2_v4_n1000 (1000 demos, preprocess -)
+[10-08 00:49:44] trained s2_v6c_n1000
+[10-08 00:49:52] train s3_v5_n1000 (1000 demos, preprocess -)
+[10-08 00:50:38] trained s1_v6c_n1000
+[10-08 00:51:22] train s1_v6_n1000 (1000 demos, preprocess -)
+[10-08 01:24:51] gen pallet: pallet_s5 ready
+[10-08 02:15:14] trained s3_v6c_n1000
+[10-08 02:15:34] train s2_v6_n1000 (1000 demos, preprocess -)
+[10-08 02:15:34] eval v6c_n1000 (s1_v6c_n1000 + s2_v6c_n1000 + s3_v6c_n1000)
+[10-08 02:47:38] gen pallet: pallet_s6 ready
+[10-08 02:53:40] gen pallet: pallet_s4 ready
+[10-08 02:59:34] gen pallet: pallet_s7 ready
+[10-08 03:18:10] trained s2_v4_n1000
+[10-08 03:18:13] train s3_v6_n1000 (1000 demos, preprocess -)
+[10-08 03:44:13] trained s1_v6_n1000
+[10-08 03:44:13] eval v6c_n1000 done
+[10-08 03:44:16] train s1_v4c_n200 (200 demos, preprocess clahe)
+[10-08 03:46:34] robust v6c_n1000 started early (3 CPU units, 20 conditions)
