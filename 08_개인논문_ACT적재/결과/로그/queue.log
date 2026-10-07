@@ -77,3 +77,6 @@
 [10-07 20:41:32] gen v6: v6_stage2 ready
 [10-07 20:55:53] eval v5_n100 done
 [10-07 20:57:42] v5_n100 extended evaluation: 200 trials per protocol on CPU (4 parts) for a tighter 95% interval
+[10-07 21:03:43] trained s3_v5_n200
+[10-07 21:03:53] eval v5_n200 (s1_v4_n200 + s2_v4_n200 + s3_v5_n200)
+[10-07 21:04:05] train s1_v6c_n1000 (1000 demos, preprocess clahe)

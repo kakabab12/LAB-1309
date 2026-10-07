@@ -9,32 +9,27 @@ PY=.venv/bin/python
 $PY analyze.py > results/analysis.md 2>&1 || true
 $PY paper/fig_scaling.py > /dev/null 2>&1 || true
 
-# rollout figure from the best available full model set (prefer larger data)
-# best = highest chained success among finished model sets (v4 first on ties)
+# rollout figure from the finished model set with the highest chained success (checkpoints from its results.json)
 BEST=$($PY - <<'EOF2'
 import json, pathlib
 best = None
-for n in ["v4_dart1000", "v4_n1000", "v4_n500", "v4_dart200", "v4_n200", "v4_n100", "n200", "n100"]:
-    p = pathlib.Path(f"results/eval/{n}/results.json")
-    if p.exists() and pathlib.Path(f"runs/s3_{n}/ckpt_030000/model.safetensors").exists():
-        c = json.loads(p.read_text()).get("chained", {}).get("cumulative_success", [0, 0, 0])[2]
-        if best is None or c > best[0]:
-            best = (c, n)
+for p in pathlib.Path("results/eval").glob("*/results.json"):
+    if "_ckpt" in p.parent.name or p.parent.name.endswith(("_p0", "_p1", "_p2", "_p3", "_retry")):
+        continue
+    r = json.loads(p.read_text())
+    if "chained" not in r or len(r.get("ckpt", [])) != 3:
+        continue
+    c = r["chained"]["cumulative_success"][2]
+    if best is None or c > best[0]:
+        best = (c, " ".join(r["ckpt"]))
 print(best[1] if best else "")
 EOF2
 )
-for name in $BEST; do
-  c=runs/s1_${name}/ckpt_030000
-  if [ -f runs/s3_${name}/ckpt_030000/model.safetensors ] && [ -f results/eval/${name}/results.json ]; then
-    if [ ! -f paper/fig4_rollout.json ] || ! grep -q "s1_${name}/" paper/fig4_rollout.json; then
-      systemd-run --user --wait --collect --unit=act-rollout -p MemoryMax=2500M -p Nice=10 \
-        -p WorkingDirectory=$PWD --setenv=MUJOCO_GL=egl --setenv=MALLOC_MMAP_THRESHOLD_=1048576 \
-        $PWD/.venv/bin/python paper/fig_rollout.py --ckpt $c runs/s2_${name}/ckpt_030000 runs/s3_${name}/ckpt_030000 \
-        > /dev/null 2>&1 || true
-    fi
-    break
-  fi
-done
+if [ -n "$BEST" ] && { [ ! -f paper/fig4_rollout.json ] || ! grep -q "$(echo $BEST | cut -d' ' -f3)" paper/fig4_rollout.json; }; then
+  systemd-run --user --wait --collect --unit=act-rollout -p MemoryMax=2500M -p Nice=10 \
+    -p WorkingDirectory=$PWD --setenv=MUJOCO_GL=egl --setenv=MALLOC_MMAP_THRESHOLD_=1048576 \
+    $PWD/.venv/bin/python paper/fig_rollout.py --ckpt $BEST > /dev/null 2>&1 || true
+fi
 
 $PY paper/build_paper.py --out paper/out/paper.docx > /dev/null 2>&1
 (cd paper/out && timeout 180 soffice --headless --convert-to pdf paper.docx > /dev/null 2>&1)

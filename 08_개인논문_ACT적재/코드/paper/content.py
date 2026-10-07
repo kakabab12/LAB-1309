@@ -65,6 +65,20 @@ def rob_avg(tag: str) -> str:
     return f"{100 * sum(v) / len(v):.0f}" if v else MISSING
 
 
+ROB_GROUPS = [("변화 없음", ["base"]), ("조명 (어둡게·밝게·옆)", ["dark", "bright", "light_side"]),
+              ("작업대 색 (회색·짙은 갈색)", ["table_gray", "table_dark"]), ("주변 물건", ["distractor"]),
+              ("카메라 장착 틀어짐", ["cam_top", "cam_wrist"]),
+              ("범위 밖 위치·방향·아래 통", ["pos_out", "yaw_out", "placed_out"]),
+              ("통 무게 100·200g", ["mass_100g", "mass_200g"]), ("관측 지연 67·133ms", ["delay_67ms", "delay_133ms"])]
+ROB_MODELS = [("v4_n100", "③/100"), ("v5_n1000", "④/1000"), ("v6_n1000", "+무작위화"),
+              ("v6c_n1000", "+무작위화·CLAHE")]
+
+
+def rob_group(tag: str, conds: list[str]) -> str:
+    v = [ROB[tag][c]["mean"] for c in conds if c in ROB.get(tag, {})]
+    return f"{100 * sum(v) / len(v):.0f}" if len(v) == len(conds) else MISSING
+
+
 def rob_min(tag: str) -> str:
     v = [ROB[tag][c]["mean"] for c in ROB_CONDS if c in ROB.get(tag, {})]
     return f"{100 * min(v):.0f}" if v else MISSING
@@ -180,7 +194,7 @@ ABSTRACT = (
     "and lifting straight up after release tipped the top bin off the 2 mm rims below. Fixing them raised the "
     f"sequence success with the same 100 demonstrations to {chain('v5_n100', 2)}% and with 1000 demonstrations to "
     f"{chain('v5_n1000', 2)}%. Domain randomization with brightness normalization and CLAHE kept {rob_avg('v6c_n1000')}% "
-    f"average per-stage success under eleven environment changes, against {rob_avg('v5_n1000')}% without them."
+    f"average per-stage success under fifteen environment changes, against {rob_avg('v5_n1000')}% without them."
 )
 
 
@@ -369,14 +383,16 @@ def body(media, b) -> str:
         add(P("학습이 끝난 정책을 그대로 두고 조명(어둡게 50%, 밝게 160%, 옆 조명), 작업대 색(회색, 짙은 갈색), 카메라 "
               "장착(상단 10mm·2°, 손목 3mm·2°), 주변 물건, 학습 범위 밖의 통 위치(22~28mm)·방향(22~30°), 아래 통의 "
               "어긋남(10~14mm), 통 무게(100g, 200g), 관측 지연(67ms, 133ms) 중 하나씩만 바꾸어 단계별로 20회씩 "
-              "평가하였다(그림 7). 기존 시연 1000회 정책은 변화 "
+              "평가하였다(표 4). 기존 시연 1000회 정책은 변화 "
               f"조건 평균 {rob_avg('v5_n1000')}%(최저 {rob_min('v5_n1000')}%)였으나, 도메인 랜덤화 시연으로 학습하면 "
               f"{rob_avg('v6_n1000')}%, 밝기 정규화·CLAHE를 더하면 {rob_avg('v6c_n1000')}%(최저 "
               f"{rob_min('v6c_n1000')}%)였다. 어둡게 한 조건에서는 각각 {rob('v5_n1000', 'dark')}%, "
               f"{rob('v6_n1000', 'dark')}%, {rob('v6c_n1000', 'dark')}%였다."))
-        if (FIG / "fig_robust.png").exists():
-            add(fig(media, FIG / "fig_robust.png", f"그림 {nfig}. 환경 변화별 단계 평균 성공률"))
-            nfig += 1
+        models = [(t, lab) for t, lab in ROB_MODELS if t in ROB]
+        rows = [["변화"] + [lab for _, lab in models]]
+        rows += [[g] + [rob_group(t, cs) for t, _ in models] for g, cs in ROB_GROUPS]
+        w = 4500 - 1900
+        add(table("표 4. 환경 변화별 단계 평균 성공률 (%, 각 20회)", [1900] + [w // len(models)] * len(models), rows))
     add(P("실제 셀에서도 1층 적재 정책이 MCP 신호에 따라 통을 집어 적재하는 것을 확인하였으나, 위치 오차와 제어 "
           "지연으로 실패하는 경우가 관찰되었다. 현장 측정 기록이 남아 있지 않아 실제 수치와의 비교는 하지 않았다."))
 
