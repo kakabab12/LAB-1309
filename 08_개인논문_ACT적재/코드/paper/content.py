@@ -69,7 +69,8 @@ ROB_GROUPS = [("변화 없음", ["base"]), ("조명 (어둡게·밝게·옆)", [
               ("작업대 색 (회색·짙은 갈색)", ["table_gray", "table_dark"]), ("주변 물건", ["distractor"]),
               ("카메라 장착 틀어짐", ["cam_top", "cam_wrist"]),
               ("범위 밖 위치·방향·아래 통", ["pos_out", "yaw_out", "placed_out"]),
-              ("통 무게 100·200g", ["mass_100g", "mass_200g"]), ("관측 지연 67·133ms", ["delay_67ms", "delay_133ms"])]
+              ("통 무게 100·200g", ["mass_100g", "mass_200g"]), ("관측 지연 67·133ms", ["delay_67ms", "delay_133ms"]),
+              ("무작위화 범위 밖 (조명 30·220%, 주황빛, 체크무늬)", ["very_dark", "very_bright", "warm_light", "table_checker"])]
 ROB_MODELS = [("v4_n100", "③/100"), ("v5_n1000", "④/1000"), ("v6_n1000", "+무작위화"),
               ("v6c_n1000", "+무작위화·CLAHE")]
 
@@ -160,6 +161,16 @@ def retry(name: str, key: str = "cumulative_success") -> str:
     if not p.exists():
         return MISSING
     return f"{100 * json.loads(p.read_text())[key][2]:.0f}"
+
+
+def infer_ms(name: str) -> str:
+    """Mean inference time per control step (ms): one ACT forward pass per 100-step chunk."""
+    p = ROOT / "results" / "eval" / name / "results.json"
+    if not p.exists():
+        return MISSING
+    r = json.loads(p.read_text())
+    v = [t["infer_ms_mean"] for st in ("1", "2", "3") for t in r["per_stage"][st]["trials"]]
+    return f"{sum(v) / len(v):.1f}"
 
 
 def e2e(name: str, sort_acc: float = 55 / 60) -> str:
@@ -397,7 +408,10 @@ def body(media, b) -> str:
              f"100회 정책의 연속 성공률은 {retry('n100', 'cumulative_first_attempt')}%에서 {retry('n100')}%로, ④ 시연 "
              f"1000회 정책은 {retry('v5_n1000', 'cumulative_first_attempt')}%에서 {retry('v5_n1000')}%로 높아졌다. "
              if (ROOT / "results" / "eval" / "n100_retry" / "results.json").exists() else "")
-          + "적재 1회는 정책 실행 9초와 홈 복귀 1초로 약 10초가 걸리며, 무게 분류 정분류율(91.7%)을 곱한 공정 전체 "
+          + "적재 1회는 정책 실행 9초와 홈 복귀 1초로 약 10초가 걸린다. 행동 청크(100스텝, 3.3초)마다 한 번만 추론하므로 "
+          f"스텝당 평균 추론 시간은 GTX 1080 Ti에서 {infer_ms('v5_n100')}ms, CPU 2스레드에서 {infer_ms('v5_n100_x200')}ms로 "
+          "(다른 학습과 장치를 함께 쓴 상태의 값으로 상한에 해당) 제어 주기(33ms)보다 충분히 짧았다. 무게 분류 "
+          "정분류율(91.7%)을 곱한 공정 전체 "
           f"성공률은 ④ 시연 1000회 기준 약 {e2e('v5_n1000')}%이다. "
           + "모방학습 성능이 시연 수보다 시연의 다양성과 "
           "일관성에 좌우된다는 보고[16]와 같이, 시연 수를 늘리는 것만으로는 시연 설계의 효과를 대신하기 어렵다."))

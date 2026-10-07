@@ -87,3 +87,6 @@
 [10-07 21:14:05] gen v6: v6_stage3 ready
 [10-07 21:14:05] gen v6 done
 [10-07 21:39:45] v5_n100 x200 merged (CPU)
+[10-07 22:07:19] robust beyond-range v4_n100 start
+[10-07 22:23:16] eval v5_n200 done
+[10-07 22:30:36] robust beyond-range v4_n100 done

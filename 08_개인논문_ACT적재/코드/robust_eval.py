@@ -17,6 +17,9 @@ Per-stage protocol of eval_act.py (same seeds, same success test), with one chan
   mass_200g   every bin weighs 200 g
   delay_67ms  the policy sees camera images and joint state 2 control steps (67 ms) late
   delay_133ms 4 control steps (133 ms) late
+Beyond the domain-randomisation ranges of the v6 demonstrations (to show where robustness ends):
+  very_dark   lights at 30 %        very_bright  lights at 220 %
+  warm_light  orange-tinted lights  table_checker  grey checkerboard table
 The policy runs on the CPU (3 chunk predictions per run), so this does not compete with GPU training.
 usage: python robust_eval.py --ckpt S1 S2 S3 --tag v4_n100 --conds base dark ... --trials 20
 """
@@ -55,18 +58,39 @@ class Perturb:
     def __init__(self, env: StackEnv):
         self.env, m = env, env.m
         self.saved = {k: getattr(m, k).copy() for k in ("light_diffuse", "light_dir", "light_ambient", "mat_rgba",
-                                                         "mat_texid", "cam_pos", "cam_quat", "body_mass",
-                                                         "body_inertia")}
+                                                         "mat_texid", "mat_texrepeat", "cam_pos", "cam_quat",
+                                                         "body_mass", "body_inertia")}
         self.head = (m.vis.headlight.diffuse.copy(), m.vis.headlight.ambient.copy())
+        self.tex_id = m.texture("tabletex").id
+        self.tex0 = m.tex_data.copy()
+        self.renderers = []  # renderers whose GPU copy of the table texture must follow tex_data
+
+    def _upload_texture(self) -> None:
+        for r in self.renderers:
+            r._gl_context.make_current()
+            mujoco.mjr_uploadTexture(self.env.m, r._mjr_context, self.tex_id)
 
     def apply(self, cond: str) -> None:
         m = self.env.m
         tab = m.material("table").id
-        if cond in ("dark", "bright"):
-            f = 0.5 if cond == "dark" else 1.6
+        if cond in ("dark", "bright", "very_dark", "very_bright"):
+            f = {"dark": 0.5, "bright": 1.6, "very_dark": 0.3, "very_bright": 2.2}[cond]
             m.light_diffuse[:] = self.saved["light_diffuse"] * f
             m.vis.headlight.diffuse[:] = self.head[0] * f
             m.vis.headlight.ambient[:] = self.head[1] * f
+        elif cond == "warm_light":
+            tint = np.array([1.25, 0.8, 0.45])
+            m.light_diffuse[:] = self.saved["light_diffuse"] * tint
+            m.vis.headlight.diffuse[:] = self.head[0] * tint
+            m.vis.headlight.ambient[:] = self.head[1] * tint
+        elif cond == "table_checker":
+            w, h = m.tex_width[self.tex_id], m.tex_height[self.tex_id]
+            yy, xx = np.mgrid[0:h, 0:w]
+            cell = ((xx // 4) + (yy // 4)) % 2  # 16 x 16 squares per texture tile
+            img = np.where(cell[..., None] == 0, [190, 190, 186], [95, 95, 92]).astype(np.uint8)
+            a = m.tex_adr[self.tex_id]
+            m.tex_data[a:a + img.size] = img.reshape(-1)
+            self._upload_texture()
         elif cond == "light_side":
             d = np.array([0.45, 0.30, -0.84])
             m.light_dir[0] = d / np.linalg.norm(d)
@@ -95,6 +119,9 @@ class Perturb:
             getattr(m, k)[:] = v
         m.vis.headlight.diffuse[:], m.vis.headlight.ambient[:] = self.head
         mujoco.mj_setConst(m, self.env.d)
+        if not np.array_equal(m.tex_data, self.tex0):
+            m.tex_data[:] = self.tex0
+            self._upload_texture()
 
 
 def scene(cond: str, stage: int, i: int):
@@ -137,6 +164,7 @@ def main():
     pols = [load_policy(p, "cpu", None) for p in a.ckpt]
     pert = Perturb(env)
     rec = Recorder(env, enabled=a.gifs > 0)
+    pert.renderers = [env.renderer] + ([rec.big, rec.small] if a.gifs > 0 else [])
     for cond in a.conds:
         f = out_dir / f"{cond}.json"
         if f.exists():
