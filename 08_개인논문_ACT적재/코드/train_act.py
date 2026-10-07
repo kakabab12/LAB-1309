@@ -23,7 +23,8 @@ from lerobot.policies.act.modeling_act import ACTPolicy
 
 import preprocess
 
-CAMS = ("front", "top")
+PACK_CAMS = ("front", "top")  # camera order inside the JPEG packs
+CAMS = PACK_CAMS  # cameras the policy uses (--cams; camera ablation)
 
 
 def npz_memmap(path: Path, key: str) -> np.ndarray:
@@ -92,7 +93,8 @@ def compute_stats(d: Demos) -> dict:
         "observation.state": {"mean": S.mean(0), "std": S.std(0) + 1e-3},
         "action": {"mean": A.mean(0), "std": A.std(0) + 1e-3},
     }
-    for c, cam in enumerate(CAMS):
+    for cam in CAMS:
+        c = PACK_CAMS.index(cam)
         s1, s2, n = np.zeros(3), np.zeros(3), 0
         for i in range(0, len(d), max(1, len(d) // 40)):
             for t in range(0, d.T, 15):
@@ -121,8 +123,7 @@ def make_config(img_hw: tuple[int, int], device: str) -> ACTConfig:
     return ACTConfig(
         input_features={
             "observation.state": PolicyFeature(type=FeatureType.STATE, shape=(6,)),
-            "observation.images.front": PolicyFeature(type=FeatureType.VISUAL, shape=(3, h, w)),
-            "observation.images.top": PolicyFeature(type=FeatureType.VISUAL, shape=(3, h, w)),
+            **{f"observation.images.{c}": PolicyFeature(type=FeatureType.VISUAL, shape=(3, h, w)) for c in CAMS},
         },
         output_features={"action": PolicyFeature(type=FeatureType.ACTION, shape=(6,))},
         chunk_size=100,
@@ -148,8 +149,8 @@ class Sampler:
             pad.append(idx >= T)
             st.append(S[t])
             act.append(A[np.minimum(idx, T - 1)])
-            for c, cam in enumerate(CAMS):
-                imgs[cam].append(self.d.image(i, t, c))
+            for cam in CAMS:
+                imgs[cam].append(self.d.image(i, t, PACK_CAMS.index(cam)))
         b = {
             "observation.state": torch.from_numpy(np.stack(st)),
             "action": torch.from_numpy(np.stack(act)),
@@ -170,8 +171,11 @@ def main() -> None:
     ap.add_argument("--save-every", type=int, default=20000)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--preprocess", choices=["clahe"], default=None, help="camera preprocessing (also used at eval)")
+    ap.add_argument("--cams", nargs="+", choices=PACK_CAMS, default=list(PACK_CAMS), help="cameras the policy sees")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
+    global CAMS
+    CAMS = tuple(args.cams)
 
     torch.manual_seed(args.seed)
     torch.backends.cudnn.benchmark = True
@@ -196,7 +200,7 @@ def main() -> None:
             "data": [str(p) for p in paths if p.exists()], "steps": args.steps,
             "batch": args.batch, "lr": cfg.optimizer_lr, "params": n_params, "img_hw": list(img_hw),
             "chunk_size": cfg.chunk_size, "kl_weight": cfg.kl_weight, "device": torch.cuda.get_device_name(0),
-            "preprocess": args.preprocess}
+            "preprocess": args.preprocess, "cams": list(CAMS)}
     (out / "train_meta.json").write_text(json.dumps(meta, indent=1))
     print(json.dumps(meta), flush=True)
 

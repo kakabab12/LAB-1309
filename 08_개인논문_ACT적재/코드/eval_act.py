@@ -87,17 +87,21 @@ class Recorder:
             self.small.close()
 
 
-def run_stage(env, policy, home, device, rec: Recorder, frame_every: int = 4) -> dict:
+def run_stage(env, policy, home, device, rec: Recorder, frame_every: int = 4, obs_delay: int = 0) -> dict:
+    """obs_delay > 0: the policy sees the camera images and joint state from that many control steps ago
+    (sensing/communication latency; robustness test only)."""
     policy.reset()
     obs = env.observe()
+    hist = [obs] * (obs_delay + 1)
     infer_ms = []
     bin0 = env.bin_state(env.active_bin).pos.copy()
     grasp_site, opened = None, False
     pre = getattr(policy, "preprocess", None)
     for t in range(HORIZON):
+        x = hist[0] if obs_delay else obs
         if pre:
-            obs = {**obs, **{c: preprocess.apply(pre, obs[c]) for c in ("front", "top")}}
-        b = to_batch(obs, device)
+            x = {**x, **{c: preprocess.apply(pre, x[c]) for c in ("front", "top")}}
+        b = to_batch(x, device)
         t0 = time.perf_counter()
         with torch.inference_mode():
             a = policy.select_action(b)
@@ -108,6 +112,8 @@ def run_stage(env, policy, home, device, rec: Recorder, frame_every: int = 4) ->
         act = a.squeeze(0).cpu().numpy()
         env.step(act)
         obs = env.observe()
+        if obs_delay:
+            hist = hist[1:] + [obs]
         # where does the policy close the gripper, relative to where the bin really was?
         opened = opened or act[5] > 0.2
         if grasp_site is None and opened and act[5] < 0.0:

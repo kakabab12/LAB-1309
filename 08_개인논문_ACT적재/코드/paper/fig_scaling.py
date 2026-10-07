@@ -1,6 +1,6 @@
 """Figure 3: stacking success vs number of demonstrations per stage (simulation).
 
-Reads results/eval/v4_n{100,200,500,1000}/results.json (v4 = one fixed grasp wall), v4_dart{200,1000},
+Reads results/eval/v5_n{100,200,500,1000}/results.json (final design: fixed wall + back-off), v5_dart{200,1000},
 and the v2 chained points (robot-facing wall) as a grey reference.
 Lines: per-stage success (1층, 옆, 2층) and chained 3-stage success. Colour + marker + dash so the
 figure survives greyscale printing; series are direct-labelled at the line ends.
@@ -36,7 +36,7 @@ def load(name):
 
 def main(out: Path, demo: bool = False) -> None:
     ns = [100, 200, 500, 1000]
-    data = {n: load(f"v4_n{n}") for n in ns}
+    data = {n: load(f"v5_n{n}") for n in ns}
     if demo:
         import random
         random.seed(0)
@@ -65,7 +65,7 @@ def main(out: Path, demo: bool = False) -> None:
             n, d = ref[-1]
             ax.annotate("로봇 쪽 벽 시연 (연속)", (n, 100 * d["chained"]["cumulative_success"][2]), xytext=(4, -8),
                         textcoords="offset points", fontsize=5.8, color=INK2)
-    darts = [] if demo else [(n, load(f"v4_dart{n}")) for n in (200, 1000)]
+    darts = [] if demo else [(n, load(f"v5_dart{n}")) for n in (200, 1000)]
     darts = [(n, d) for n, d in darts if d and "chained" in d]
     if darts:
         dx = [n for n, _ in darts]

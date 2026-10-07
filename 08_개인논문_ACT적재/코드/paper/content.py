@@ -27,7 +27,9 @@ def _load(name: str) -> dict | None:
     return json.loads(p.read_text()) if p.exists() else None
 
 
-RES = {k: _load(k) for k in ("v1_n100", "n100", "n200", "v4_n100_te", "v4_n200_te", "v4_n100", "v4_n200", "v4_n500", "v4_n1000",
+RES = {k: _load(k) for k in ("v1_n100", "n100", "n200", "v4_n200", "v5_n100", "v5_n200", "v5_n500", "v5_n1000",
+                             "v5_dart200", "v5_dart1000", "v6_n1000", "v6c_n1000", "v5c_n200", "v5_n1000_te",
+                             "v4_n100_te", "v4_n200_te", "v4_n100", "v4_n200", "v4_n500", "v4_n1000",
                              "v4_dart200", "v4_dart1000")}
 
 
@@ -46,7 +48,7 @@ def _robust() -> dict:
 
 ROB = _robust()
 ROB_CONDS = ["dark", "bright", "light_side", "table_gray", "table_dark", "cam_top", "cam_wrist", "distractor",
-             "pos_out", "yaw_out", "placed_out"]
+             "pos_out", "yaw_out", "placed_out", "mass_100g", "mass_200g", "delay_67ms", "delay_133ms"]
 
 
 def rob(tag: str, cond: str) -> str:
@@ -94,6 +96,41 @@ def chain(name: str, k: int) -> str:
     return f"{100 * r['chained']['cumulative_success'][k]:.0f}"
 
 
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """95% Wilson score interval for k successes out of n."""
+    p = k / n
+    c = (p + z * z / (2 * n)) / (1 + z * z / n)
+    h = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / (1 + z * z / n)
+    return max(0.0, c - h), min(1.0, c + h)
+
+
+def chain_ci(name: str) -> str:
+    """Sequence success with its 95% interval, e.g. '82 (69-90)'."""
+    r = RES.get(name)
+    if not r or "chained" not in r:
+        return MISSING
+    n = r["chained"]["n"]
+    k = round(r["chained"]["cumulative_success"][2] * n)
+    lo, hi = wilson(k, n)
+    return f"{100 * k / n:.0f} ({100 * lo:.0f}–{100 * hi:.0f})"
+
+
+def retry(name: str, key: str = "cumulative_success") -> str:
+    """Sequence success with scale-verified retry (eval_retry.py), or its first-attempt value."""
+    p = ROOT / "results" / "eval" / f"{name}_retry" / "results.json"
+    if not p.exists():
+        return MISSING
+    return f"{100 * json.loads(p.read_text())[key][2]:.0f}"
+
+
+def e2e(name: str, sort_acc: float = 55 / 60) -> str:
+    """Whole-cell success estimate: weight-based sorting correct x 3-stage stacking success."""
+    r = RES.get(name)
+    if not r or "chained" not in r:
+        return MISSING
+    return f"{100 * sort_acc * r['chained']['cumulative_success'][2]:.0f}"
+
+
 def expert_rate(stage: int, stem: str = "stage") -> str:
     """Expert success over every generated part of the given demo set (e.g. v4_stage1_p0, v4_stage1_more_p3)."""
     files = [p for p in (ROOT / "data").glob(f"{stem}{stage}*_gen.json") if "dart" not in p.name]
@@ -137,12 +174,13 @@ ABSTRACT = (
     "tests, the cell was rebuilt in MuJoCo with the same robot model, cameras and 30 Hz control to evaluate the "
     "stacking quantitatively. Per-stage success hides error accumulation: with the initial 100 demonstrations "
     f"per stage the placements succeeded in {pct('v1_n100', 1)}%, {pct('v1_n100', 2)}% and {pct('v1_n100', 3)}% "
-    f"of trials but only {chain('v1_n100', 2)}% of three-stage sequences. Locating where the policy closed the "
-    "gripper revealed two causes in the demonstration design rather than in the policy: the fixed jaw approached "
-    "too close to the bin wall, and the scripted demonstrator switched to another wall when the bin was rotated "
-    "by more than about 8 degrees, which made the demonstrations bimodal. A 9 mm grasp clearance and a single "
-    f"grasp wall raised the sequence success with the same 100 demonstrations to {chain('v4_n100', 2)}%, and "
-    f"1000 demonstrations reached {chain('v4_n1000', 2)}% ({chain('v4_dart1000', 2)}% with DART noise injection)."
+    f"of trials but only {chain('v1_n100', 2)}% of three-stage sequences. Replaying the failures showed three causes "
+    "in how the demonstrations were made rather than in the policy: the fixed jaw approached too close to the bin "
+    "wall, the scripted demonstrator switched to another wall when the bin was rotated by more than about 8 degrees, "
+    "and lifting straight up after release tipped the top bin off the 2 mm rims below. Fixing them raised the "
+    f"sequence success with the same 100 demonstrations to {chain('v5_n100', 2)}% and with 1000 demonstrations to "
+    f"{chain('v5_n1000', 2)}%. Domain randomization with brightness normalization and CLAHE kept {rob_avg('v6c_n1000')}% "
+    f"average per-stage success under eleven environment changes, against {rob_avg('v5_n1000')}% without them."
 )
 
 
@@ -235,8 +273,8 @@ def body(media, b) -> str:
           "걸렸으나, 이 설계는 ±9mm의 위치 오차에서도 파지에 성공하였다(표 1, 전문가 시험 각 4~6회). 또한 통이 "
           "얼마나 돌아가 있든 늘 같은 벽을 잡게 하였다. 로봇을 가장 많이 향한 벽을 고르면 통이 약 8° 넘게 돌았을 때 "
           "잡는 벽이 앞벽에서 옆벽으로 바뀌어, 카메라에는 거의 같은 장면인데 시연 동작이 두 갈래로 나뉘기 때문이다"
-          "(4.2절). 시연은 270스텝(9초)이며 성공한 것만 남겼다(전문가 성공률 1층 "
-          f"{expert_rate(1, 'v4_stage')}%, 옆 {expert_rate(2, 'v4_stage')}%, 2층 {expert_rate(3, 'v4_stage')}%)."))
+          "(4.2절). 2층에 놓을 때는 그리퍼를 벌린 뒤 벽 바깥으로 5mm 물러났다가 올라가게 하였다. 시연은 270스텝(9초)이며 성공한 것만 남겼다(전문가 성공률 1층 "
+          f"{expert_rate(1, 'v4_stage')}%, 옆 {expert_rate(2, 'v4_stage')}%, 2층 {expert_rate(3, 'v5_stage')}%)."))
     add(table("표 1. 파지 위치 오차에 따른 시연 성공률 (%)", [1250, 470, 470, 470, 470, 470, 470, 470],
               [["벽 법선 오차(mm)", "−12", "−9", "−6", "−3", "0", "+6", "+9"],
                ["여유 1.5mm", "0", "0", "17", "100", "100", "100", "100"],
@@ -277,14 +315,14 @@ def body(media, b) -> str:
                ["인식부터 명령 전송까지 응답", "약 810ms"]]))
 
     add(h2("4.2 ACT 순차 적재 (시뮬레이션)"))
-    rows = [["시연 설계 / 수", "1층", "옆", "2층", "연속"]]
-    for name, label in (("v1_n100", "여유 1.5mm, 로봇 쪽 벽 / 100"), ("n100", "여유 9mm, 로봇 쪽 벽 / 100"),
-                        ("n200", "여유 9mm, 로봇 쪽 벽 / 200"),
-                        ("v4_n100", "여유 9mm, 같은 벽 / 100"), ("v4_n200", "같은 벽 / 200"),
-                        ("v4_n500", "같은 벽 / 500"), ("v4_n1000", "같은 벽 / 1000"),
-                        ("v4_dart200", "같은 벽 + DART / 200"), ("v4_dart1000", "같은 벽 + DART / 1000")):
-        rows.append([label, pct(name, 1), pct(name, 2), pct(name, 3), chain(name, 2)])
-    add(table("표 3. 적재 성공률 (%, 시뮬레이션, 각 50회)", [2050, 560, 560, 560, 620], rows))
+    rows = [["시연 설계 / 수", "1층", "옆", "2층", "연속 (95% CI)"]]
+    for name, label in (("v1_n100", "① 여유 1.5mm, 로봇 쪽 벽 / 100"), ("n100", "② 여유 9mm, 로봇 쪽 벽 / 100"),
+                        ("n200", "② / 200"), ("v4_n100", "③ ②+같은 벽 / 100"),
+                        ("v5_n100", "④ ③+놓은 뒤 물러나기 / 100"), ("v5_n200", "④ / 200"), ("v5_n500", "④ / 500"),
+                        ("v5_n1000", "④ / 1000"), ("v5_dart1000", "④+DART / 1000"),
+                        ("v6c_n1000", "④+무작위화·CLAHE / 1000")):
+        rows.append([label, pct(name, 1), pct(name, 2), pct(name, 3), chain_ci(name)])
+    add(table("표 3. 적재 성공률 (%, 시뮬레이션, 각 50회)", [1900, 470, 470, 470, 1190], rows))
     nfig = 4
     if (FIG / "fig_wallswitch_n100.png").exists():
         add(fig(media, FIG / "fig_wallswitch_n100.png",
@@ -300,18 +338,27 @@ def body(media, b) -> str:
           "바꾸는 구간과 일치한다. 이때 정책은 앞벽과 옆벽 시연의 중간인 모서리 쪽으로 가서 집게를 벽 위에 얹은 채 "
           "닫았다. 같은 설계로 시연을 200회로 늘리면 연속 성공률은 오히려 "
           f"{chain('n200', 2)}%로 낮아졌고, 이 구간의 실패가 {ws('band_fails')}건에서 "
-          f"{WS200.get('band_fails', MISSING)}건으로 늘었다. 늘 같은 벽을 잡는 시연으로 바꾸자 같은 100회에서 단계별 "
-          f"{pct('v4_n100', 1)}%, {pct('v4_n100', 2)}%, {pct('v4_n100', 3)}%, 연속 {chain('v4_n100', 2)}%였다."))
+          f"{WS200.get('band_fails', MISSING)}건으로 늘었다. 늘 같은 벽을 잡는 시연(③)으로 바꾸자 같은 100회에서 집기 실패가 "
+          f"없어져 단계별 {pct('v4_n100', 1)}%, {pct('v4_n100', 2)}%, {pct('v4_n100', 3)}%, 연속 {chain('v4_n100', 2)}%가 "
+          "되었다. 남은 2층 실패는 모두 통 C를 평평하게 놓은 뒤 그리퍼가 곧장 올라가며 고정 집게로 벽을 끌어 올려 "
+          "10° 넘게 기운 경우였고, 2mm 벽 위에 얹힌 통이라 바닥에서와 달리 다시 내려앉지 못했다. 그리퍼를 벌린 뒤 벽 "
+          "바깥으로 5mm 물러났다가 올라가는 시연(④, 2층만)으로 바꾸자 전문가의 3° 이상 기울어짐이 50회 중 11회에서 "
+          f"1회로 줄었고, 정책은 단계별 {pct('v5_n100', 1)}%, {pct('v5_n100', 2)}%, {pct('v5_n100', 3)}%, 연속 "
+          f"{chain('v5_n100', 2)}%였다."))
     if (FIG / "fig3_scaling.png").exists():
-        add(fig(media, FIG / "fig3_scaling.png", f"그림 {nfig}. 시연 수에 따른 적재 성공률 (같은 벽 시연)"))
+        add(fig(media, FIG / "fig3_scaling.png", f"그림 {nfig}. 시연 수에 따른 적재 성공률 (④ 시연)"))
         nfig += 1
-    add(P(f"같은 벽 시연을 200, 500, 1000회로 늘리면 연속 성공률은 {chain('v4_n200', 2)}%, {chain('v4_n500', 2)}%, "
-          f"{chain('v4_n1000', 2)}%였다. 시연 잡음을 주입한 DART 정책은 같은 1000회에서 단계별 "
-          f"{pct('v4_dart1000', 1)}%, {pct('v4_dart1000', 2)}%, {pct('v4_dart1000', 3)}%, 연속 "
-          f"{chain('v4_dart1000', 2)}%였고, 200회에서는 연속 {chain('v4_dart200', 2)}%(일반 200회 "
-          f"{chain('v4_n200', 2)}%)였다. "
-          + (f"추론만 바꾸는 시간 앙상블[4]은 같은 벽 시연 {te_n}회 정책의 연속 성공률을 {chain(f'v4_n{te_n}', 2)}%에서 "
-             f"{chain(f'v4_n{te_n}_te', 2)}%로 바꾸었다. " if (te_n := next((n for n in (200, 100) if RES.get(f'v4_n{n}_te')), None)) else "")
+    add(P(f"④ 시연을 200, 500, 1000회로 늘리면 연속 성공률은 {chain('v5_n200', 2)}%, {chain('v5_n500', 2)}%, "
+          f"{chain('v5_n1000', 2)}%였다(그림 5). 시연 잡음을 주입한 DART 정책은 같은 1000회에서 연속 "
+          f"{chain('v5_dart1000', 2)}%였다. "
+          + (f"추론만 바꾸는 시간 앙상블[4]은 ④ 시연 {te_n}회 정책의 연속 성공률을 {chain(f'v5_n{te_n}', 2)}%에서 "
+             f"{chain(f'v5_n{te_n}_te', 2)}%로 바꾸었다. " if (te_n := next((n for n in (1000,) if RES.get(f'v5_n{n}_te')), None)) else "")
+          + (f"저울을 다시 읽어 통이 그대로 있으면 집기 실패로 보고 같은 단계를 다시 실행하게 하면(최대 3회), ② 시연 "
+             f"100회 정책의 연속 성공률은 {retry('n100', 'cumulative_first_attempt')}%에서 {retry('n100')}%로, ④ 시연 "
+             f"1000회 정책은 {retry('v5_n1000', 'cumulative_first_attempt')}%에서 {retry('v5_n1000')}%로 높아졌다. "
+             if (ROOT / "results" / "eval" / "n100_retry" / "results.json").exists() else "")
+          + "적재 1회는 정책 실행 9초와 홈 복귀 1초로 약 10초가 걸리며, 무게 분류 정분류율(91.7%)을 곱한 공정 전체 "
+          f"성공률은 ④ 시연 1000회 기준 약 {e2e('v5_n1000')}%이다. "
           + "모방학습 성능이 시연 수보다 시연의 다양성과 "
           "일관성에 좌우된다는 보고[16]와 같이, 시연 수를 늘리는 것만으로는 시연 설계의 효과를 대신하기 어렵다."))
     if (FIG / "fig4_rollout.png").exists():
@@ -321,7 +368,8 @@ def body(media, b) -> str:
         add(h2("4.3 환경 변화에 대한 강인성 (시뮬레이션)"))
         add(P("학습이 끝난 정책을 그대로 두고 조명(어둡게 50%, 밝게 160%, 옆 조명), 작업대 색(회색, 짙은 갈색), 카메라 "
               "장착(상단 10mm·2°, 손목 3mm·2°), 주변 물건, 학습 범위 밖의 통 위치(22~28mm)·방향(22~30°), 아래 통의 "
-              "어긋남(10~14mm) 중 하나씩만 바꾸어 단계별로 20회씩 평가하였다(그림 7). 기존 시연 1000회 정책은 변화 "
+              "어긋남(10~14mm), 통 무게(100g, 200g), 관측 지연(67ms, 133ms) 중 하나씩만 바꾸어 단계별로 20회씩 "
+              "평가하였다(그림 7). 기존 시연 1000회 정책은 변화 "
               f"조건 평균 {rob_avg('v5_n1000')}%(최저 {rob_min('v5_n1000')}%)였으나, 도메인 랜덤화 시연으로 학습하면 "
               f"{rob_avg('v6_n1000')}%, 밝기 정규화·CLAHE를 더하면 {rob_avg('v6c_n1000')}%(최저 "
               f"{rob_min('v6c_n1000')}%)였다. 어둡게 한 조건에서는 각각 {rob('v5_n1000', 'dark')}%, "

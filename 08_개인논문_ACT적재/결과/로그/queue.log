@@ -54,3 +54,17 @@
 [10-07 17:14:58] robustness eval of v4_n100 paused (CPU load 24 on 8 cores); resume when v5 stage-3 generation is done
 [10-07 17:17:28] queue v8 launcher frozen (SIGSTOP); its evaluator keeps running the v5_* sets. Remaining trainings move to queue v9 (priority list incl. domain randomisation v6 and CLAHE)
 [10-07 17:17:28] queue v9 start (22 training jobs in priority order, MAXT=4)
+[10-07 17:27:30] train s3_v5_n200 (200 demos, preprocess -)
+[10-07 17:29:00] train s1_v4_n500 (500 demos, preprocess -)
+[10-07 17:31:00] train s2_v4_n500 (500 demos, preprocess -)
+[10-07 17:31:25] eval v4_n100 done
+[10-07 17:31:52] eval v4_n200 (one-off, s1/s2/s3_v4_n200)
+[10-07 17:32:21] queue v7 retired (v4_n200 trained, v4_n100 evals done)
+[10-07 17:52:12] queue v10 waiting for queue v9 to launch all its jobs (6 camera-ablation jobs)
+[10-07 18:04:28] gen v5: v5_dart_stage3 ready
+[10-07 18:10:06] gen v5: v5_stage3_more ready
+[10-07 19:08:23] eval v4_n200 done
+[10-07 19:09:52] gen v5: v5_dart_stage3_more ready
+[10-07 19:09:52] gen v5 done
+[10-07 19:10:26] robustness eval of v4_n100 resumed
+[10-07 19:15:01] post-eval queue start

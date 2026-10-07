@@ -13,6 +13,10 @@ Per-stage protocol of eval_act.py (same seeds, same success test), with one chan
   cam_top     fixed top camera moved 10 mm and tilted 2 deg
   cam_wrist   wrist camera moved 3 mm and tilted 2 deg
   distractor  three non-blue objects (red box, green cylinder, yellow ball) around the work area
+  mass_100g   every bin weighs 100 g instead of 123 g (bins differ in weight in the real line)
+  mass_200g   every bin weighs 200 g
+  delay_67ms  the policy sees camera images and joint state 2 control steps (67 ms) late
+  delay_133ms 4 control steps (133 ms) late
 The policy runs on the CPU (3 chunk predictions per run), so this does not compete with GPU training.
 usage: python robust_eval.py --ckpt S1 S2 S3 --tag v4_n100 --conds base dark ... --trials 20
 """
@@ -31,6 +35,8 @@ from expert import ScriptedExpert
 from stack_env import BIN_NAMES, SCALE_C, TARGETS, StackEnv, sample_scene
 
 STAGES = {"placed_out": (2, 3)}
+MASS = {"mass_100g": 0.100, "mass_200g": 0.200}
+DELAY = {"delay_67ms": 2, "delay_133ms": 4}
 DISTRACT = [((0.33, -0.12, 0.025), (0.85, 0.15, 0.10)), ((0.34, 0.12, 0.025), (0.15, 0.70, 0.20)),
             ((0.20, 0.28, 0.025), (0.95, 0.85, 0.10))]  # (position, colour) for distract0..2
 
@@ -49,7 +55,8 @@ class Perturb:
     def __init__(self, env: StackEnv):
         self.env, m = env, env.m
         self.saved = {k: getattr(m, k).copy() for k in ("light_diffuse", "light_dir", "light_ambient", "mat_rgba",
-                                                         "mat_texid", "cam_pos", "cam_quat")}
+                                                         "mat_texid", "cam_pos", "cam_quat", "body_mass",
+                                                         "body_inertia")}
         self.head = (m.vis.headlight.diffuse.copy(), m.vis.headlight.ambient.copy())
 
     def apply(self, cond: str) -> None:
@@ -70,6 +77,13 @@ class Perturb:
             c = m.camera("top").id
             m.cam_pos[c] = self.saved["cam_pos"][c] + np.array([0.010, 0.0, 0.0])
             m.cam_quat[c] = quat_tilt(self.saved["cam_quat"][c], 2.0, (1, 0, 0))
+        elif cond in MASS:
+            for n in BIN_NAMES:
+                b = m.body(n).id
+                f = MASS[cond] / self.saved["body_mass"][b]
+                m.body_mass[b] = MASS[cond]
+                m.body_inertia[b] = self.saved["body_inertia"][b] * f
+            mujoco.mj_setConst(m, self.env.d)
         elif cond == "cam_wrist":
             c = m.camera("front").id
             m.cam_pos[c] = self.saved["cam_pos"][c] + np.array([0.003, 0.0, 0.0])
@@ -80,6 +94,7 @@ class Perturb:
         for k, v in self.saved.items():
             getattr(m, k)[:] = v
         m.vis.headlight.diffuse[:], m.vis.headlight.ambient[:] = self.head
+        mujoco.mj_setConst(m, self.env.d)
 
 
 def scene(cond: str, stage: int, i: int):
@@ -141,7 +156,7 @@ def main():
                     mujoco.mj_forward(env.m, env.d)
                 refs = {n: env.bin_state(n).pos.copy() for n in BIN_NAMES[: stage - 1]}
                 rec.enabled = i < a.gifs
-                info = run_stage(env, pols[stage - 1], home, "cpu", rec)
+                info = run_stage(env, pols[stage - 1], home, "cpu", rec, obs_delay=DELAY.get(cond, 0))
                 r = env.evaluate_stage(stage, ref_positions=refs)
                 rec.save(out_dir / "gifs" / f"{cond}_s{stage}_t{i:02d}_{'ok' if r['success'] else 'fail'}.gif")
                 r.update(info, trial=i)
