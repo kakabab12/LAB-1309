@@ -12,7 +12,7 @@ import os
 import mujoco
 import numpy as np
 
-from stack_env import BIN_H, BIN_W, CONTROL_HZ, GRIPPER_CLOSED, GRIPPER_OPEN, JOINTS, StackEnv
+from stack_env import BIN_H, BIN_W, CONTROL_HZ, GRIPPER_CLOSED, GRIPPER_OPEN, JOINTS, TARGETS, StackEnv
 
 ARM = 5  # first five joints; joint 6 is the gripper
 # Demonstration design. v4 grasps one fixed wall (normal nearest -x) over the whole pick-yaw range;
@@ -20,8 +20,18 @@ ARM = 5  # first five joints; joint 6 is the gripper
 # v5 = v4 + after releasing, back the jaws off the wall before lifting (lifting straight up dragged the wall
 # and tipped a bin standing on the 2 mm rims of the bin below).
 DESIGN = os.environ.get("ACT_DESIGN", "v2")
-WALL_REF = np.array([-1.0, 0.0]) if DESIGN in ("v4", "v5") else None
+WALL_REF = np.array([-1.0, 0.0]) if DESIGN in ("v4", "v5", "v8") else None
 BACKOFF = 0.005 if DESIGN == "v5" else 0.0  # m along the outward wall normal, after opening
+# v8 (stage 2 only) = v4 + keep a real gap to bin A: when A was left shifted towards B's slot, B is placed that much
+# further out (the slot itself and the success test are unchanged).
+SIDE_GAP = 0.006
+
+
+def stage2_target(a_pos: np.ndarray) -> np.ndarray:
+    t = TARGETS[2].copy()
+    if DESIGN == "v8":
+        t[1] = max(t[1], a_pos[1] + BIN_W + SIDE_GAP)
+    return t
 
 
 def wrap(a: float) -> float:

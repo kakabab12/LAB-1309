@@ -15,7 +15,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 
-from expert import DESIGN, ScriptedExpert
+from expert import DESIGN, ScriptedExpert, stage2_target
 from stack_env import BIN_H, BIN_NAMES, TARGETS, StackEnv, sample_scene
 
 
@@ -53,13 +53,19 @@ def main() -> None:
         while kept < args.episodes:
             tried += 1
             spec = sample_scene(args.stage, rng, wide=args.dr)
+            if DESIGN == "v8" and args.stage == 2:  # also show A left shifted towards B's slot (seen in chained runs)
+                p, yaw = spec.placed["bin_a"]
+                p = p.copy()
+                p[1] = TARGETS[1][1] + rng.uniform(-0.008, 0.013)
+                spec.placed["bin_a"] = (p, yaw)
             obs = env.reset(spec, home)
             vis = env.randomize(vis_rng, level=args.dr_level) if args.dr else None
             if args.dr:
                 obs = env.observe()
             refs = {n: env.bin_state(n).pos.copy() for n in BIN_NAMES[: args.stage - 1]}
             bs = env.bin_state(BIN_NAMES[args.stage - 1])
-            tgt = TARGETS[args.stage] if args.stage < 3 else env.bin_state("bin_a").pos + np.array([0, 0, BIN_H])
+            a_now = env.bin_state("bin_a").pos
+            tgt = {1: TARGETS[1], 2: stage2_target(a_now), 3: a_now + np.array([0, 0, BIN_H])}[args.stage]
             traj = ex.plan(env.qpos(), bs.pos, bs.yaw, tgt)
             S, A, F, T = [], [], [], []
             noise = np.zeros(6)

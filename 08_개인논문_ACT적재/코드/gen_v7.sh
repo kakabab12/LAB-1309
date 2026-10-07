@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # v7 demonstrations = final design + WIDER domain randomisation (dr-level 2): light 0.25-2.5x with colour tint,
-# table plain colour or random pattern texture (checker/stripes/blotches); plus the v6 items below:
+# table plain colour or random pattern texture (checker/stripes/blotches); stage 2 uses the v8 side-gap rule;
+# plus the v6 items below:
 # light strength/direction, table colour, camera mounts (top +-12 mm/2.5 deg, wrist +-3 mm/2.5 deg),
 # up to 3 non-blue distractors, pick range +-28 mm / +-30 deg. The bin colour (blue) is never changed.
 # 1000 per stage in parts of 200, one worker per stage.
@@ -21,7 +22,7 @@ worker() {  # stage, design
       >> logs/gen_v7_stage$s.log 2>&1 && rm -f "${files[@]}" && say "gen v7: v7_stage$s ready"; }
 }
 say "gen v7 start (domain randomisation, 1000 per stage)"
-worker 1 v4 & sleep 20; worker 2 v4 & sleep 20; worker 3 v5 &
+worker 1 v4 & sleep 20; worker 2 v8 & sleep 20; worker 3 v5 &
 wait
 for s in 1 2 3; do [ -f data/v7_stage$s.jpk.npz ] || say "gen v7 MISSING data/v7_stage$s.jpk.npz"; done
 say "gen v7 done"

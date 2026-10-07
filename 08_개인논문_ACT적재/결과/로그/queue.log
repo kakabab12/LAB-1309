@@ -127,3 +127,7 @@
 [10-08 05:14:42] gen pallet done
 [10-08 05:19:53] gen v7 start (domain randomisation, 1000 per stage)
 [10-08 05:20:10] queue v11 start (v7c: wider randomisation + CLAHE, 1000 demos)
+[10-08 05:35:41] eval v5_n1000 done
+[10-08 05:42:58] v8 (stage 2 keeps >=6 mm gap to the actual bin A; expert at A+10/12 mm: v4 5/10, 1/10 -> v8 10/10, 10/10). v7 stage-2 demos restarted with v8; v8_stage2 base 200 generating
+[10-08 05:42:58] gen v7 start (domain randomisation, 1000 per stage)
+[10-08 05:43:15] queue v12 start (stage 2 on v8 demos)
