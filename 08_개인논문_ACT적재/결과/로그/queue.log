@@ -136,3 +136,7 @@
 [10-08 05:56:27] robust v6c_n1000 done
 [10-08 05:56:27] retry v5_n1000 start
 [10-08 05:56:37] robust beyond-range v5_n1000 start
+[10-08 06:07:35] gen v8: v8_stage2 ready
+[10-08 06:08:15] train s2_v8_n100 (100 demos, v8)
+[10-08 06:09:55] trained s2_v6_n1000
+[10-08 06:14:15] retry v5_n1000 done: [retry] cumulative [100.0, 94.0, 94.0] (first attempt only [100.0, 94.0, 94.0]), retried stage runs 2
