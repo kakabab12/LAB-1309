@@ -1,0 +1,25 @@
+{
+ "stage": 2,
+ "episodes": 200,
+ "frames": 54000,
+ "image_bytes": 488662167,
+ "data": [
+  "data/v4_stage2.jpk.npz"
+ ],
+ "steps": 30000,
+ "batch": 8,
+ "lr": 1e-05,
+ "params": 51597238,
+ "img_hw": [
+  120,
+  160
+ ],
+ "chunk_size": 100,
+ "kl_weight": 10.0,
+ "device": "NVIDIA GeForce GTX 1080 Ti",
+ "preprocess": "clahe",
+ "cams": [
+  "front",
+  "top"
+ ]
+}
