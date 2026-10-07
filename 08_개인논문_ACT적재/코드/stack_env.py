@@ -293,13 +293,54 @@ class StackEnv:
         for k, v in self._vis0.items():
             getattr(self.m, k)[:] = v
         self.m.vis.headlight.diffuse[:], self.m.vis.headlight.ambient[:] = self._head0
+        if getattr(self, "_tex_dirty", False):
+            t = self.m.texture("tabletex").id
+            a = self.m.tex_adr[t]
+            self.m.tex_data[a:a + self._tex0.size] = self._tex0
+            self._upload_table_texture()
+            self._tex_dirty = False
 
-    def randomize(self, rng: np.random.Generator) -> dict:
+    def _upload_table_texture(self) -> None:
+        if self.renderer is not None:
+            self.renderer._gl_context.make_current()
+            mujoco.mjr_uploadTexture(self.m, self.renderer._mjr_context, self.m.texture("tabletex").id)
+
+    def _random_table_texture(self, rng: np.random.Generator) -> str:
+        """v7: checkerboard / stripes / blotches in two random colours (any colour: only the bins stay blue)."""
+        m = self.m
+        t = m.texture("tabletex").id
+        w, h = m.tex_width[t], m.tex_height[t]
+        c1, c2 = rng.uniform(20, 235, size=3), rng.uniform(20, 235, size=3)
+        yy, xx = np.mgrid[0:h, 0:w]
+        kind = ["checker", "stripes", "blotches"][rng.integers(3)]
+        if kind == "checker":
+            cell = int(rng.integers(2, 13))
+            mask = ((xx // cell) + (yy // cell)) % 2 == 0
+        elif kind == "stripes":
+            cell = int(rng.integers(2, 13))
+            mask = ((xx if rng.random() < 0.5 else yy) // cell) % 2 == 0
+        else:
+            f = rng.uniform(0.05, 0.3, size=2)
+            ph = rng.uniform(0, 2 * np.pi, size=2)
+            mask = np.sin(xx * f[0] + ph[0]) + np.sin(yy * f[1] + ph[1]) > 0
+        img = np.where(mask[..., None], c1, c2).astype(np.uint8)
+        a = m.tex_adr[t]
+        m.tex_data[a:a + img.size] = img.reshape(-1)
+        self._tex_dirty = True
+        self._upload_table_texture()
+        return kind
+
+    def randomize(self, rng: np.random.Generator, level: int = 1) -> dict:
         """Domain randomisation of everything the cameras see but the task does not depend on:
         light strength/direction, table colour, camera mounting (top +-12 mm/2.5 deg, wrist +-3 mm/2.5 deg)
         and up to three distractor objects. Returns the drawn values (logged with the episode)."""
         m = self.m
+        if not hasattr(self, "_tex0"):
+            t = m.texture("tabletex").id
+            self._tex0 = m.tex_data[m.tex_adr[t]:m.tex_adr[t] + m.tex_width[t] * m.tex_height[t] * m.tex_nchannel[t]].copy()
         self.reset_visuals()
+        if level >= 2:
+            return self._randomize_v7(rng)
         f_key, f_head = rng.uniform(0.45, 1.7), rng.uniform(0.5, 1.6)
         m.light_diffuse[:] = self._vis0["light_diffuse"] * f_key
         m.vis.headlight.diffuse[:] = self._head0[0] * f_head
@@ -336,6 +377,53 @@ class StackEnv:
                     self.d.mocap_pos[mid] = DISTRACT_PARK + [-0.1 * i, 0, 0]
         mujoco.mj_forward(m, self.d)
         return {"key_light": float(f_key), "headlight": float(f_head), "table": table, "distractors": placed}
+
+    def _randomize_v7(self, rng: np.random.Generator) -> dict:
+        """Wider domain randomisation (v7): light strength 0.25-2.5x and colour tint, table plain / colour / random
+        pattern texture, same camera-mount jitter and distractors as v6."""
+        import colorsys
+        m = self.m
+        f_key, f_head = rng.uniform(0.25, 2.5), rng.uniform(0.3, 2.2)
+        tint = rng.uniform(0.55, 1.3, size=3) if rng.random() < 0.5 else np.ones(3)
+        m.light_diffuse[:] = self._vis0["light_diffuse"] * f_key * tint
+        m.vis.headlight.diffuse[:] = self._head0[0] * f_head * tint
+        m.vis.headlight.ambient[:] = self._head0[1] * f_head * tint
+        tilt, az = math.radians(rng.uniform(0, 35)), rng.uniform(0, 2 * math.pi)
+        m.light_dir[0] = [math.sin(tilt) * math.cos(az), math.sin(tilt) * math.sin(az), -math.cos(tilt)]
+        tab = m.material("table").id
+        u = rng.random()
+        if u < 0.2:
+            table = "wood"
+        elif u < 0.6:
+            rgb = colorsys.hsv_to_rgb(rng.random(), rng.uniform(0, 0.7), rng.uniform(0.15, 0.95))
+            m.mat_texid[tab, :] = -1
+            m.mat_rgba[tab] = (*rgb, 1)
+            table = "plain"
+        else:
+            table = self._random_table_texture(rng)
+        for name, dp, da in (("top", 0.012, 2.5), ("front", 0.003, 2.5)):
+            c = m.camera(name).id
+            m.cam_pos[c] = self._vis0["cam_pos"][c] + rng.uniform(-dp, dp, size=3)
+            ax = rng.normal(size=3)
+            ang = math.radians(rng.uniform(-da, da)) / 2
+            dq = np.array([math.cos(ang), *(math.sin(ang) * ax / np.linalg.norm(ax))])
+            q = np.zeros(4)
+            mujoco.mju_mulQuat(q, self._vis0["cam_quat"][c], dq)
+            m.cam_quat[c] = q
+        placed = 0
+        if self.dr:
+            for i in range(N_DISTRACT):
+                mid = m.body_mocapid[m.body(f"distract{i}").id]
+                if rng.random() < 0.6:
+                    (x0, x1), (y0, y1) = DISTRACT_AREAS[rng.integers(len(DISTRACT_AREAS))]
+                    self.d.mocap_pos[mid] = [rng.uniform(x0, x1), rng.uniform(y0, y1), 0.025]
+                    m.geom_rgba[m.geom(f"distract{i}_g").id] = (*distractor_colour(rng), 1)
+                    placed += 1
+                else:
+                    self.d.mocap_pos[mid] = DISTRACT_PARK + [-0.1 * i, 0, 0]
+        mujoco.mj_forward(m, self.d)
+        return {"key_light": float(f_key), "headlight": float(f_head), "tint": tint.round(2).tolist(), "table": table,
+                "distractors": placed}
 
     # ------------------------------------------------------------------ state
     def qpos(self) -> np.ndarray:

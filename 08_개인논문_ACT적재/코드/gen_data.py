@@ -31,6 +31,7 @@ def main() -> None:
     ap.add_argument("--name", default=None, help="output file stem (default stage{N})")
     ap.add_argument("--dr", action="store_true", help="domain randomisation: lights, table colour, camera mounts, "
                     "distractors, wider pick range (+-28 mm, +-30 deg)")
+    ap.add_argument("--dr-level", type=int, default=1, help="1 = v6 ranges, 2 = v7 (textures, tinted 0.25-2.5x light)")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -53,7 +54,7 @@ def main() -> None:
             tried += 1
             spec = sample_scene(args.stage, rng, wide=args.dr)
             obs = env.reset(spec, home)
-            vis = env.randomize(vis_rng) if args.dr else None
+            vis = env.randomize(vis_rng, level=args.dr_level) if args.dr else None
             if args.dr:
                 obs = env.observe()
             refs = {n: env.bin_state(n).pos.copy() for n in BIN_NAMES[: args.stage - 1]}
@@ -88,7 +89,7 @@ def main() -> None:
                 print(f"stage {args.stage}: kept {kept}/{tried} ({time.time() - t0:.0f}s)", flush=True)
         f.attrs["tried"] = tried
         f.attrs["kept"] = kept
-    summary = {"stage": args.stage, "design": DESIGN, "dr": args.dr, "dart_sigma": args.dart_sigma, "kept": kept, "tried": tried, "expert_success_rate": kept / tried,
+    summary = {"stage": args.stage, "design": DESIGN, "dr": args.dr, "dr_level": args.dr_level if args.dr else 0, "dart_sigma": args.dart_sigma, "kept": kept, "tried": tried, "expert_success_rate": kept / tried,
                "mean_xy_err_mm": float(np.mean([l["xy_err_mm"] for l in log if l["success"]])),
                "seconds": time.time() - t0}
     (out / f"{stem}_gen.json").write_text(json.dumps({"summary": summary, "log": log}, indent=1))

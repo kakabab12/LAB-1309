@@ -125,3 +125,5 @@
 [10-08 04:29:07] gen pallet: pallet_s2 ready
 [10-08 05:14:42] gen pallet: pallet_s1 ready
 [10-08 05:14:42] gen pallet done
+[10-08 05:19:53] gen v7 start (domain randomisation, 1000 per stage)
+[10-08 05:20:10] queue v11 start (v7c: wider randomisation + CLAHE, 1000 demos)

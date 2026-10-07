@@ -13,7 +13,7 @@ EVAL = ROOT / "results" / "eval"
 CONDS = ["v1_n100", "n100", "n200",  # v1, v2 designs (robot-facing wall)
          "v4_n100", "v4_n200",  # v4: one fixed grasp wall
          "v5_n100", "v5_n200", "v5_n500", "v5_n1000", "v5_dart1000", "v5_dart200", "v5_n1000_te",  # final design
-         "v6_n1000", "v6c_n1000", "v5c_n200",  # domain randomisation / brightness normalisation + CLAHE
+         "v6_n1000", "v6c_n1000", "v5c_n200", "v7c_n1000",  # domain randomisation / normalisation + CLAHE
          "v5w_n200", "v5t_n200"]  # camera ablation: wrist only / top only
 
 

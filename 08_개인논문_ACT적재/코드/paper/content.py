@@ -72,7 +72,7 @@ ROB_GROUPS = [("변화 없음", ["base"]), ("조명 (어둡게·밝게·옆)", [
               ("통 무게 100·200g", ["mass_100g", "mass_200g"]), ("관측 지연 67·133ms", ["delay_67ms", "delay_133ms"]),
               ("무작위화 범위 밖 (조명 30·220%, 주황빛, 체크무늬)", ["very_dark", "very_bright", "warm_light", "table_checker"])]
 ROB_MODELS = [("v4_n100", "③/100"), ("v5_n1000", "④/1000"), ("v6_n1000", "+무작위화"),
-              ("v6c_n1000", "+무작위화·CLAHE")]
+              ("v6c_n1000", "+무작위화·CLAHE"), ("v7c_n1000", "+넓은 무작위화·CLAHE")]
 
 
 def rob_group(tag: str, conds: list[str]) -> str:
