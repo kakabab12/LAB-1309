@@ -10,3 +10,10 @@ WARNING:root:No accelerated backend detected. Using default cpu, this will be sl
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
 WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+[per-stage] stage 1: 100.0% (50/50)
+[per-stage] stage 2: 100.0% (50/50)
+[per-stage] stage 3: 100.0% (50/50)
+[chained] cumulative 1층 100.0% -> 옆 100.0% -> 2층 100.0%

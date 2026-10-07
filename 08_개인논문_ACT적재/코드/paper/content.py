@@ -129,6 +129,31 @@ def chain_ci(name: str) -> str:
     return f"{100 * k / n:.0f} ({100 * lo:.0f}–{100 * hi:.0f})"
 
 
+def big(name: str = "v5_n100_x200") -> dict:
+    """Extended evaluation (merge_eval.py): per-stage and sequence success with 95% intervals."""
+    p = ROOT / "results" / "eval" / name / "results.json"
+    if not p.exists():
+        return {}
+    r = json.loads(p.read_text())
+    out = {}
+    for st in ("1", "2", "3"):
+        tr = r["per_stage"][st]["trials"]
+        k, n = sum(t["success"] for t in tr), len(tr)
+        out[st] = (k, n)
+    seq = r["chained"]["sequences"]
+    out["c"] = (sum(s["cumulative"][2] for s in seq), len(seq))
+    return out
+
+
+def big_txt(key: str, name: str = "v5_n100_x200") -> str:
+    b = big(name)
+    if key not in b:
+        return MISSING
+    k, n = b[key]
+    lo, hi = wilson(k, n)
+    return f"{100 * k / n:.1f}%(95% CI {100 * lo:.1f}–{100 * hi:.1f}%)" if key == "c" else f"{100 * k / n:.1f}%"
+
+
 def retry(name: str, key: str = "cumulative_success") -> str:
     """Sequence success with scale-verified retry (eval_retry.py), or its first-attempt value."""
     p = ROOT / "results" / "eval" / f"{name}_retry" / "results.json"
@@ -249,8 +274,7 @@ def body(media, b) -> str:
           "'8'을 '1'로 읽었으므로, 1단계에서 표시부(screen) 영역을 찾고 여백 15화소와 함께 잘라 640×640으로 확대한 뒤 "
           "숫자를 다시 탐지하는 2단계 디지털 줌을 썼다. 한 숫자에 여러 상자가 겹쳐 '118'이 '111111888'로 조합되는 문제는 "
           "① 비숫자 클래스 제거, ② IoU 0.4 NMS, ③ 자릿수 구역별 최고 신뢰도 선택, ④ 반복 숫자 복원의 4단계로 "
-          "해결하였다(그림 2)."))
-    add(fig(media, FIG / "fig_vision.png", "그림 2. 7-segment 무게 인식 파이프라인"))
+          "해결하였다."))
 
     add(h2("2.3 ACT 기반 순차 적재"))
     add(P("로봇은 그리퍼를 포함해 6개 관절을 갖는 SO-101 팔로워암이며, 손목 카메라(front)와 상단 카메라(top)를 쓴다. "
@@ -271,12 +295,12 @@ def body(media, b) -> str:
     add(h1("Ⅲ. 시뮬레이션 기반 적재 평가"))
     add(h2("3.1 시뮬레이션 셀"))
     add(P("현장 시험 이후 로봇팔이 파손되어 적재 결과를 다시 측정할 수 없었다. 이에 MuJoCo[8]로 실제 셀을 "
-          "재현하였다(그림 3). 로봇은 공식 SO-101 모델[14]의 손목 카메라 버전으로 STS3215 서보의 위치 제어 특성을 "
+          "재현하였다(그림 2). 로봇은 공식 SO-101 모델[14]의 손목 카메라 버전으로 STS3215 서보의 위치 제어 특성을 "
           "포함하며, 카메라 배치, 제어 주기(30Hz), 관절 목표값 행동 공간을 실제와 같게 하였다. 영상은 실제 경량 "
           "추론 설정과 같은 160×120을 쓴다. 분류 통은 공개 모델의 출력 무게(통 33g)와 시연 영상으로부터 "
           "64×64×52mm(벽 2mm)로 정하고 내부 큐브를 포함해 123g으로 두었다. 저울 위 통은 위치 ±20mm, 방향 ±20°, "
           "먼저 쌓인 통은 목표에서 ±8mm, ±5°로 무작위화하였다."))
-    add(fig(media, FIG / "fig2_sim.png", "그림 3. 시뮬레이션 셀 (a) 전체 (b) 손목 카메라 (c) 상단 카메라"))
+    add(fig(media, FIG / "fig2_sim.png", "그림 2. 시뮬레이션 셀 (a) 전체 (b) 손목 카메라 (c) 상단 카메라"))
     add(h2("3.2 시연 설계와 학습"))
     add(P("원격조작 대신 역기구학 기반 스크립트 전문가로 시연을 만들었으며, ACT 원 논문도 시뮬레이션 과제에서 "
           "스크립트 시연을 사용하였고[4], 시연을 자동으로 만들어 데이터 양을 늘리는 방법도 연구되고 있다[15]. "
@@ -329,15 +353,15 @@ def body(media, b) -> str:
                ["인식부터 명령 전송까지 응답", "약 810ms"]]))
 
     add(h2("4.2 ACT 순차 적재 (시뮬레이션)"))
-    rows = [["시연 설계 / 수", "1층", "옆", "2층", "연속 (95% CI)"]]
-    for name, label in (("v1_n100", "① 여유 1.5mm, 로봇 쪽 벽 / 100"), ("n100", "② 여유 9mm, 로봇 쪽 벽 / 100"),
-                        ("n200", "② / 200"), ("v4_n100", "③ ②+같은 벽 / 100"),
-                        ("v5_n100", "④ ③+놓은 뒤 물러나기 / 100"), ("v5_n200", "④ / 200"), ("v5_n500", "④ / 500"),
-                        ("v5_n1000", "④ / 1000"), ("v5_dart1000", "④+DART / 1000"),
-                        ("v6c_n1000", "④+무작위화·CLAHE / 1000")):
+    rows = [["시연 설계 (시연 수)", "1층", "옆", "2층", "연속 (95% CI)"]]
+    for name, label in (("v1_n100", "① 초기 설계 (100)"), ("n100", "② +여유 9mm (100)"),
+                        ("n200", "② (200)"), ("v4_n100", "③ +같은 벽 (100)"),
+                        ("v5_n100", "④ +물러나기 (100)"), ("v5_n200", "④ (200)"), ("v5_n500", "④ (500)"),
+                        ("v5_n1000", "④ (1000)"), ("v5_dart1000", "④+DART (1000)"),
+                        ("v6c_n1000", "④+무작위화·CLAHE (1000)")):
         rows.append([label, pct(name, 1), pct(name, 2), pct(name, 3), chain_ci(name)])
     add(table("표 3. 적재 성공률 (%, 시뮬레이션, 각 50회)", [1900, 470, 470, 470, 1190], rows))
-    nfig = 4
+    nfig = 3
     if (FIG / "fig_wallswitch_n100.png").exists():
         add(fig(media, FIG / "fig_wallswitch_n100.png",
                 f"그림 {nfig}. 저울 위 통의 회전각과 단계별 결과 (여유 9mm, 로봇 쪽 벽, 시연 100)"))
@@ -348,7 +372,7 @@ def body(media, b) -> str:
           "고정 집게가 통 벽 위에 걸려 끝까지 내려가지 못한 채 닫힌 경우였다. 파지 여유를 9mm로 둔 시연으로 같은 "
           f"100회를 학습하면 단계별 {pct('n100', 1)}%, {pct('n100', 2)}%, {pct('n100', 3)}%, 연속 {chain('n100', 2)}%로 "
           f"높아졌다. 남은 실패 {ws('fail_total')}건 중 {ws('band_fails')}건은 저울 위 통이 +7.5° 넘게 돌아간 시행에서 "
-          f"일어났다(그림 4). 이 구간의 실패율은 {ws_rate('band')}%, 나머지는 {ws_rate('rest')}%로, 전문가가 잡는 벽을 "
+          f"일어났다(그림 3). 이 구간의 실패율은 {ws_rate('band')}%, 나머지는 {ws_rate('rest')}%로, 전문가가 잡는 벽을 "
           "바꾸는 구간과 일치한다. 이때 정책은 앞벽과 옆벽 시연의 중간인 모서리 쪽으로 가서 집게를 벽 위에 얹은 채 "
           "닫았다. 같은 설계로 시연을 200회로 늘리면 연속 성공률은 오히려 "
           f"{chain('n200', 2)}%로 낮아졌고, 이 구간의 실패가 {ws('band_fails')}건에서 "
@@ -358,12 +382,14 @@ def body(media, b) -> str:
           "10° 넘게 기운 경우였고, 2mm 벽 위에 얹힌 통이라 바닥에서와 달리 다시 내려앉지 못했다. 그리퍼를 벌린 뒤 벽 "
           "바깥으로 5mm 물러났다가 올라가는 시연(④, 2층만)으로 바꾸자 전문가의 3° 이상 기울어짐이 50회 중 11회에서 "
           f"1회로 줄었고, 정책은 단계별 {pct('v5_n100', 1)}%, {pct('v5_n100', 2)}%, {pct('v5_n100', 3)}%, 연속 "
-          f"{chain('v5_n100', 2)}%였다."))
+          f"{chain('v5_n100', 2)}%였다. 같은 정책을 장면 200개로 늘려 평가하면(CPU 추론) 단계별 {big_txt('1')}, "
+          f"{big_txt('2')}, {big_txt('3')}, 연속 {big_txt('c')}로, 팀의 원래 조건인 단계별 시연 100회만으로 연속 "
+          "성공률 95% 이상을 신뢰구간 하한까지 확인하였다."))
     if (FIG / "fig3_scaling.png").exists():
         add(fig(media, FIG / "fig3_scaling.png", f"그림 {nfig}. 시연 수에 따른 적재 성공률 (④ 시연)"))
         nfig += 1
     add(P(f"④ 시연을 200, 500, 1000회로 늘리면 연속 성공률은 {chain('v5_n200', 2)}%, {chain('v5_n500', 2)}%, "
-          f"{chain('v5_n1000', 2)}%였다(그림 5). 시연 잡음을 주입한 DART 정책은 같은 1000회에서 연속 "
+          f"{chain('v5_n1000', 2)}%였다(그림 4). 시연 잡음을 주입한 DART 정책은 같은 1000회에서 연속 "
           f"{chain('v5_dart1000', 2)}%였다. "
           + (f"추론만 바꾸는 시간 앙상블[4]은 ④ 시연 {te_n}회 정책의 연속 성공률을 {chain(f'v5_n{te_n}', 2)}%에서 "
              f"{chain(f'v5_n{te_n}_te', 2)}%로 바꾸었다. " if (te_n := next((n for n in (1000,) if RES.get(f'v5_n{n}_te')), None)) else "")

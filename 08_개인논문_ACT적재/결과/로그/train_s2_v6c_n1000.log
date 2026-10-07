@@ -1,0 +1,2 @@
+{"stage": 2, "episodes": 1000, "frames": 270000, "image_bytes": 2411019412, "data": ["data/v6_stage2.jpk.npz"], "steps": 30000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": "clahe", "cams": ["front", "top"]}
+{"step": 2000, "loss": 1.123781091272831, "l1_loss": 0.18566320322453975, "kld_loss": 0.09381178945302963, "elapsed_s": 1375.7180216312408}

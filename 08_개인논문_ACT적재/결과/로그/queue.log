@@ -80,3 +80,10 @@
 [10-07 21:03:43] trained s3_v5_n200
 [10-07 21:03:53] eval v5_n200 (s1_v4_n200 + s2_v4_n200 + s3_v5_n200)
 [10-07 21:04:05] train s1_v6c_n1000 (1000 demos, preprocess clahe)
+[10-07 21:04:32] trained s1_v4_n500
+[10-07 21:05:35] train s2_v6c_n1000 (1000 demos, preprocess clahe)
+[10-07 21:09:50] trained s2_v4_n500
+[10-07 21:10:07] train s1_v4_n1000 (1000 demos, preprocess -)
+[10-07 21:14:05] gen v6: v6_stage3 ready
+[10-07 21:14:05] gen v6 done
+[10-07 21:39:45] v5_n100 x200 merged (CPU)
