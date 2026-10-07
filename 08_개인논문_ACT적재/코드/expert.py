@@ -17,8 +17,11 @@ from stack_env import BIN_H, BIN_W, CONTROL_HZ, GRIPPER_CLOSED, GRIPPER_OPEN, JO
 ARM = 5  # first five joints; joint 6 is the gripper
 # Demonstration design. v4 grasps one fixed wall (normal nearest -x) over the whole pick-yaw range;
 # v1-v3 took the wall facing the robot, which switches walls near yaw +10 deg and makes the demos bimodal.
+# v5 = v4 + after releasing, back the jaws off the wall before lifting (lifting straight up dragged the wall
+# and tipped a bin standing on the 2 mm rims of the bin below).
 DESIGN = os.environ.get("ACT_DESIGN", "v2")
-WALL_REF = np.array([-1.0, 0.0]) if DESIGN == "v4" else None
+WALL_REF = np.array([-1.0, 0.0]) if DESIGN in ("v4", "v5") else None
+BACKOFF = 0.005 if DESIGN == "v5" else 0.0  # m along the outward wall normal, after opening
 
 
 def wrap(a: float) -> float:
@@ -199,7 +202,8 @@ class ScriptedExpert:
         lift = np.array([grasp[0], grasp[1], self.CARRY_Z]) + jx(0.006)
         place = np.array([*(target[:2] + (BIN_W / 2) * n_place[:2]), rim_place - self.GRASP_DEPTH + 0.004]) + jx(0.0015)
         above = np.array([place[0], place[1], self.CARRY_Z]) + jx(0.006)
-        retreat = place + np.array([0, 0, 0.06]) + jx(0.006)
+        backoff = place + BACKOFF * n_place
+        retreat = backoff + np.array([0, 0, 0.06]) + jx(0.006)
 
         G_O, G_C = GRIPPER_OPEN, GRIPPER_CLOSED
         wps = [  # (pos, yaw, gripper, duration_s)
@@ -210,8 +214,8 @@ class ScriptedExpert:
             (above, yaw_place, G_C, 1.8 * sp()),
             (place, yaw_place, G_C, 1.0 * sp()),
             (place, yaw_place, G_O, 0.5 * sp()),
-            (retreat, yaw_place, G_O, 0.8 * sp()),
-        ]
+        ] + ([(backoff, yaw_place, G_O, 0.3 * sp()), (retreat, yaw_place, G_O, 0.6 * sp())] if BACKOFF > 0 else
+             [(retreat, yaw_place, G_O, 0.8 * sp())])
         traj = []
         q = q_start.copy()
         prev_p, prev_yaw, prev_g = p0, yaw_pick, q_start[5]

@@ -42,3 +42,5 @@
 [10-07 12:22:01] v2 stage3_more pack renamed (v2hold_) so queue v6 cannot start v2 n500; v6 will be stopped after its n200 evals
 [10-07 13:13:17] eval n200 done
 [10-07 13:14:26] queue v6 stopped after n200 evals (v2 n200_te skipped; temporal ensemble will be tested on v4)
+[10-07 14:20:58] v4_n100 trained; evaluating in background
+[10-07 14:20:58] train v4_n200

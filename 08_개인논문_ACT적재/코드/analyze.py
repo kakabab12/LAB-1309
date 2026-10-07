@@ -10,7 +10,8 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent
 EVAL = ROOT / "results" / "eval"
-CONDS = ["n100", "n200", "n500", "n1000", "n200_te", "dart200"]
+CONDS = ["v1_n100", "n100", "n200",  # v1, v2 designs (robot-facing wall)
+         "v4_n100", "v4_n200", "v4_n500", "v4_n1000", "v4_dart1000", "v4_dart200", "v4_n100_te", "v4_n200_te"]
 
 
 def load(name):
