@@ -49,6 +49,10 @@ fr[0].save(sys.argv[2], save_all=True, append_images=fr[1:], duration=200, loop=
 done
 [ -f results/robust_summary.json ] && cp results/robust_summary.json "$R/결과/수치/"
 
+# large showcase GIFs (make_showcase.py), copied as they are
+mkdir -p "$R/결과/gif/showcase"
+cp results/showcase/*.gif "$R/결과/gif/showcase/" 2>/dev/null || true
+
 # dataset previews, analysis summary, logs
 mkdir -p "$R/결과/시연데이터_미리보기" "$R/결과/로그"
 cp results/preview/* "$R/결과/시연데이터_미리보기/" 2>/dev/null || true
@@ -66,7 +70,7 @@ cp results/stack_*.png results/pallet_expert_final.png results/design_versions.p
 
 # code
 cp stack_env.py expert.py gen_data.py train_act.py eval_act.py make_gif.py batch_expert.py sync_repo.sh analyze.py dataset_preview.py \
-   convert_jpeg.py publish.sh stack_photos.py grasp_tolerance.py grasp_offsets.py wall_rule_test.py design_photos.py grip_check.py inspect_stage3.py expert_eval.py robust_eval.py preprocess.py wide_expert_test.py eval_retry.py robust_summary.py merge_eval.py \
+   convert_jpeg.py publish.sh stack_photos.py grasp_tolerance.py grasp_offsets.py wall_rule_test.py design_photos.py grip_check.py inspect_stage3.py expert_eval.py robust_eval.py preprocess.py wide_expert_test.py eval_retry.py robust_summary.py merge_eval.py make_showcase.py \
    run_queue3.sh run_queue4.sh run_queue6.sh run_queue7.sh run_queue8.sh gen_all_v2.sh gen_stage_v2.sh gen_more_v2.sh gen_v4.sh gen_v5.sh gen_v6.sh run_queue9.sh run_queue10.sh run_post.sh "$R/코드/" 2>/dev/null || true
 mkdir -p "$R/코드/paper" && cp paper/*.py "$R/코드/paper/"
 echo "synced to $R"
