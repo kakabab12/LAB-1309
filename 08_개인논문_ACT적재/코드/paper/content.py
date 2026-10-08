@@ -172,6 +172,25 @@ def side_sd(name: str) -> str:
     return t.split("표준편차 ")[1].rstrip("mm") if "표준편차" in t else MISSING
 
 
+def xy_mean(name: str = "v5_n100_x200") -> str:
+    """Mean horizontal placement error (mm) per stage, '3.6, 4.4, 5.9'."""
+    p = ROOT / "results" / "eval" / name / "results.json"
+    if not p.exists():
+        return MISSING
+    ps = json.loads(p.read_text())["per_stage"]
+    return ", ".join(f"{sum(t['xy_err_mm'] for t in ps[s]['trials']) / len(ps[s]['trials']):.1f}" for s in "123")
+
+
+def chain_at(tol_mm: float, name: str = "v5_n100_x200") -> str:
+    """Sequence success re-judged with a stricter horizontal tolerance (same runs, other criteria unchanged)."""
+    p = ROOT / "results" / "eval" / name / "results.json"
+    if not p.exists():
+        return MISSING
+    seq = json.loads(p.read_text())["chained"]["sequences"]
+    ok = lambda t: t["xy_err_mm"] < tol_mm and t["z_err_mm"] < 8 and t["tilt_deg"] < 10 and not t["disturbed"]
+    return f"{100 * sum(all(ok(t) for t in q['stages']) for q in seq) / len(seq):.1f}"
+
+
 def retry(name: str, key: str = "cumulative_success") -> str:
     """Sequence success with scale-verified retry (eval_retry.py), or its first-attempt value."""
     p = ROOT / "results" / "eval" / f"{name}_retry" / "results.json"
@@ -404,7 +423,7 @@ def body(media, b) -> str:
         add(fig(media, FIG / "fig_wallswitch_n100.png",
                 f"그림 {nfig}. 저울 위 통의 회전각과 단계별 결과 (여유 9mm, 로봇 쪽 벽, 시연 100)"))
         nfig += 1
-    add(P(f"표 2는 단계별(각 50회)과 세 단계를 이어 수행한 연속(50회) 성공률이다. 초기 시연(①)은 단계별 "
+    add(P(f"표 2에서 초기 시연(①)은 단계별 "
           f"{pct('v1_n100', 1)}%, {pct('v1_n100', 2)}%, {pct('v1_n100', 3)}%였으나 앞 단계의 오차가 넘어가 연속 "
           f"{chain('v1_n100', 2)}%에 그쳤다. 실패 장면을 다시 재생해 원인을 찾고 시연 설계를 차례로 고쳤다. 고정 집게가 "
           f"벽 위에 걸리던 문제는 파지 여유 9mm(②)로 줄었고(연속 {chain('n100', 2)}%), 남은 실패 {ws('fail_total')}건 중 "
@@ -413,7 +432,8 @@ def body(media, b) -> str:
           f"늘리면 오히려 연속 {chain('n200', 2)}%로 낮아졌다. 늘 같은 벽을 잡게 하자(③) 집기 실패가 없어졌고(연속 "
           f"{chain('v4_n100', 2)}%), 남은 2층 실패는 그리퍼가 곧장 올라가며 2mm 벽 위의 통을 끌어 올려 기운 경우였다. "
           f"벌린 뒤 5mm 물러났다 올라가게 하자(④) 단계별 {pct('v5_n100', 1)}%, {pct('v5_n100', 2)}%, "
-          f"{pct('v5_n100', 3)}%, 연속 {chain('v5_n100', 2)}%가 되었다. 장면 200개 평가(CPU)에서는 연속 {big_txt('c')}였고, "
+          f"{pct('v5_n100', 3)}%, 연속 {chain('v5_n100', 2)}%가 되었다. 장면 200개 평가(CPU)에서는 연속 {big_txt('c')}"
+          f"(평균 위치 오차 {xy_mean()}mm, 허용 오차를 10mm로 줄이면 {chain_at(10)}%)였고, "
           f"남은 2건은 통을 집지 못해 저울에 남은 경우라 저울을 다시 읽어 재실행하게 하자 연속 {retry_ci('v5_n100')}가 "
           "되었다."))
     if (FIG / "fig3_scaling.png").exists():
