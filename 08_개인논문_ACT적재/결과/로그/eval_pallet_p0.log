@@ -1,12 +1,3 @@
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
 WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
@@ -38,3 +29,12 @@ seq 8: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
 seq 9: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
 seq 10: ooxxooxx attempts [1, 1, 1, 1, 1, 1, 1, 1]
 seq 11: oooxxoxx attempts [1, 1, 1, 1, 2, 1, 1, 1]
+seq 12: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 13: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 14: ooooxooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 15: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 16: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 17: ooooxooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 18: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 19: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+[pallet] full 8-stack 0.6 first attempt 0.6

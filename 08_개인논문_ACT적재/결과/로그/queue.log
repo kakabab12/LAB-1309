@@ -225,3 +225,8 @@
 [10-09 01:13:39] pallet fix: 200 more demos for slot 7 (4 x 50, seeds 41000-44000)
 [10-09 01:27:24] trained s3_v5w_n200
 [10-09 01:27:42] eval v5w_n200 (s1_v4w_n200 + s2_v4w_n200 + s3_v5w_n200)
+[10-09 02:25:46] trained s1_v4t_n200
+[10-09 02:43:15] trained s2_v4t_n200
+[10-09 02:51:02] pallet eval (k=100) done: [pallet] full 8-stack 0.6 first attempt 0.6 [pallet] full 8-stack 0.55 first attempt 0.55 
+[10-09 02:51:02] slot 7 checks: k=100 [slot 6] 13/20 | k=25 [slot 6] 11/12 | TE [slot 6] 11/12
+[10-09 02:51:02] pallet eval with re-planning every 25 steps (all slots, 2 x 20 sequences)
