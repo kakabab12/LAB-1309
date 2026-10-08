@@ -222,3 +222,4 @@
 [10-09 00:36:16] trained s2_v4w_n200
 [10-09 00:36:28] train s3_v5t_n200 (200 demos, --cams top)
 [10-09 00:37:58] queue v10: all trainings launched
+[10-09 01:13:39] pallet fix: 200 more demos for slot 7 (4 x 50, seeds 41000-44000)
