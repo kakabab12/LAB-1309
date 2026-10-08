@@ -18,8 +18,6 @@ WARNING:root:No accelerated backend detected. Using default cpu, this will be sl
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
 WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
 Loading weights from local directory
 Loading weights from local directory
 Loading weights from local directory
@@ -38,3 +36,5 @@ seq 6: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
 seq 7: ooooxoxx attempts [1, 1, 1, 1, 1, 1, 1, 2]
 seq 8: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
 seq 9: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 10: ooxxooxx attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 11: oooxxoxx attempts [1, 1, 1, 1, 2, 1, 1, 1]

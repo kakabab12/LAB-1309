@@ -30,12 +30,13 @@ def main():
     ap.add_argument("--max-attempts", type=int, default=3)
     ap.add_argument("--gifs", type=int, default=0)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--k", type=int, default=None, help="re-plan every k steps (default: run each 100-step chunk fully)")
     a = ap.parse_args()
     torch.set_num_threads(2)
     slots = PG.configure(**LAYOUT)
     env = PG.make_env(slots, render=True)
     home = PG.GridExpert(env).home_q()
-    pols = [load_policy(f"runs/{r}/ckpt_{a.step:06d}", "cpu", None) for r in a.runs]
+    pols = [load_policy(f"runs/{r}/ckpt_{a.step:06d}", "cpu", None, a.k) for r in a.runs]
     rec = Recorder(env, enabled=a.gifs > 0)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -68,7 +69,7 @@ def main():
                      "cumulative_first": [all(ok0[: k + 1]) for k in range(8)]})
         rec.save(out / "gifs" / f"pallet_t{i:02d}_{''.join('o' if o else 'x' for o in ok)}.gif")
         print(f"seq {i}: {''.join('o' if o else 'x' for o in ok)} attempts {[x['attempts'] for x in rows]}", flush=True)
-    res = {"runs": a.runs, "n": len(seqs), "slot_success": np.mean([[x["success"] for x in s["slots"]] for s in seqs], 0).tolist(),
+    res = {"runs": a.runs, "k": a.k, "n": len(seqs), "slot_success": np.mean([[x["success"] for x in s["slots"]] for s in seqs], 0).tolist(),
            "cumulative_success": np.mean([s["cumulative"] for s in seqs], 0).tolist(),
            "cumulative_first_attempt": np.mean([s["cumulative_first"] for s in seqs], 0).tolist(), "sequences": seqs}
     (out / "results.json").write_text(json.dumps(res, indent=1, default=float))
