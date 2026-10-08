@@ -169,3 +169,12 @@
 [10-08 11:08:41] queue v11 stopped: v6 (DR only) >= v6c (DR + CLAHE) on all 20 robustness conditions (better 13, tied 7; mean 96.4 vs 90.8%), so v7 trains without CLAHE (s1_v7c_n1000 cancelled after 6 min)
 [10-08 11:09:02] queue v11 start (v7: wider randomisation, no CLAHE, 1000 demos)
 [10-08 11:09:03] train s1_v7_n1000 (1000 demos, v7 data, no CLAHE)
+[10-08 12:48:15] trained s3_v5c_n200
+[10-08 12:48:36] eval v5c_n200 (s1_v4c_n200 + s2_v4c_n200 + s3_v5c_n200)
+[10-08 12:48:37] train s2_v7_n1000 (1000 demos, v7 data, no CLAHE)
+[10-08 12:49:50] robust v5c_n200 start
+[10-08 13:01:30] eval v8_n100 done: [chained] cumulative 1층 100.0% -> 옆 94.0% -> 2층 94.0% | x200: {'1': '100.0% (200)', '2': '95.0% (200)', '3': '99.5% (200)'} chained [100.0, 96.0, 96.0] 200
+[10-08 13:01:30] retry v8_n100: [retry] cumulative [100.0, 92.0, 92.0] (first attempt only [100.0, 92.0, 92.0]), retried stage runs 0 [retry] cumulative [100.0, 98.0, 98.0] (first attempt only [100.0, 98.0, 98.0]), retried stage runs 0 [retry] cumulative [100.0, 92.0, 92.0] (first attempt only [100.0, 92.0, 92.0]), retried stage runs 0 [retry] cumulative [100.0, 100.0, 100.0] (first attempt only [100.0, 100.0, 100.0]), retried stage runs 0 
+[10-08 13:03:54] v8_n100 final eval: stage 2 95% (x200; all 10 failures upright but 15.6-20.6 mm outward = B shifted with A eats the 15 mm margin) < v5_n100 100% -> v8 rejected; v7 stage 2 regenerated with the v4 rule (old data kept as data/v7v8_stage2.jpk.npz), s2_v7_n1000 (v8 data) stopped after 35 min
+[10-08 13:03:54] gen v7 stage 2 (v4 rule) start, 5 x 200 in parallel
+[10-08 13:04:07] train s3_v7_n1000 (1000 demos, v7 data, no CLAHE)

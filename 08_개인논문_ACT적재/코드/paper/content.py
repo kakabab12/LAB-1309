@@ -155,6 +155,17 @@ def big_txt(key: str, name: str = "v5_n100_x200") -> str:
     return f"{100 * k / n:.1f}%(95% CI {100 * lo:.1f}–{100 * hi:.1f}%)" if key == "c" else f"{100 * k / n:.1f}%"
 
 
+def side_spread(name: str) -> str:
+    """Side-bin (stage 2) placement offset along the row from its slot (stack_env.T2 y = 0.172 m): mean and SD."""
+    p = ROOT / "results" / "eval" / name / "results.json"
+    if not p.exists():
+        return MISSING
+    dy = [1000 * (t["bin_pos"][1] - 0.172) for t in json.loads(p.read_text())["per_stage"]["2"]["trials"]]
+    m = sum(dy) / len(dy)
+    sd = (sum((d - m) ** 2 for d in dy) / len(dy)) ** 0.5
+    return f"평균 +{m:.1f}mm, 표준편차 {sd:.1f}mm"
+
+
 def retry(name: str, key: str = "cumulative_success") -> str:
     """Sequence success with scale-verified retry (eval_retry.py), or its first-attempt value."""
     p = ROOT / "results" / "eval" / f"{name}_retry" / "results.json"
@@ -378,7 +389,6 @@ def body(media, b) -> str:
                         ("n200", "② (200)"), ("v4_n100", "③ +같은 벽 (100)"),
                         ("v5_n100", "④ +물러나기 (100)"), ("v5_n200", "④ (200)"), ("v5_n500", "④ (500)"),
                         ("v5_n1000", "④ (1000)"), ("v5_dart1000", "④+DART (1000)"),
-                        ("v8_n100", "⑤ +옆 간격 확보 (100)"),
                         ("v6_n1000", "④+무작위화 (1000)"), ("v7_n1000", "④+넓은 무작위화 (1000)")):
         if name == "v7_n1000" and not RES.get(name):
             continue
@@ -404,8 +414,9 @@ def body(media, b) -> str:
     if (FIG / "fig3_scaling.png").exists():
         add(fig(media, FIG / "fig3_scaling.png", f"그림 {nfig}. 시연 수에 따른 적재 성공률 (④ 시연)"))
         nfig += 1
-    v8 = (f" 실제 통 A 위치를 보고 6mm 간격을 확보하는 옆 단계 시연(⑤)으로 바꾸자 시연 100회에서 연속 "
-          f"{chain('v8_n100', 2)}%, 장면 200개에서 {big_txt('c', 'v8_n100_x200')}였다." if RES.get("v8_n100") else "")
+    v8 = (f" 옆 통을 1층 통 위치에 맞춰 6mm 간격을 두고 놓는 시연(⑤)은 옆 통이 더 흩어져(목표 대비 "
+          f"{side_spread('v8_n100_x200')}, ④는 {side_spread('v5_n100_x200')}) 15mm를 넘는 경우가 생겨 장면 200개 연속 "
+          f"{big_txt('c', 'v8_n100_x200')}로 ④보다 낮았다." if big("v8_n100_x200") else "")
     add(P(f"④ 시연을 200, 500, 1000회로 늘려도 연속 성공률은 {chain('v5_n200', 2)}%, {chain('v5_n500', 2)}%, "
           f"{chain('v5_n1000', 2)}%로 시연 100회에서 이미 포화되었다(그림 4). 남은 실패는 1층 통이 옆 칸 쪽으로 9~11mm "
           f"밀려 놓였을 때 옆 통이 그 벽에 걸려 넘어지는 경우였다(통 사이 간격 8mm).{v8} 적재 1회는 약 10초이며, "
