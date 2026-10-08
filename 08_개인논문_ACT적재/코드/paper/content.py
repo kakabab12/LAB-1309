@@ -9,12 +9,12 @@ ROOT = Path(__file__).resolve().parents[1]
 FIG = Path(__file__).resolve().parent
 
 TITLE_KO = ("Jetson Orin Nano 기반 YOLOv8 무게 인식과 ACT",
-            "모방학습을 이용한 스마트 팩토리 분류·순차 적재 시스템")
+            "모방학습을 이용한 스마트 팩토리 순차 적재와 시연 설계 분석")
 AUTHORS_KO = "*이지용, 김한민, 정철훈, 장민기, 고병철"
 AFFIL_KO = "계명대학교 컴퓨터공학전공"
 EMAIL = "e-mail : yeez0612@naver.com"
-TITLE_EN = ("Smart Factory Sorting and Sequential Stacking Using YOLOv8",
-            "Weight Recognition and ACT Imitation Learning on Jetson Orin Nano")
+TITLE_EN = ("Smart Factory Sequential Stacking with YOLOv8 Weight Recognition",
+            "and ACT Imitation Learning: Demonstration Design Analysis")
 AUTHORS_EN = "Jiyong Lee, Hanmin Kim, Cheolhun Jeong, Mingi Jang, and Byoung Chul Ko"
 AFFIL_EN = "Dept. of Computer Engineering, Keimyung University"
 
@@ -191,6 +191,12 @@ def chain_at(tol_mm: float, name: str = "v5_n100_x200") -> str:
     return f"{100 * sum(all(ok(t) for t in q['stages']) for q in seq) / len(seq):.1f}"
 
 
+def seq200(name: str = "v5_n100_x200") -> str:
+    """Sequence success of the extended evaluation, number only (e.g. '99.0')."""
+    b = big(name)
+    return f"{100 * b['c'][0] / b['c'][1]:.1f}" if "c" in b else MISSING
+
+
 def retry(name: str, key: str = "cumulative_success") -> str:
     """Sequence success with scale-verified retry (eval_retry.py), or its first-attempt value."""
     p = ROOT / "results" / "eval" / f"{name}_retry" / "results.json"
@@ -310,9 +316,10 @@ def body(media, b) -> str:
           "통을 1층, 첫 통 옆, 첫 통 위(2층) 순서로 적재하는 셀을 구현한다. 현장 시험 이후 로봇팔이 파손되어 적재 "
           "성능을 다시 실측할 수 없었으므로, 같은 로봇 모델·카메라·제어 주기를 갖는 MuJoCo[7] 셀을 구성하여 적재를 "
           "정량적으로 평가한다. 기여는 다음과 같다. ① 무게 인식부터 순차 적재까지 이어지는 에지 셀을 구현하고 인식 "
-          "성능을 실측하였다. ② 단계별 성공률과 함께 세 단계를 이어 수행하는 연속 성공률로 평가하여 순차 적재의 "
-          "오차 누적을 보였다. ③ 실패가 일어난 파지 위치와 장면을 분석하여 원인이 정책보다 시연 설계(파지 여유, "
-          "잡는 벽의 일관성)에 있음을 밝히고, 시연 설계, 시연 수, 시연 잡음 주입(DART)[8]의 효과를 정량화하였다."))
+          "성능을 실측하였다. ② 연속 적재 실패의 원인이 정책보다 시연 설계(파지 여유, 잡는 벽의 일관성, 놓은 뒤 "
+          f"물러나기)에 있음을 밝히고, 이를 고쳐 시연 100회의 연속 성공률을 {chain('v1_n100', 2)}%에서 {seq200()}%로 "
+          f"높였다. ③ 도메인 랜덤화로 환경 변화 평균 {rob_avg('v6_n1000')}%를 유지하였고, CLAHE 전처리와 지나친 "
+          "무작위화는 오히려 성능을 낮춤을 보였다."))
 
     # ------------------------------------------------------------ II
     add(h1("Ⅱ. 시스템 구성"))
