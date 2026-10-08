@@ -48,6 +48,7 @@ fr[0].save(sys.argv[2], save_all=True, append_images=fr[1:], duration=200, loop=
   done
 done
 [ -f results/robust_summary.json ] && cp results/robust_summary.json "$R/결과/수치/"
+[ -f results/verify_il.json ] && cp results/verify_il.json "$R/결과/수치/"
 
 # large showcase GIFs (make_showcase.py), copied as they are
 mkdir -p "$R/결과/gif/showcase"
@@ -70,7 +71,7 @@ cp results/stack_*.png results/pallet_expert_final.png results/design_versions.p
 
 # code
 cp stack_env.py expert.py gen_data.py train_act.py eval_act.py make_gif.py batch_expert.py sync_repo.sh analyze.py dataset_preview.py \
-   convert_jpeg.py publish.sh stack_photos.py grasp_tolerance.py grasp_offsets.py wall_rule_test.py design_photos.py grip_check.py inspect_stage3.py expert_eval.py robust_eval.py preprocess.py wide_expert_test.py eval_retry.py robust_summary.py merge_eval.py make_showcase.py fig_side_offset.py pallet_grid.py gen_pallet.py pallet_eval.py \
+   convert_jpeg.py publish.sh stack_photos.py grasp_tolerance.py grasp_offsets.py wall_rule_test.py design_photos.py grip_check.py inspect_stage3.py expert_eval.py robust_eval.py preprocess.py wide_expert_test.py eval_retry.py robust_summary.py merge_eval.py make_showcase.py fig_side_offset.py verify_il.py pallet_grid.py gen_pallet.py pallet_eval.py \
    run_queue3.sh run_queue4.sh run_queue6.sh run_queue7.sh run_queue8.sh gen_all_v2.sh gen_stage_v2.sh gen_more_v2.sh gen_v4.sh gen_v5.sh gen_v6.sh run_queue9.sh run_queue10.sh run_post.sh run_post2.sh gen_pallet_all.sh run_queue_pallet.sh gen_v7.sh run_queue11.sh run_queue12.sh "$R/코드/" 2>/dev/null || true
 mkdir -p "$R/코드/paper" && cp paper/*.py "$R/코드/paper/"
 echo "synced to $R"
