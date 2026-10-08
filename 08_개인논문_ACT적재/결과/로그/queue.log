@@ -186,3 +186,7 @@
 [10-08 13:51:36] gen v7: v7_stage2 ready (v4 rule)
 [10-08 13:51:46] train s2_v7_n1000 (1000 demos, v7 data with v4 stage-2 rule, no CLAHE)
 [10-08 14:25:05] eval v5c_n200 done
+[10-08 14:29:59] trained s3_v5_dart1000
+[10-08 14:30:17] train pal_s2 (pallet slot 2, 100 demos)
+[10-08 14:30:44] eval v5_dart1000 (s1_v4_dart1000 + s2_v4_dart1000 + s3_v5_dart1000)
+[10-08 15:15:28] eval v5_dart1000 done

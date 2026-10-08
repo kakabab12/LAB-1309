@@ -658,6 +658,70 @@
   },
   "learning_curve": {}
  },
+ "v5_dart1000": {
+  "name": "v5_dart1000",
+  "stage1": {
+   "success": 1.0,
+   "n": 50,
+   "modes": {
+    "success": 50
+   },
+   "xy_err_mm": 2.886174106129295,
+   "follow": {
+    "slope_x": 1.1331023501401103,
+    "slope_y": 1.0714906663274315,
+    "n": 50
+   }
+  },
+  "stage2": {
+   "success": 0.96,
+   "n": 50,
+   "modes": {
+    "success": 48,
+    "pushed_previous": 1,
+    "misplaced": 1
+   },
+   "xy_err_mm": 4.946352536853751,
+   "follow": {
+    "slope_x": 0.9543607505015544,
+    "slope_y": 0.9344621094512612,
+    "n": 50
+   }
+  },
+  "stage3": {
+   "success": 1.0,
+   "n": 50,
+   "modes": {
+    "success": 50
+   },
+   "xy_err_mm": 5.991738348457144,
+   "follow": {
+    "slope_x": 0.9468561025089098,
+    "slope_y": 0.8238157968656504,
+    "n": 50
+   }
+  },
+  "chained": {
+   "cumulative": [
+    1.0,
+    1.0,
+    0.96
+   ],
+   "n": 50,
+   "first_failure_stage": {
+    "1": 0,
+    "2": 0,
+    "3": 2,
+    "none": 48
+   },
+   "conditional": [
+    1.0,
+    1.0,
+    0.96
+   ]
+  },
+  "learning_curve": {}
+ },
  "v6_n1000": {
   "name": "v6_n1000",
   "stage1": {
