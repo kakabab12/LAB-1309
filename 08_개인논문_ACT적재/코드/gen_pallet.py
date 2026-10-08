@@ -10,6 +10,7 @@ usage: ACT_DESIGN=v4 PALLET_VIA=far python gen_pallet.py --slot 0 --episodes 100
 import argparse
 import json
 import math
+import os
 import time
 from pathlib import Path
 
@@ -19,7 +20,8 @@ import numpy as np
 import pallet_grid as PG
 import stack_env as SE
 
-LAYOUT = dict(rows=2, cols=2, layers=2, x0=0.20, y0=0.03)
+LAYOUT = dict(rows=2, cols=2, layers=2, x0=float(os.environ.get("PALLET_X0", "0.20")),
+              y0=float(os.environ.get("PALLET_Y0", "0.03")))  # PALLET_X0/Y0/GAP_Y: pallet layout v2 (10/9)
 NOISE_XY, NOISE_YAW = 0.003, math.radians(2)  # small enough that neighbours (8 mm apart) never overlap
 
 

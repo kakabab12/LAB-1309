@@ -26,7 +26,9 @@ import numpy as np
 import expert as E
 import stack_env as SE
 
-PITCH = SE.BIN_W + 0.008
+PITCH = SE.BIN_W + 0.008  # row pitch (x)
+# column pitch (y): gap between neighbouring columns, PALLET_GAP_Y (m) to widen it (default 8 mm like the rows)
+PITCH_Y = SE.BIN_W + float(os.environ.get("PALLET_GAP_Y", "0.008"))
 
 
 def configure(rows: int, cols: int, layers: int, x0: float, y0: float) -> list[dict]:
@@ -42,7 +44,7 @@ def configure(rows: int, cols: int, layers: int, x0: float, y0: float) -> list[d
         for c in reversed(range(cols)):  # far side of the scale (+y) first
             for r in reversed(range(rows)):  # far row (+x) first
                 slots.append({"layer": L, "row": r, "col": c,
-                              "xy": np.array([x0 + r * PITCH, y0 + c * PITCH])})
+                              "xy": np.array([x0 + r * PITCH, y0 + c * PITCH_Y])})
     for k, s in enumerate(slots):
         s["name"] = SE.BIN_NAMES[k]
         s["below"] = None if s["layer"] == 0 else next(
