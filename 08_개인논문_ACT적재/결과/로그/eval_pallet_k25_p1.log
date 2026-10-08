@@ -1,4 +1,3 @@
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
 WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
@@ -20,13 +19,22 @@ WARNING:root:No accelerated backend detected. Using default cpu, this will be sl
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
 WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+seq 20: oxoooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 21: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 22: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 23: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 24: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 25: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 26: oooxoooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 27: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 28: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 29: ooooxooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 30: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]

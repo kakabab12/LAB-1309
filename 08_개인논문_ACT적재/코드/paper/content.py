@@ -28,7 +28,7 @@ def _load(name: str) -> dict | None:
 
 
 RES = {k: _load(k) for k in ("v1_n100", "n100", "n200", "v4_n200", "v8_n100", "v5_n100", "v5_n200", "v5_n500", "v5_n1000",
-                             "v5_dart200", "v5_dart1000", "v6_n1000", "v6c_n1000", "v7_n1000", "v67_n2000", "v5c_n200", "v5_n1000_te",
+                             "v5_dart200", "v5_dart1000", "v6_n1000", "v6c_n1000", "v7_n1000", "v67_n2000", "v5c_n200", "v5w_n200", "v5t_n200", "v5_n1000_te",
                              "v4_n100_te", "v4_n200_te", "v4_n100", "v4_n200", "v4_n500", "v4_n1000",
                              "v4_dart200", "v4_dart1000")}
 
@@ -444,13 +444,13 @@ def body(media, b) -> str:
           f"{pct('v5_n100', 3)}%, 연속 {chain('v5_n100', 2)}%가 되었다. 장면 200개 평가(CPU)에서는 연속 {big_txt('c')}"
           f"(평균 위치 오차 {xy_mean()}mm, 허용 오차를 10mm로 줄이면 {chain_at(10)}%)였고, "
           f"남은 2건은 통을 집지 못해 저울에 남은 경우라 저울을 다시 읽어 재실행하게 하자 연속 {retry_ci('v5_n100')}가 "
-          "되었다. 영상을 가리면 세 단계 모두 0/10으로, 정책은 영상에서 통을 찾아 움직였다."))
+          "되었다. 영상을 가리면 세 단계 모두 0/10으로, 정책은 영상에서 통을 찾아 움직였다. 카메라를 하나만 쓰면(시연 200) "
+          f"상단만으로 연속 {chain('v5t_n200', 2)}%(둘 다 {chain('v5_n200', 2)}%)였으나 손목만으로는 들고 있는 통이 아래 통을 "
+          f"가려 2층이 {pct('v5w_n200', 3)}%, 연속 {chain('v5w_n200', 2)}%로 떨어져 상단 카메라가 핵심이었다."))
     if (FIG / "fig3_scaling.png").exists():
         add(fig(media, FIG / "fig3_scaling.png", f"그림 {nfig}. 시연 수에 따른 적재 성공률 (④ 시연)"))
         nfig += 1
-    v8 = (f" 옆 통을 1층 통에 맞춰 옮겨 놓는 시연(⑤)은 놓는 위치가 더 흩어져(표준편차 {side_sd('v8_n100_x200')}mm, ④ "
-          f"{side_sd('v5_n100_x200')}mm) 장면 200개 연속 {big_txt('c', 'v8_n100_x200')}로 오히려 낮았다."
-          if big("v8_n100_x200") else "")
+    v8 = ""  # v8 (side bin placed relative to bin A) was worse than ④; kept in the journal (10/8), cut for the 5-page limit
     add(P(f"④ 시연을 200, 500, 1000회로 늘려도 연속 성공률은 {chain('v5_n200', 2)}%, {chain('v5_n500', 2)}%, "
           f"{chain('v5_n1000', 2)}%로 시연 100회에서 이미 포화되었고(그림 4), DART 잡음 주입(1000회)도 {chain('v5_dart1000', 2)}%로 "
           f"차이가 없었다. 남은 실패는 1층 통이 옆 칸 쪽으로 9~11mm "

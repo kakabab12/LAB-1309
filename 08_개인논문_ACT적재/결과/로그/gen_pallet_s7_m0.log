@@ -1,2 +1,7 @@
 slot 6: kept 10/10 (3458s)
 slot 6: kept 20/21 (5497s)
+slot 6: kept 30/31 (7036s)
+slot 6: kept 40/41 (8584s)
+slot 6: kept 50/51 (10090s)
+{"slot": 6, "layer": 1, "row": 1, "col": 0, "kept": 50, "tried": 51, "expert_success_rate": 0.9803921568627451, "seconds": 10090.335791349411, "layout": {"rows": 2, "cols": 2, "layers": 2, "x0": 0.2, "y0": 0.03}}
+pallet_s7_m0.hdf5: 50 episodes -> pallet_s7_m0.jpk.npz 150 MB (10s)

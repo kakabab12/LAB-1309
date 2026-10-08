@@ -1,0 +1,5 @@
+{"stage": 7, "episodes": 300, "frames": 90000, "image_bytes": 903127609, "data": ["data/pallet_s7.jpk.npz", "data/pallet_s7_m0.jpk.npz", "data/pallet_s7_m1.jpk.npz", "data/pallet_s7_m2.jpk.npz", "data/pallet_s7_m3.jpk.npz"], "steps": 30000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"]}
+{"step": 2000, "loss": 1.086401923596859, "l1_loss": 0.15797768149524927, "kld_loss": 0.09284242428839207, "elapsed_s": 223.65586519241333}
+{"step": 4000, "loss": 0.42299890384078026, "l1_loss": 0.13163053907454014, "kld_loss": 0.029136836472898723, "elapsed_s": 429.29770946502686}
+{"step": 6000, "loss": 0.22893553368747235, "l1_loss": 0.11807662159204484, "kld_loss": 0.011085891146212817, "elapsed_s": 633.0111181735992}
+{"step": 8000, "loss": 0.16718505948781967, "l1_loss": 0.10970500959083437, "kld_loss": 0.0057480050437152385, "elapsed_s": 835.804182767868}

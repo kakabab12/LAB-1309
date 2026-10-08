@@ -1065,5 +1065,133 @@
     1.0
    ]
   }
+ },
+ "v5w_n200": {
+  "name": "v5w_n200",
+  "stage1": {
+   "success": 1.0,
+   "n": 50,
+   "modes": {
+    "success": 50
+   },
+   "xy_err_mm": 3.524863099909611,
+   "follow": {
+    "slope_x": 1.0944997823320781,
+    "slope_y": 1.069948843190999,
+    "n": 50
+   }
+  },
+  "stage2": {
+   "success": 0.92,
+   "n": 50,
+   "modes": {
+    "success": 46,
+    "tilted": 2,
+    "pushed_previous": 2
+   },
+   "xy_err_mm": 4.32814080889982,
+   "follow": {
+    "slope_x": 0.8684375948832709,
+    "slope_y": 0.8035561998865093,
+    "n": 50
+   }
+  },
+  "stage3": {
+   "success": 0.56,
+   "n": 50,
+   "modes": {
+    "misplaced": 22,
+    "success": 28
+   },
+   "xy_err_mm": 10.18544320824338,
+   "follow": {
+    "slope_x": 0.8022004086561232,
+    "slope_y": 0.8921574306438903,
+    "n": 50
+   }
+  },
+  "chained": {
+   "cumulative": [
+    1.0,
+    0.84,
+    0.7
+   ],
+   "n": 50,
+   "first_failure_stage": {
+    "1": 0,
+    "2": 8,
+    "3": 7,
+    "none": 35
+   },
+   "conditional": [
+    1.0,
+    0.84,
+    0.8333333333333334
+   ]
+  },
+  "learning_curve": {}
+ },
+ "v5t_n200": {
+  "name": "v5t_n200",
+  "stage1": {
+   "success": 1.0,
+   "n": 50,
+   "modes": {
+    "success": 50
+   },
+   "xy_err_mm": 5.704156901866623,
+   "follow": {
+    "slope_x": 1.0133079292166205,
+    "slope_y": 1.1177289983869847,
+    "n": 50
+   }
+  },
+  "stage2": {
+   "success": 1.0,
+   "n": 50,
+   "modes": {
+    "success": 50
+   },
+   "xy_err_mm": 7.122160370793557,
+   "follow": {
+    "slope_x": 1.0192907608004294,
+    "slope_y": 1.0475954068710034,
+    "n": 50
+   }
+  },
+  "stage3": {
+   "success": 0.98,
+   "n": 50,
+   "modes": {
+    "success": 49,
+    "misplaced": 1
+   },
+   "xy_err_mm": 6.172080459026804,
+   "follow": {
+    "slope_x": 0.9622436150951276,
+    "slope_y": 1.0663176468468902,
+    "n": 50
+   }
+  },
+  "chained": {
+   "cumulative": [
+    0.98,
+    0.96,
+    0.96
+   ],
+   "n": 50,
+   "first_failure_stage": {
+    "1": 1,
+    "2": 1,
+    "3": 0,
+    "none": 48
+   },
+   "conditional": [
+    0.98,
+    0.9795918367346939,
+    1.0
+   ]
+  },
+  "learning_curve": {}
  }
 }

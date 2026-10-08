@@ -230,3 +230,9 @@
 [10-09 02:51:02] pallet eval (k=100) done: [pallet] full 8-stack 0.6 first attempt 0.6 [pallet] full 8-stack 0.55 first attempt 0.55 
 [10-09 02:51:02] slot 7 checks: k=100 [slot 6] 13/20 | k=25 [slot 6] 11/12 | TE [slot 6] 11/12
 [10-09 02:51:02] pallet eval with re-planning every 25 steps (all slots, 2 x 20 sequences)
+[10-09 02:53:37] trained s3_v5t_n200
+[10-09 03:28:07] eval v5w_n200 done
+[10-09 03:28:07] eval v5t_n200 (s1_v4t_n200 + s2_v4t_n200 + s3_v5t_n200)
+[10-09 04:02:49] pallet fix: demos ready, training pal_s7b (300 demos)
+[10-09 04:16:40] eval v5t_n200 done
+[10-09 04:16:40] queue v10 finished
