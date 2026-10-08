@@ -4,12 +4,13 @@
 
 | 폴더 | 내용 | 출처 |
 |---|---|---|
-| [로봇팔_SO101/](로봇팔_SO101/) | SO-101 팔로워·리더 팔 부품, 손목·상단 카메라 마운트, 출력 정확도 게이지 | TheRobotStudio/SO-ARM100 공식 저장소 (Apache-2.0) |
+| [로봇팔_SO101/](로봇팔_SO101/) | SO-101 팔로워·리더 팔 부품, 출력 정확도 게이지 | TheRobotStudio/SO-ARM100 공식 저장소 (Apache-2.0) |
+| [카메라_마운트/](카메라_마운트/) | **손목 카메라·상단 카메라 거치대** (이 연구는 카메라 2개 사용) | 같은 공식 저장소 (Apache-2.0) |
 | [실험물체/](실험물체/) | 적재 실험의 분류 통, 큐브 (시뮬레이션과 같은 크기) | 이 연구에서 생성 (`act_sim/make_object_stl.py`) |
 
 ## 1. 로봇팔 SO-101 (`로봇팔_SO101/`)
 
-**키트를 살 경우**: 출력된 부품이 포함된 키트(Seeed Studio, WowRobo 등, [README_원본.md](로봇팔_SO101/README_원본.md) 의 Kits)를 사면 팔 부품은 출력할 필요가 없고, **카메라 마운트(아래 ③)와 실험물체만** 출력하면 된다.
+**키트를 살 경우**: 출력된 부품이 포함된 키트(Seeed Studio, WowRobo 등, [README_원본.md](로봇팔_SO101/README_원본.md) 의 Kits)를 사면 팔 부품은 출력할 필요가 없고, **[카메라_마운트/](카메라_마운트/)와 실험물체만** 출력하면 된다.
 
 **직접 출력할 경우** (공식 권장: PLA+, 노즐 0.4mm·층 0.2mm, 채움 15%, 서포트 사용):
 
@@ -20,12 +21,8 @@
 | ② 부품별 파일 `STL/SO101/Individual/` | 공통: Base, Base_motor_holder, Motor_holder_Base, Motor_holder_Wrist, Under_arm, Upper_arm, Rotation_Pitch, Wrist_Roll_Pitch, WaveShare(또는 Seeedstudio)_Mounting_Plate | 팔로워·리더 둘 다 1세트씩 |
 | | 팔로워 전용: Moving_Jaw, Wrist_Roll_Follower | 그리퍼 |
 | | 리더 전용: Handle, Trigger, Wrist_Roll | 손잡이 |
-| ③ 카메라 마운트 `Optional/` | `Wrist_Cam_Mount_32x32_UVC_Module/stl/..._SO101.stl` | **손목 카메라** (32×32mm USB 카메라 모듈용, 팔로워의 Wrist_Roll_Follower 대신 장착) |
-| | `Overhead_Cam_Mount_32x32_UVC_Module/stl/` (4개) | **상단(오버헤드) 카메라** 거치대 |
-| ④ 게이지 `STL/Gauges/` | Gauge_0 · Gauge_tight_1 (서보 기준), Lego 시험편 | 본 출력 전에 프린터 치수 정확도 확인 |
+| ③ 게이지 `STL/Gauges/` | Gauge_0 · Gauge_tight_1 (서보 기준), Lego 시험편 | 본 출력 전에 프린터 치수 정확도 확인 |
 
-- 이 연구의 ACT 는 **손목 + 상단 카메라 2개**를 쓰므로 ③ 두 가지가 모두 필요하다 (시뮬레이션은 공식 `so101_new_calib_camera.xml` 손목 카메라 모델 사용).
-- 팀이 썼던 카메라 모델명은 기록이 없어 32×32mm USB 카메라 모듈 기준 마운트를 넣었다. 다른 카메라(RealSense D405/D435, 일반 웹캠)용 마운트는 공식 저장소 `Optional/` 폴더에 있다.
 - 조립 순서·배선은 [LeRobot SO-101 문서](https://huggingface.co/docs/lerobot/so101) 참고.
 
 **모터·전자부품 (공식 README 기준, 출력물 아님)**
@@ -36,7 +33,34 @@
 | 모터 제어 보드 (Waveshare) | 1 | 1 |
 | 전원 5V (12V 서보를 쓰면 12V 5A 이상), USB-C 케이블, 책상 고정 클램프 | 1 | 1 |
 
-## 2. 실험 물체 (`실험물체/`)
+## 2. 카메라 마운트 (`카메라_마운트/`)
+
+실제 셀의 카메라는 **모두 4대** (팀 메모 `로봇팔.txt`, 논문 2.1절 기준):
+
+| # | 카메라 | 연결 | 하는 일 | 거치대 |
+|---|---|---|---|---|
+| ① | **손목 카메라** (front) | 로봇 PC/Jetson | ACT 입력 — 그리퍼 앞 통을 봄 | 이 폴더 `1_` (또는 `2_`) |
+| ② | **상단(오버헤드) 카메라** (top) | 로봇 PC/Jetson | ACT 입력 — 저울·적재 자리 전체를 위에서 봄 | 이 폴더 `3_` |
+| ③ | **저울 카메라** (USB, 640×480) | Jetson | 저울 7-segment 숫자 판독 → 118g 판정 | 공식 STL 없음 — 저울 표시창을 정면에서 찍도록 소형 삼각대·클램프로 고정 |
+| ④ | **상자 분류 카메라** (USB) | Jetson | YOLOv8n-seg 로 큰 상자 / 작은 상자 구분 | 공식 STL 없음 — 컨베이어 위를 내려다보게 고정 |
+
+- ①② 는 ACT 가 학습 때 본 시점과 같아야 하므로 **위치를 바꾸지 않게 단단히 고정** (시뮬레이션: 상단 ±12mm·손목 ±3mm 이내는 괜찮았음)
+- ③④ 는 YOLO 용이라 위치 자유도가 크지만, 저울 카메라는 숫자가 화면에 크게 잡히는 거리(중거리 정확도 90% 측정 조건)를 유지
+
+아래 거치대 STL 은 ①② 용. 32×32mm USB 카메라 모듈(720p·30fps 이상) 기준.
+
+| 폴더 | 파일 | 설명 |
+|---|---|---|
+| **`1_손목_HexNut_시뮬레이션과_같음/`** (추천) | `SO-ARM101_camera_wrist_mount.stl` (+ `.step`) | 시뮬레이션의 카메라 버전 로봇(`so101_new_calib_camera.xml`)에 달린 것과 **같은 파일** (바이트 단위 일치 확인). 손목의 육각 너트 홈에 끼워 고정. 채움 40%·트리 서포트 권장, M2 나사 4 + **M3×8mm 나사 2 + M3 육각 너트 2** 필요 |
+| `2_손목_일체형_대안/` | `Wrist_Cam_Mount_32x32_UVC_Module_SO101.stl` | 팔로워의 Wrist_Roll_Follower 부품을 **통째로 바꾸는** 일체형. 나사 추가 없음. 시뮬레이션과 카메라 위치가 조금 다름 |
+| `3_상단_오버헤드/` | `arm_base`, `cam_mount_bottom/middle/top` (4개) | 로봇 바닥판에 세우는 **상단 카메라** 거치대 |
+
+<img src="카메라_마운트/preview.png" width="600">
+
+- 왼쪽이 시뮬레이션과 같은 Hex-Nut 마운트, 오른쪽이 일체형. 조립 방법은 각 폴더의 `README_원본.md`.
+- 팀이 썼던 카메라 모델명은 기록이 없다. 다른 카메라(RealSense D405/D435, 일반 웹캠)용 마운트는 [공식 저장소 Optional/](https://github.com/TheRobotStudio/SO-ARM100/tree/main/Optional) 에 있다.
+
+## 3. 실험 물체 (`실험물체/`)
 
 시뮬레이션(`act_sim/stack_env.py`)과 **같은 크기**로 만든 파일. 단위 mm, 닫힌(watertight) 메시로 검사함.
 
@@ -53,5 +77,5 @@
 
 ## 출처·라이선스
 
-- `로봇팔_SO101/` : [TheRobotStudio/SO-ARM100](https://github.com/TheRobotStudio/SO-ARM100) 커밋 `a758567` (2026-10-09 받음) 의 일부 그대로. **Apache License 2.0** — [LICENSE](로봇팔_SO101/LICENSE) 원문 동봉. 큰 조립 확인용 파일(`SO101 Assembly.stl`, 38MB)과 Ender 용 판 파일은 용량 때문에 제외 (원본 저장소에서 받을 수 있음).
+- `로봇팔_SO101/`, `카메라_마운트/` : [TheRobotStudio/SO-ARM100](https://github.com/TheRobotStudio/SO-ARM100) 커밋 `a758567` (2026-10-09 받음) 의 일부 그대로. **Apache License 2.0** — [LICENSE](로봇팔_SO101/LICENSE) 원문 동봉. 큰 조립 확인용 파일(`SO101 Assembly.stl`, 38MB)과 Ender 용 판 파일은 용량 때문에 제외 (원본 저장소에서 받을 수 있음).
 - `실험물체/` : 이 연구에서 생성. 다시 만들려면 `python make_object_stl.py --out 실험물체` (act_sim).
