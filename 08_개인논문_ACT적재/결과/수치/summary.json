@@ -925,5 +925,76 @@
    ]
   },
   "learning_curve": {}
+ },
+ "v7_n1000": {
+  "name": "v7_n1000",
+  "stage1": {
+   "success": 0.98,
+   "n": 50,
+   "modes": {
+    "success": 49,
+    "misplaced": 1
+   },
+   "xy_err_mm": 6.799435229024278,
+   "follow": {
+    "slope_x": 1.2079293832645142,
+    "slope_y": 0.9297973818679779,
+    "n": 50
+   }
+  },
+  "stage2": {
+   "success": 0.92,
+   "n": 50,
+   "modes": {
+    "misplaced": 4,
+    "success": 46
+   },
+   "xy_err_mm": 7.395608768113455,
+   "follow": {
+    "slope_x": 1.1720056697304386,
+    "slope_y": 1.1406558638093658,
+    "n": 50
+   }
+  },
+  "stage3": {
+   "success": 0.94,
+   "n": 50,
+   "modes": {
+    "success": 47,
+    "misplaced": 3
+   },
+   "xy_err_mm": 7.715628791378736,
+   "follow": {
+    "slope_x": 1.144563129763657,
+    "slope_y": 1.1205207409874745,
+    "n": 50
+   }
+  },
+  "chained": {
+   "cumulative": [
+    1.0,
+    0.82,
+    0.82
+   ],
+   "n": 50,
+   "first_failure_stage": {
+    "1": 0,
+    "2": 9,
+    "3": 0,
+    "none": 41
+   },
+   "conditional": [
+    1.0,
+    0.82,
+    1.0
+   ]
+  },
+  "learning_curve": {
+   "30000": [
+    0.98,
+    0.92,
+    0.94
+   ]
+  }
  }
 }

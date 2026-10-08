@@ -191,3 +191,14 @@
 [10-08 14:30:44] eval v5_dart1000 (s1_v4_dart1000 + s2_v4_dart1000 + s3_v5_dart1000)
 [10-08 15:15:28] eval v5_dart1000 done
 [10-08 15:17:30] DART-200 cancelled (DART-1000 chained 96% vs 94% without DART: no gain); queue v9 + v8 stopped with nothing running; queue v9: all trainings launched (remaining DART-200 jobs dropped, camera ablation starts after the pallet)
+[10-08 16:00:15] v7c: s2_v7_n1000 missing
+[10-08 16:00:19] train pal_s3 (pallet slot 3, 100 demos)
+[10-08 16:31:20] train pal_s4 (pallet slot 4, 100 demos)
+[10-08 16:38:27] eval v7_n1000 + robustness (20 conditions)
+[10-08 16:38:51] train pal_s5 (pallet slot 5, 100 demos)
+[10-08 17:18:22] train pal_s6 (pallet slot 6, 100 demos)
+[10-08 18:07:54] eval v7_n1000 done: [chained] cumulative 1층 100.0% -> 옆 82.0% -> 2층 82.0%
+[10-08 18:07:54] robust v7_n1000 done
+[10-08 18:10:10] queue v13 start (v67_n2000: v6 + v7 demonstrations, 2000 per stage, no CLAHE)
+[10-08 18:10:10] train s1_v67_n2000 (2000 demos: v6 + v7, no CLAHE)
+[10-08 18:11:40] train s2_v67_n2000 (2000 demos: v6 + v7, no CLAHE)

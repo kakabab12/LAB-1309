@@ -72,7 +72,7 @@ ROB_GROUPS = [("변화 없음", ["base"]), ("조명 (어둡게·밝게·옆)", [
               ("통 무게 100·200g", ["mass_100g", "mass_200g"]), ("관측 지연 67·133ms", ["delay_67ms", "delay_133ms"]),
               ("무작위화 범위 밖 (조명 30·220%, 주황빛, 체크무늬)", ["very_dark", "very_bright", "warm_light", "table_checker"])]
 ROB_MODELS = [("v4_n100", "③/100"), ("v5_n1000", "④/1000"), ("v6_n1000", "+무작위화"),
-              ("v6c_n1000", "+무작위화·CLAHE"), ("v7_n1000", "+넓은 무작위화")]
+              ("v7_n1000", "+넓은 무작위화")]
 
 
 def rob_group(tag: str, conds: list[str]) -> str:
@@ -164,6 +164,12 @@ def side_spread(name: str) -> str:
     m = sum(dy) / len(dy)
     sd = (sum((d - m) ** 2 for d in dy) / len(dy)) ** 0.5
     return f"평균 +{m:.1f}mm, 표준편차 {sd:.1f}mm"
+
+
+def side_sd(name: str) -> str:
+    """Standard deviation (mm) of the side-bin offset along the row, see side_spread()."""
+    t = side_spread(name)
+    return t.split("표준편차 ")[1].rstrip("mm") if "표준편차" in t else MISSING
 
 
 def retry(name: str, key: str = "cumulative_success") -> str:
@@ -386,7 +392,7 @@ def body(media, b) -> str:
     rows = [["시연 설계 (단계별 시연 수)", "1층", "옆", "2층", "연속 (95% CI)"]]
     for name, label in (("v1_n100", "① 초기 설계 (100)"), ("n100", "② +여유 9mm (100)"),
                         ("n200", "② (200)"), ("v4_n100", "③ +같은 벽 (100)"),
-                        ("v5_n100", "④ +물러나기 (100)"), ("v5_n200", "④ (200)"), ("v5_n500", "④ (500)"),
+                        ("v5_n100", "④ +물러나기 (100)"),
                         ("v5_n1000", "④ (1000)"), ("v5_dart1000", "④+DART (1000)"),
                         ("v6_n1000", "④+무작위화 (1000)"), ("v7_n1000", "④+넓은 무작위화 (1000)")):
         if name == "v7_n1000" and not RES.get(name):
@@ -413,9 +419,9 @@ def body(media, b) -> str:
     if (FIG / "fig3_scaling.png").exists():
         add(fig(media, FIG / "fig3_scaling.png", f"그림 {nfig}. 시연 수에 따른 적재 성공률 (④ 시연)"))
         nfig += 1
-    v8 = (f" 옆 통을 1층 통 위치에 맞춰 6mm 간격을 두고 놓는 시연(⑤)은 옆 통이 더 흩어져(목표 대비 "
-          f"{side_spread('v8_n100_x200')}, ④는 {side_spread('v5_n100_x200')}) 15mm를 넘는 경우가 생겨 장면 200개 연속 "
-          f"{big_txt('c', 'v8_n100_x200')}로 ④보다 낮았다." if big("v8_n100_x200") else "")
+    v8 = (f" 옆 통을 1층 통에 맞춰 옮겨 놓는 시연(⑤)은 놓는 위치가 더 흩어져(표준편차 {side_sd('v8_n100_x200')}mm, ④ "
+          f"{side_sd('v5_n100_x200')}mm) 장면 200개 연속 {big_txt('c', 'v8_n100_x200')}로 오히려 낮았다."
+          if big("v8_n100_x200") else "")
     add(P(f"④ 시연을 200, 500, 1000회로 늘려도 연속 성공률은 {chain('v5_n200', 2)}%, {chain('v5_n500', 2)}%, "
           f"{chain('v5_n1000', 2)}%로 시연 100회에서 이미 포화되었고(그림 4), DART 잡음 주입(1000회)도 {chain('v5_dart1000', 2)}%로 "
           f"차이가 없었다. 남은 실패는 1층 통이 옆 칸 쪽으로 9~11mm "
@@ -431,7 +437,9 @@ def body(media, b) -> str:
               f"{rob_avg('v6_n1000')}%(무작위화 없이 {rob_avg('v5_n1000')}%)였고 작업대 색 변화에서도 100%를 유지했다. "
               f"밝기 정규화·CLAHE를 더하면 오히려 {rob_avg('v6c_n1000')}%로 낮아졌고, 특히 체크무늬 작업대에서 "
               f"{rob('v6_n1000', 'table_checker')}%에서 {rob('v6c_n1000', 'table_checker')}%로 떨어졌다. 국소 대비를 키우는 "
-              f"CLAHE가 작업대 무늬까지 강조했기 때문으로 보인다. 무작위화 없이 CLAHE만 쓴 경우(시연 200)도 조명 세 조건 평균 "
+              f"CLAHE가 작업대 무늬까지 강조했기 때문으로 보인다. 무작위화 범위를 더 넓히면(조명 0.25~2.5배·색 조명·무늬 작업대) "
+              f"체크무늬 작업대는 {rob('v7_n1000', 'table_checker')}%로 나아졌으나 놓는 위치가 약 7mm 치우쳐 연속 "
+              f"{chain('v7_n1000', 2)}%로 낮아졌다. 무작위화 없이 CLAHE만 쓴 경우(시연 200)도 조명 세 조건 평균 "
               f"{rob_group('v5c_n200', ['dark', 'bright', 'light_side'])}%로 쓰지 않은 경우"
               f"({rob_group('v5_n200', ['dark', 'bright', 'light_side'])}%)보다 낮았다. 무게(100~200g)와 관측 지연(최대 133ms)에는 모든 정책이 "
               f"강했다."))
