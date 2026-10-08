@@ -53,6 +53,7 @@ done
 # large showcase GIFs (make_showcase.py), copied as they are
 mkdir -p "$R/결과/gif/showcase"
 cp results/showcase/*.gif "$R/결과/gif/showcase/" 2>/dev/null || true
+cp results/pallet_*.gif "$R/결과/gif/" 2>/dev/null || true
 
 # dataset previews, analysis summary, logs
 mkdir -p "$R/결과/시연데이터_미리보기" "$R/결과/로그"
