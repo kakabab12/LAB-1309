@@ -216,3 +216,6 @@
 [10-08 23:52:53] train s1_v4t_n200 (200 demos, --cams top)
 [10-09 00:02:31] eval v67_n2000 done: [chained] cumulative 1층 98.0% -> 옆 88.0% -> 2층 88.0%
 [10-09 00:02:31] robust v67_n2000 done
+[10-09 00:15:41] pallet policies trained; evaluating 40 sequences (CPU)
+[10-09 00:15:55] train s2_v4t_n200 (200 demos, --cams top)
+[10-09 00:17:59] pallet eval restarted as 2 x 20 sequences in separate 5G units (act-paleval0/1; first try 4 x 10 in one 8G unit was OOM-killed while loading 32 policies)
