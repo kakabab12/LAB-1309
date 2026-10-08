@@ -203,6 +203,20 @@ def par_text(p) -> str:
     return "".join(t.text or "" for t in p.iter(w("t")))
 
 
+def scrub_metadata(tmp: Path) -> None:
+    """Remove names left in the template's document properties (creator, last editor, title, company)."""
+    import re as _re
+    for name in ("docProps/core.xml", "docProps/app.xml"):
+        p = tmp / name
+        if not p.exists():
+            continue
+        t = p.read_text(encoding="utf-8")
+        for tag in ("dc:title", "dc:subject", "dc:creator", "cp:lastModifiedBy", "cp:keywords", "dc:description",
+                    "Company", "Manager"):
+            t = _re.sub(rf"<{tag}>[^<]*</{tag}>", f"<{tag}></{tag}>", t)
+        p.write_text(t, encoding="utf-8")
+
+
 def build(content, out: Path) -> None:
     tmp = Path(tempfile.mkdtemp())
     with zipfile.ZipFile(TEMPLATE) as z:
@@ -259,6 +273,7 @@ def build(content, out: Path) -> None:
         e.set("Target", f"media/{name}")
     rels.write(str(rels_path), xml_declaration=True, encoding="UTF-8", standalone=True)
 
+    scrub_metadata(tmp)
     out.parent.mkdir(parents=True, exist_ok=True)
     if out.exists():
         out.unlink()

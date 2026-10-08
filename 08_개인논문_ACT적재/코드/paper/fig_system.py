@@ -1,4 +1,6 @@
-"""Figure 1: overall system diagram (single-column width)."""
+"""Figure 1: overall system diagram (single-column width). FIG_LANG=en writes the English version (blind review file)."""
+
+import os
 
 import matplotlib
 
@@ -37,22 +39,38 @@ ax.set_xlim(0, 1)
 ax.set_ylim(0.03, 0.76)
 ax.axis("off")
 
-box(ax, 0.02, 0.50, 0.30, 0.24, "색상 분류 컨베이어", ["TCS34725 RGB 센서", "NEMA17 · Arduino Mega", "빨강·초록 → 불량함"], "plant")
-box(ax, 0.35, 0.50, 0.30, 0.24, "저울 + 파란 통", ["파란 큐브 적치", "7-segment 표시부", "USB 카메라 640×480"], "plant")
-box(ax, 0.68, 0.50, 0.30, 0.24, "팔레트", ["① 1층  ② 옆", "③ 2층(첫 통 위)", "SO-101 이 적재"], "store")
-box(ax, 0.02, 0.05, 0.43, 0.35, "Jetson Orin Nano", ["YOLOv8 · ONNX Runtime", "캡처·추론 스레드 분리",
-                                                     "2단계 디지털 줌 · 숫자 조합", "FastAPI 모니터링 (포트 5000)",
-                                                     "TCP 트리거 (포트 8765)"], "edge")
-box(ax, 0.55, 0.05, 0.43, 0.35, "SO-101 + ACT", ["단계별 정책 π1 · π2 · π3", "입력: 손목·상단 영상 + 관절",
-                                                 "출력: 관절 목표 100스텝", "WAIT→RUN→RETURN_HOME",
-                                                 "PC 학습 → Orin Nano 실행"], "robot")
+EN = os.environ.get("FIG_LANG") == "en"
+T = (dict(conv=("Sorting conveyor", ["TCS34725 RGB sensor", "NEMA17 · Arduino Mega", "red·green → reject bin"]),
+          scale=("Scale + blue bin", ["blue cubes collected", "7-segment display", "USB camera 640×480"]),
+          pallet=("Pallet", ["① floor 1  ② beside", "③ floor 2 (on bin ①)", "stacked by SO-101"]),
+          edge=["YOLOv8 · ONNX Runtime", "capture / inference threads", "2-stage digital zoom · digit merge",
+                "FastAPI monitor (port 5000)", "TCP trigger (port 8765)"],
+          robot=["stage policies π1 · π2 · π3", "in: wrist + top images, joints", "out: 100-step joint chunk",
+                 "WAIT→RUN→RETURN_HOME", "trained on PC → run on Orin Nano"],
+          weigh="weight image", stack="stack", pick="pick bin")
+     if EN else
+     dict(conv=("색상 분류 컨베이어", ["TCS34725 RGB 센서", "NEMA17 · Arduino Mega", "빨강·초록 → 불량함"]),
+          scale=("저울 + 파란 통", ["파란 큐브 적치", "7-segment 표시부", "USB 카메라 640×480"]),
+          pallet=("팔레트", ["① 1층  ② 옆", "③ 2층(첫 통 위)", "SO-101 이 적재"]),
+          edge=["YOLOv8 · ONNX Runtime", "캡처·추론 스레드 분리", "2단계 디지털 줌 · 숫자 조합",
+                "FastAPI 모니터링 (포트 5000)", "TCP 트리거 (포트 8765)"],
+          robot=["단계별 정책 π1 · π2 · π3", "입력: 손목·상단 영상 + 관절", "출력: 관절 목표 100스텝",
+                 "WAIT→RUN→RETURN_HOME", "PC 학습 → Orin Nano 실행"],
+          weigh="무게 영상", stack="적재", pick="통 집기"))
+
+box(ax, 0.02, 0.50, 0.30, 0.24, *T["conv"], "plant")
+box(ax, 0.35, 0.50, 0.30, 0.24, *T["scale"], "plant")
+box(ax, 0.68, 0.50, 0.30, 0.24, *T["pallet"], "store")
+box(ax, 0.02, 0.05, 0.43, 0.35, "Jetson Orin Nano", T["edge"], "edge")
+box(ax, 0.55, 0.05, 0.43, 0.35, "SO-101 + ACT", T["robot"], "robot")
 
 arrow(ax, (0.32, 0.62), (0.35, 0.62))
-arrow(ax, (0.50, 0.50), (0.30, 0.40), "무게 영상", dx=0.03, dy=0.02)
+arrow(ax, (0.50, 0.50), (0.30, 0.40), T["weigh"], dx=0.03, dy=0.02)
 arrow(ax, (0.455, 0.20), (0.545, 0.20))
 ax.text(0.50, 0.26, "≥118g\n'run'", fontsize=5.6, ha="center", va="center", color="#3e4c59")
-arrow(ax, (0.80, 0.40), (0.80, 0.50), "적재", dx=0.045)
-arrow(ax, (0.64, 0.40), (0.56, 0.50), "통 집기", dx=-0.06, dy=0.0)
+arrow(ax, (0.80, 0.40), (0.80, 0.50), T["stack"], dx=0.045)
+arrow(ax, (0.64, 0.40), (0.56, 0.50), T["pick"], dx=-0.06, dy=0.0)
 
-fig.savefig("paper/fig1_system.png", dpi=300)
-print("saved paper/fig1_system.png")
+out = "paper/fig1_system_en.png" if EN else "paper/fig1_system.png"
+fig.savefig(out, dpi=300)
+print("saved", out)
