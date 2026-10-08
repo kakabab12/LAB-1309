@@ -178,3 +178,5 @@
 [10-08 13:03:54] v8_n100 final eval: stage 2 95% (x200; all 10 failures upright but 15.6-20.6 mm outward = B shifted with A eats the 15 mm margin) < v5_n100 100% -> v8 rejected; v7 stage 2 regenerated with the v4 rule (old data kept as data/v7v8_stage2.jpk.npz), s2_v7_n1000 (v8 data) stopped after 35 min
 [10-08 13:03:54] gen v7 stage 2 (v4 rule) start, 5 x 200 in parallel
 [10-08 13:04:07] train s3_v7_n1000 (1000 demos, v7 data, no CLAHE)
+[10-08 13:25:39] robust v5c_n200 done
+[10-08 13:25:39] post-eval queue finished
