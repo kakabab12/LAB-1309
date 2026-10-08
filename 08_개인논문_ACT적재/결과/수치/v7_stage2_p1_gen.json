@@ -1,12 +1,12 @@
 {
  "stage": 2,
- "design": "v8",
+ "design": "v4",
  "dr": true,
  "dr_level": 2,
  "dart_sigma": 0.0,
  "kept": 200,
- "tried": 200,
- "expert_success_rate": 1.0,
- "mean_xy_err_mm": 3.8664104949790215,
- "seconds": 1618.8377776145935
+ "tried": 214,
+ "expert_success_rate": 0.9345794392523364,
+ "mean_xy_err_mm": 1.9266022638297602,
+ "seconds": 2585.4570622444153
 }

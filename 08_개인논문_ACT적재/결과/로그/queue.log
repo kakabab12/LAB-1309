@@ -180,3 +180,9 @@
 [10-08 13:04:07] train s3_v7_n1000 (1000 demos, v7 data, no CLAHE)
 [10-08 13:25:39] robust v5c_n200 done
 [10-08 13:25:39] post-eval queue finished
+[10-08 13:28:40] trained s1_v4_dart1000
+[10-08 13:44:30] trained s2_v4_dart1000
+[10-08 13:44:45] train pal_s1 (pallet slot 1, 100 demos)
+[10-08 13:51:36] gen v7: v7_stage2 ready (v4 rule)
+[10-08 13:51:46] train s2_v7_n1000 (1000 demos, v7 data with v4 stage-2 rule, no CLAHE)
+[10-08 14:25:05] eval v5c_n200 done

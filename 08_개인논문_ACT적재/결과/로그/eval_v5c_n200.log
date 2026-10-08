@@ -2,3 +2,6 @@ Loading weights from local directory
 Loading weights from local directory
 Loading weights from local directory
 [per-stage] stage 1: 96.0% (48/50)
+[per-stage] stage 2: 100.0% (50/50)
+[per-stage] stage 3: 100.0% (50/50)
+[chained] cumulative 1층 98.0% -> 옆 96.0% -> 2층 96.0%
