@@ -28,7 +28,7 @@ def _load(name: str) -> dict | None:
 
 
 RES = {k: _load(k) for k in ("v1_n100", "n100", "n200", "v4_n200", "v8_n100", "v5_n100", "v5_n200", "v5_n500", "v5_n1000",
-                             "v5_dart200", "v5_dart1000", "v6_n1000", "v6c_n1000", "v5c_n200", "v5_n1000_te",
+                             "v5_dart200", "v5_dart1000", "v6_n1000", "v6c_n1000", "v7_n1000", "v5c_n200", "v5_n1000_te",
                              "v4_n100_te", "v4_n200_te", "v4_n100", "v4_n200", "v4_n500", "v4_n1000",
                              "v4_dart200", "v4_dart1000")}
 
@@ -72,7 +72,7 @@ ROB_GROUPS = [("변화 없음", ["base"]), ("조명 (어둡게·밝게·옆)", [
               ("통 무게 100·200g", ["mass_100g", "mass_200g"]), ("관측 지연 67·133ms", ["delay_67ms", "delay_133ms"]),
               ("무작위화 범위 밖 (조명 30·220%, 주황빛, 체크무늬)", ["very_dark", "very_bright", "warm_light", "table_checker"])]
 ROB_MODELS = [("v4_n100", "③/100"), ("v5_n1000", "④/1000"), ("v6_n1000", "+무작위화"),
-              ("v6c_n1000", "+무작위화·CLAHE"), ("v7c_n1000", "+넓은 무작위화·CLAHE")]
+              ("v6c_n1000", "+무작위화·CLAHE"), ("v7_n1000", "+넓은 무작위화")]
 
 
 def rob_group(tag: str, conds: list[str]) -> str:
@@ -241,8 +241,9 @@ ABSTRACT = (
     "wall, the scripted demonstrator switched to another wall when the bin was rotated by more than about 8 degrees, "
     "and lifting straight up after release tipped the top bin off the 2 mm rims below. Fixing them raised the "
     f"sequence success with the same 100 demonstrations to {chain('v5_n100', 2)}% and with 1000 demonstrations to "
-    f"{chain('v5_n1000', 2)}%. Domain randomization with brightness normalization and CLAHE kept {rob_avg('v6c_n1000')}% "
-    f"average per-stage success under fifteen environment changes, against {rob_avg('v5_n1000')}% without them."
+    f"{chain('v5_n1000', 2)}%. Domain randomization kept {rob_avg('v6_n1000')}% average per-stage success under "
+    f"fifteen environment changes, against {rob_avg('v5_n1000')}% without it; adding brightness normalization and "
+    f"CLAHE lowered it to {rob_avg('v6c_n1000')}%."
 )
 
 
@@ -343,9 +344,9 @@ def body(media, b) -> str:
     add(P("현장의 조명, 작업대, 카메라 장착 위치는 시연 때와 달라질 수 있다. 이에 대비해 시연마다 조명 세기(0.45~1.7배)와 "
           "방향, 작업대 색, 카메라 장착 위치(상단 ±12mm·±2.5°, 손목 ±3mm·±2.5°), 파란색이 아닌 주변 물건(최대 3개)을 "
           "무작위로 바꾸고 통의 위치·방향 범위를 ±28mm, ±30°로 넓힌 도메인 랜덤화[17] 시연을 만들었다. 통의 색은 공정의 "
-          "판정 기준이므로 바꾸지 않았다. 또한 영상의 밝기 채널을 1~99 백분위수 기준으로 늘여 맞춘 뒤 CLAHE[18]를 "
-          "적용하는 전처리를 학습과 실행에 함께 썼다. CLAHE만으로는 조명을 절반으로 줄였을 때의 영상 변화가 8% 줄었으나, "
-          "밝기 정규화를 먼저 하면 약 1/5로 줄었다."))
+          "판정 기준이므로 바꾸지 않았다. 비교를 위해 영상의 밝기 채널을 1~99 백분위수 기준으로 늘여 맞춘 뒤 CLAHE[18]를 "
+          "적용하는 전처리를 학습과 실행에 함께 쓴 정책도 만들었다. 이 전처리는 조명을 절반으로 줄였을 때의 영상 변화를 "
+          "약 1/5로 줄였다."))
     add(h2("3.3 평가 방법"))
     add(P("단계별 평가는 앞 단계 통을 목표 근처에 미리 둔 상태에서 해당 정책만 50회 실행한다. 연속 평가는 실제 "
           "셀처럼 π_{1}→π_{2}→π_{3}을 같은 장면에서 이어서 실행하고 실행마다 홈 자세로 복귀한다(50회). 통 중심이 "
@@ -372,13 +373,15 @@ def body(media, b) -> str:
                ["인식부터 명령 전송까지 응답", "약 810ms"]]))
 
     add(h2("4.2 ACT 순차 적재 (시뮬레이션)"))
-    rows = [["시연 설계 (시연 수)", "1층", "옆", "2층", "연속 (95% CI)"]]
+    rows = [["시연 설계 (단계별 시연 수)", "1층", "옆", "2층", "연속 (95% CI)"]]
     for name, label in (("v1_n100", "① 초기 설계 (100)"), ("n100", "② +여유 9mm (100)"),
                         ("n200", "② (200)"), ("v4_n100", "③ +같은 벽 (100)"),
                         ("v5_n100", "④ +물러나기 (100)"), ("v5_n200", "④ (200)"), ("v5_n500", "④ (500)"),
                         ("v5_n1000", "④ (1000)"), ("v5_dart1000", "④+DART (1000)"),
                         ("v8_n100", "⑤ +옆 간격 확보 (100)"),
-                        ("v6c_n1000", "④+무작위화·CLAHE (1000)")):
+                        ("v6_n1000", "④+무작위화 (1000)"), ("v7_n1000", "④+넓은 무작위화 (1000)")):
+        if name == "v7_n1000" and not RES.get(name):
+            continue
         rows.append([label, pct(name, 1), pct(name, 2), pct(name, 3), chain_ci(name)])
     add(table("표 2. 적재 성공률 (%, 시뮬레이션, 각 50회)", [1900, 470, 470, 470, 1190], rows))
     nfig = 3
@@ -414,9 +417,12 @@ def body(media, b) -> str:
         add(h2("4.3 환경 변화에 대한 강인성 (시뮬레이션)"))
         add(P("학습이 끝난 정책을 그대로 두고 조명, 작업대 색, 카메라 장착, 주변 물건, 범위 밖의 통 위치·방향, 통 무게, "
               "관측 지연 등 한 가지씩만 바꾸어 단계별로 20회씩 평가하였다(표 3). 시연을 1000회로 늘리면 조명과 주변 "
-              "물건에는 강해졌으나 작업대 색이 바뀌면 옆 단계가 20%까지 떨어졌다. 도메인 랜덤화와 정규화·CLAHE를 함께 "
-              f"쓰면 변화 조건 평균 {rob_avg('v6c_n1000')}%(무작위화 없이 {rob_avg('v5_n1000')}%)였고 작업대 색 변화에서도 "
-              f"95% 이상을 유지했다. 무게(100~200g)와 관측 지연(최대 133ms)에는 모든 정책이 강했다."))
+              "물건에는 강해졌으나 작업대 색이 바뀌면 옆 단계가 20%까지 떨어졌다. 도메인 랜덤화를 쓰면 변화 조건 평균 "
+              f"{rob_avg('v6_n1000')}%(무작위화 없이 {rob_avg('v5_n1000')}%)였고 작업대 색 변화에서도 100%를 유지했다. "
+              f"밝기 정규화·CLAHE를 더하면 오히려 {rob_avg('v6c_n1000')}%로 낮아졌고, 특히 체크무늬 작업대에서 "
+              f"{rob('v6_n1000', 'table_checker')}%에서 {rob('v6c_n1000', 'table_checker')}%로 떨어졌다. 국소 대비를 키우는 "
+              f"CLAHE가 작업대 무늬까지 강조했기 때문으로 보인다. 무게(100~200g)와 관측 지연(최대 133ms)에는 모든 정책이 "
+              f"강했다."))
         models = [(t, lab) for t, lab in ROB_MODELS if t in ROB]
         rows = [["변화"] + [lab for _, lab in models]]
         rows += [[g] + [rob_group(t, cs) for t, _ in models] for g, cs in ROB_GROUPS]

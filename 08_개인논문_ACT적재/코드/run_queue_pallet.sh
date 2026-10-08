@@ -14,8 +14,11 @@ n_train() { pgrep -fc "^.venv/bin/python train_act.py" || true; }
 gpu_free() { nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits | head -1; }
 mem_avail_gb() { awk '/MemAvailable/ {print int($2 / 1048576)}' /proc/meminfo; }
 
-say "pallet queue waiting for queue v10 to launch all its jobs"
-until grep -q "queue v10: all trainings launched" $LOG; do sleep 120; done
+# PAL_NOW=1: pallet jumps ahead of the camera ablation and DART-200 jobs (queues v9/v10 frozen meanwhile)
+if [ -z "${PAL_NOW:-}" ]; then
+  say "pallet queue waiting for queue v10 to launch all its jobs"
+  until grep -q "queue v10: all trainings launched" $LOG; do sleep 120; done
+fi
 pids=()
 for k in 1 2 3 4 5 6 7 8; do
   run=pal_s$k
@@ -28,6 +31,7 @@ for k in 1 2 3 4 5 6 7 8; do
   pids+=($!)
   sleep 90
 done
+say "pallet: all trainings launched"
 [ ${#pids[@]} -gt 0 ] && wait "${pids[@]}"
 for k in 1 2 3 4 5 6 7 8; do done_run pal_s$k || { say "pallet: pal_s$k has no final checkpoint"; exit 1; }; done
 say "pallet policies trained; evaluating 40 sequences (CPU)"

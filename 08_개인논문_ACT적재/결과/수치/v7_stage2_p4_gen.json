@@ -1,0 +1,12 @@
+{
+ "stage": 2,
+ "design": "v8",
+ "dr": true,
+ "dr_level": 2,
+ "dart_sigma": 0.0,
+ "kept": 200,
+ "tried": 201,
+ "expert_success_rate": 0.9950248756218906,
+ "mean_xy_err_mm": 4.072021575685973,
+ "seconds": 1950.1430249214172
+}
