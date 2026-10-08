@@ -209,3 +209,10 @@
 [10-08 21:37:40] queues v9/v10 launchers resumed
 [10-08 21:37:40] queue v10 start
 [10-08 21:41:10] train s1_v4w_n200 (200 demos, --cams front)
+[10-08 22:22:34] eval v67_n2000 + robustness (20 conditions)
+[10-08 22:22:43] train s2_v4w_n200 (200 demos, --cams front)
+[10-08 23:05:18] train s3_v5w_n200 (200 demos, --cams front)
+[10-08 23:52:35] trained s1_v4w_n200
+[10-08 23:52:53] train s1_v4t_n200 (200 demos, --cams top)
+[10-09 00:02:31] eval v67_n2000 done: [chained] cumulative 1층 98.0% -> 옆 88.0% -> 2층 88.0%
+[10-09 00:02:31] robust v67_n2000 done

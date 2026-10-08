@@ -28,7 +28,7 @@ def _load(name: str) -> dict | None:
 
 
 RES = {k: _load(k) for k in ("v1_n100", "n100", "n200", "v4_n200", "v8_n100", "v5_n100", "v5_n200", "v5_n500", "v5_n1000",
-                             "v5_dart200", "v5_dart1000", "v6_n1000", "v6c_n1000", "v7_n1000", "v5c_n200", "v5_n1000_te",
+                             "v5_dart200", "v5_dart1000", "v6_n1000", "v6c_n1000", "v7_n1000", "v67_n2000", "v5c_n200", "v5_n1000_te",
                              "v4_n100_te", "v4_n200_te", "v4_n100", "v4_n200", "v4_n500", "v4_n1000",
                              "v4_dart200", "v4_dart1000")}
 
@@ -72,7 +72,10 @@ ROB_GROUPS = [("변화 없음", ["base"]), ("조명 (어둡게·밝게·옆)", [
               ("통 무게 100·200g", ["mass_100g", "mass_200g"]), ("관측 지연 67·133ms", ["delay_67ms", "delay_133ms"]),
               ("무작위화 범위 밖 (조명 30·220%, 주황빛, 체크무늬)", ["very_dark", "very_bright", "warm_light", "table_checker"])]
 ROB_MODELS = [("v4_n100", "③/100"), ("v5_n1000", "④/1000"), ("v6_n1000", "+무작위화"),
-              ("v7_n1000", "+넓은 무작위화")]
+              ("v67_n2000", "+넓은 무작위화 섞기")]
+
+
+BEYOND = ["very_dark", "very_bright", "warm_light", "table_checker"]
 
 
 def rob_group(tag: str, conds: list[str]) -> str:
@@ -416,11 +419,11 @@ def body(media, b) -> str:
     add(h2("4.2 ACT 순차 적재 (시뮬레이션)"))
     rows = [["시연 설계 (단계별 시연 수)", "1층", "옆", "2층", "연속 (95% CI)"]]
     for name, label in (("v1_n100", "① 초기 설계 (100)"), ("n100", "② +여유 9mm (100)"),
-                        ("n200", "② (200)"), ("v4_n100", "③ +같은 벽 (100)"),
+                        ("v4_n100", "③ +같은 벽 (100)"),
                         ("v5_n100", "④ +물러나기 (100)"),
                         ("v5_n1000", "④ (1000)"), ("v5_dart1000", "④+DART (1000)"),
-                        ("v6_n1000", "④+무작위화 (1000)"), ("v7_n1000", "④+넓은 무작위화 (1000)")):
-        if name == "v7_n1000" and not RES.get(name):
+                        ("v6_n1000", "④+무작위화 (1000)"), ("v67_n2000", "④+넓은 무작위화 섞기 (2000)")):
+        if name == "v67_n2000" and not RES.get(name):
             continue
         rows.append([label, pct(name, 1), pct(name, 2), pct(name, 3), chain_ci(name)])
     add(table("표 2. 적재 성공률 (%, 시뮬레이션, 각 50회)", [1900, 470, 470, 470, 1190], rows))
@@ -465,7 +468,9 @@ def body(media, b) -> str:
               f"{rob('v6_n1000', 'table_checker')}%에서 {rob('v6c_n1000', 'table_checker')}%로 떨어졌다. 국소 대비를 키우는 "
               f"CLAHE가 작업대 무늬까지 강조했기 때문으로 보인다. 무작위화 범위를 더 넓히면(조명 0.25~2.5배·색 조명·무늬 작업대) "
               f"체크무늬 작업대는 {rob('v7_n1000', 'table_checker')}%로 나아졌으나 놓는 위치가 약 7mm 치우쳐 연속 "
-              f"{chain('v7_n1000', 2)}%로 낮아졌다. 무작위화 없이 CLAHE만 쓴 경우(시연 200)도 조명 세 조건 평균 "
+              f"{chain('v7_n1000', 2)}%로 낮아졌다. 이를 기존 무작위화 시연과 섞으면(2000회) 범위 밖 네 조건 평균이 "
+              f"{rob_group('v67_n2000', BEYOND)}%(v6 {rob_group('v6_n1000', BEYOND)}%)로 가장 높았으나 연속은 "
+              f"{chain('v67_n2000', 2)}%로, 범위와 정밀도가 맞교환되었다. 무작위화 없이 CLAHE만 쓴 경우(시연 200)도 조명 세 조건 평균 "
               f"{rob_group('v5c_n200', ['dark', 'bright', 'light_side'])}%로 쓰지 않은 경우"
               f"({rob_group('v5_n200', ['dark', 'bright', 'light_side'])}%)보다 낮았다. 무게(100~200g)와 관측 지연(최대 133ms)에는 모든 정책이 "
               f"강했다."))
