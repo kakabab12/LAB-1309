@@ -190,3 +190,4 @@
 [10-08 14:30:17] train pal_s2 (pallet slot 2, 100 demos)
 [10-08 14:30:44] eval v5_dart1000 (s1_v4_dart1000 + s2_v4_dart1000 + s3_v5_dart1000)
 [10-08 15:15:28] eval v5_dart1000 done
+[10-08 15:17:30] DART-200 cancelled (DART-1000 chained 96% vs 94% without DART: no gain); queue v9 + v8 stopped with nothing running; queue v9: all trainings launched (remaining DART-200 jobs dropped, camera ablation starts after the pallet)
