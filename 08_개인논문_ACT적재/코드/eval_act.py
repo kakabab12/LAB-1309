@@ -4,7 +4,7 @@ Two protocols (unseen seeds, disjoint from the demonstration seeds):
   per-stage : each stage policy starts from a correctly prepared scene (earlier bins at their
               targets +-5 mm), N trials per stage.
   chained   : stage 1 -> 2 -> 3 policies run back-to-back on the same scene, like the real
-              MCP-triggered cell (WAIT -> RUNNING -> RETURN_HOME per run), N sequences.
+              TCP-triggered cell (WAIT -> RUNNING -> RETURN_HOME per run), N sequences.
 Each run: 270 policy steps at 30 Hz, then a 1 s return to the home pose, then settle.
 
 usage: python eval_act.py --ckpt runs/s1_n100/ckpt_080000 runs/s2_n100/ckpt_080000 runs/s3_n100/ckpt_080000 \

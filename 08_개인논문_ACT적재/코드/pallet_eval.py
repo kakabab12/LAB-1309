@@ -1,4 +1,4 @@
-"""Evaluate the 2x2 x 2-layer pallet: 8 slot policies run one after another (like the MCP-triggered cell),
+"""Evaluate the 2x2 x 2-layer pallet: 8 slot policies run one after another (like the TCP-triggered cell),
 RETURN_HOME between slots, optional scale-verified retry. Policy on the CPU (one chunk per 3.3 s).
 Scenes: pick poses from seeds 800000+i (disjoint from the demonstration seeds).
 usage: ACT_DESIGN=v4 python pallet_eval.py --runs pal_s1 ... pal_s8 --start 0 --trials 10 --out results/eval/pallet_p0

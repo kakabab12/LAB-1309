@@ -203,3 +203,4 @@
 [10-08 18:10:10] train s1_v67_n2000 (2000 demos: v6 + v7, no CLAHE)
 [10-08 18:11:40] train s2_v67_n2000 (2000 demos: v6 + v7, no CLAHE)
 [10-08 19:10:44] train s3_v67_n2000 (2000 demos: v6 + v7, no CLAHE)
+[10-08 20:33:59] train pal_s7 (pallet slot 7, 100 demos)

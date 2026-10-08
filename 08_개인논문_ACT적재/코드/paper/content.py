@@ -266,8 +266,8 @@ ABSTRACT = (
     "low-cost robot arm. On a Jetson Orin Nano, a YOLOv8n model (validation mAP50 86.3%) reads the 7-segment "
     "display of a digital scale; separating capture and inference threads raised the capture rate from 1.2 to "
     "59.5 FPS, two-stage digital-zoom inference raised mid-range accuracy from 45% to 90%, and the cell sorted "
-    "91.7% of items correctly with an 810 ms response. When a bin reaches 118 g, a Model Context Protocol (MCP) "
-    "trigger runs stage-specific ACT (Action Chunking with Transformers) policies on an SO-101 arm that stack the "
+    "91.7% of items correctly with an 810 ms response. When a bin reaches 118 g, a TCP trigger signal "
+    "runs stage-specific ACT (Action Chunking with Transformers) policies on an SO-101 arm that stack the "
     "bin on the first floor, beside the first bin and on top of it. Because the arm was damaged after the field "
     "tests, the cell was rebuilt in MuJoCo with the same robot model, cameras and 30 Hz control to evaluate the "
     "stacking quantitatively. Per-stage success hides error accumulation: with the initial 100 demonstrations "
@@ -306,22 +306,22 @@ def body(media, b) -> str:
           "동작의 작은 오차가 다음 상태를 학습 분포 밖으로 밀어내 오차가 누적되는 문제가 알려져 있으며[6], 순차 "
           "적재에서는 이 오차가 단계를 넘어 쌓인다."))
     add(P("본 논문은 Jetson Orin Nano를 중심으로 디지털 저울의 7-segment 표시값을 YOLOv8로 판독하여 기준 무게(118g) "
-          "이상인 통을 선별하고, MCP(Model Context Protocol)[7] 트리거로 단계별 ACT 정책을 호출하여 SO-101 로봇팔이 "
+          "이상인 통을 선별하고, TCP 트리거 신호로 단계별 ACT 정책을 호출하여 SO-101 로봇팔이 "
           "통을 1층, 첫 통 옆, 첫 통 위(2층) 순서로 적재하는 셀을 구현한다. 현장 시험 이후 로봇팔이 파손되어 적재 "
-          "성능을 다시 실측할 수 없었으므로, 같은 로봇 모델·카메라·제어 주기를 갖는 MuJoCo[8] 셀을 구성하여 적재를 "
+          "성능을 다시 실측할 수 없었으므로, 같은 로봇 모델·카메라·제어 주기를 갖는 MuJoCo[7] 셀을 구성하여 적재를 "
           "정량적으로 평가한다. 기여는 다음과 같다. ① 무게 인식부터 순차 적재까지 이어지는 에지 셀을 구현하고 인식 "
           "성능을 실측하였다. ② 단계별 성공률과 함께 세 단계를 이어 수행하는 연속 성공률로 평가하여 순차 적재의 "
           "오차 누적을 보였다. ③ 실패가 일어난 파지 위치와 장면을 분석하여 원인이 정책보다 시연 설계(파지 여유, "
-          "잡는 벽의 일관성)에 있음을 밝히고, 시연 설계, 시연 수, 시연 잡음 주입(DART)[9]의 효과를 정량화하였다."))
+          "잡는 벽의 일관성)에 있음을 밝히고, 시연 설계, 시연 수, 시연 잡음 주입(DART)[8]의 효과를 정량화하였다."))
 
     # ------------------------------------------------------------ II
     add(h1("Ⅱ. 시스템 구성"))
     add(h2("2.1 전체 구성"))
-    add(P("그림 1은 전체 구성이다. 3D 프린팅 색상 분류 컨베이어[10]는 TCS34725 RGB 센서로 큐브의 색을 판별하여 "
+    add(P("그림 1은 전체 구성이다. 3D 프린팅 색상 분류 컨베이어[9]는 TCS34725 RGB 센서로 큐브의 색을 판별하여 "
           "빨강·초록 큐브(불량)는 불량함으로, 파랑 큐브(정상)는 디지털 저울 위의 파란 통으로 보낸다. 컨베이어의 "
           "스테퍼 모터와 분류 서보는 Arduino Mega 2560이 제어하고 인식과 판단은 Jetson Orin Nano가 맡아, 저수준 "
           "모터 제어와 AI 추론을 분리하였다. Jetson은 저울 표시부를 USB 카메라(640×480)로 촬영해 무게를 판독하고, "
-          "통의 무게가 118g 이상이면 로봇 실행기에 MCP 트리거를 보낸다. 두 번째 USB 카메라에서는 큰 상자와 작은 "
+          "통의 무게가 118g 이상이면 로봇 실행기에 TCP 트리거 신호를 보낸다. 두 번째 USB 카메라에서는 큰 상자와 작은 "
           "상자를 구분하는 YOLOv8n-seg 모델을 함께 실행한다. 로봇은 통의 벽을 집어 1층, 첫 통 옆, 첫 통 위(2층) "
           "순서로 적재하고 이 3단계 묶음을 옆으로 이어 가며 쌓는다. 적재 후에는 홈 자세로 돌아오며, 저울이 비면 빈 통을 저울에 올려 공정을 반복한다. FastAPI 서버는 영상 스트리밍, 성능 "
           "지표, 원격 시작·정지, LLM 기반 공정 질의 기능을 제공한다."))
@@ -329,7 +329,7 @@ def body(media, b) -> str:
 
     add(h2("2.2 7-segment 무게 인식"))
     add(P("인식부는 네 가지로 구성하였다. 캡처 스레드는 최신 프레임만 공유 버퍼에 쓰고 추론 스레드가 5초 주기로 이를 "
-          "가져와 추론하여, 단일 루프에서 추론이 캡처를 막던 문제를 없앴다. ONNX Runtime[11] 세션에는 연산 스레드 6개, "
+          "가져와 추론하여, 단일 루프에서 추론이 캡처를 막던 문제를 없앴다. ONNX Runtime[10] 세션에는 연산 스레드 6개, "
           "병렬 실행, 전체 그래프 최적화를 적용하여 단일 스레드 대비 약 3배 빠르게 하였다. 거리가 멀어 숫자가 작아지면 "
           "'8'을 '1'로 읽었으므로, 1단계에서 표시부(screen) 영역을 찾고 여백 15화소와 함께 잘라 640×640으로 확대한 뒤 "
           "숫자를 다시 탐지하는 2단계 디지털 줌을 썼다. 한 숫자에 여러 상자가 겹쳐 '118'이 '111111888'로 조합되는 문제는 "
@@ -341,12 +341,12 @@ def body(media, b) -> str:
           "시연은 사람이 리더암을 움직이면 팔로워암이 따라 움직이는 원격조작으로, 30Hz로 영상과 관절값을 기록해 "
           "단계마다 100회와 200회의 두 차례 수집하였다."))
     add(P("ACT는 현재 영상과 관절값으로부터 앞으로 k=100스텝의 관절 목표값(행동 청크)을 한 번에 예측한다. "
-          "ResNet18[12] 영상 특징과 관절값을 Transformer[13] 인코더-디코더로 처리하고, 시연의 다양성은 CVAE "
+          "ResNet18[11] 영상 특징과 관절값을 Transformer[12] 인코더-디코더로 처리하고, 시연의 다양성은 CVAE "
           "잠재변수로 흡수하며, 손실은 L1 재구성 오차와 KL 항(가중치 10)의 합이다[4]. 별도의 객체 검출 없이 영상에서 "
           "통의 위치를 스스로 익힌다. LeRobot의 ACT는 작업 지시문을 입력으로 쓰지 않으므로 1층·옆·2층 단계마다 "
           "정책 π_{1}, π_{2}, π_{3}을 따로 학습하였다. 학습은 PC(NVIDIA L4, RTX 3060)에서 하고 체크포인트만 "
           "Jetson Orin Nano로 옮겨 실행하였다."))
-    add(P("실행기는 MCP TCP 서버(포트 8765)에서 run 신호를 기다리다(WAIT) 해당 단계의 정책을 실행하고(RUNNING), "
+    add(P("실행기는 TCP 서버(포트 8765)에서 run 신호를 기다리다(WAIT) 해당 단계의 정책을 실행하고(RUNNING), "
           "시작 자세로 돌아온 뒤(RETURN_HOME) 다음 신호를 기다린다. 실행 중에 들어온 신호는 무시하고, 세 단계를 "
           "마치면 DONE 상태에서 reset 신호를 기다린다. Jetson에서는 스레드 수 제한, CUDA 지연 로딩, 자동 혼합 "
           "정밀도를 적용하였다."))
@@ -354,8 +354,8 @@ def body(media, b) -> str:
     # ------------------------------------------------------------ III
     add(h1("Ⅲ. 시뮬레이션 기반 적재 평가"))
     add(h2("3.1 시뮬레이션 셀"))
-    add(P("현장 시험 이후 로봇팔이 파손되어 적재 결과를 다시 측정할 수 없었다. 이에 MuJoCo[8]로 실제 셀을 "
-          "재현하였다(그림 2). 로봇은 공식 SO-101 모델[14]의 손목 카메라 버전으로 STS3215 서보의 위치 제어 특성을 "
+    add(P("현장 시험 이후 로봇팔이 파손되어 적재 결과를 다시 측정할 수 없었다. 이에 MuJoCo[7]로 실제 셀을 "
+          "재현하였다(그림 2). 로봇은 공식 SO-101 모델[13]의 손목 카메라 버전으로 STS3215 서보의 위치 제어 특성을 "
           "포함하며, 카메라 배치, 제어 주기(30Hz), 관절 목표값 행동 공간을 실제와 같게 하였다. 영상은 실제 경량 "
           "추론 설정과 같은 160×120을 쓴다. 분류 통은 공개 모델의 출력 무게(통 33g)와 시연 영상으로부터 "
           "64×64×52mm(벽 2mm)로 정하고 내부 큐브를 포함해 123g으로 두었다. 저울 위 통은 위치 ±20mm, 방향 ±20°, "
@@ -363,7 +363,7 @@ def body(media, b) -> str:
     add(fig(media, FIG / "fig2_sim.png", "그림 2. 시뮬레이션 셀 (a) 전체 (b) 손목 카메라 (c) 상단 카메라"))
     add(h2("3.2 시연 설계와 학습"))
     add(P("원격조작 대신 역기구학 기반 스크립트 전문가로 시연을 만들었으며, ACT 원 논문도 시뮬레이션 과제에서 "
-          "스크립트 시연을 사용하였고[4], 시연을 자동으로 만들어 데이터 양을 늘리는 방법도 연구되고 있다[15]. "
+          "스크립트 시연을 사용하였고[4], 시연을 자동으로 만들어 데이터 양을 늘리는 방법도 연구되고 있다[14]. "
           "전문가는 통의 앞벽(로봇 쪽 벽)을 고정 집게는 바깥, 움직이는 집게는 안쪽에 두고 "
           "집어 옮기며, 경유점 사이를 최소 저크 궤적으로 잇고 구간 속도(±10%)와 경유점 위치(최대 ±6mm)를 흔들어 "
           "사람 시연의 변동을 흉내 냈다. 특히 고정 집게를 벽 바깥 9mm에 두고 내려가도록 하여, 집게가 벽을 사이에 둘 수 있는 "
@@ -373,13 +373,13 @@ def body(media, b) -> str:
           "잡는 벽이 앞벽에서 옆벽으로 바뀌어, 카메라에는 거의 같은 장면인데 시연 동작이 두 갈래로 나뉘기 때문이다"
           "(4.2절). 2층에 놓을 때는 그리퍼를 벌린 뒤 벽 바깥으로 5mm 물러났다가 올라가게 하였다. 시연은 270스텝(9초)이며 성공한 것만 남겼다(전문가 성공률 1층 "
           f"{expert_rate(1, 'v4_stage')}%, 옆 {expert_rate(2, 'v4_stage')}%, 2층 {expert_rate(3, 'v5_stage')}%)."))
-    add(P("비교를 위해 실행하는 관절 목표에만 상관 잡음(σ=0.005rad)을 더해 되돌아오는 동작을 담은 DART[9] 시연도 "
+    add(P("비교를 위해 실행하는 관절 목표에만 상관 잡음(σ=0.005rad)을 더해 되돌아오는 동작을 담은 DART[8] 시연도 "
           "만들었다. 학습은 실제 시스템과 같은 LeRobot 0.3.3 ACT 기본 설정(청크 100, 배치 8, "
           "AdamW 학습률 1×10^{-5})으로 단계별 30,000스텝 수행하였으며, 시연 영상은 JPEG(품질 90)로 저장하였다."))
     add(P("현장의 조명, 작업대, 카메라 장착 위치는 시연 때와 달라질 수 있다. 이에 대비해 시연마다 조명 세기(0.45~1.7배)와 "
           "방향, 작업대 색, 카메라 장착 위치(상단 ±12mm·±2.5°, 손목 ±3mm·±2.5°), 파란색이 아닌 주변 물건(최대 3개)을 "
-          "무작위로 바꾸고 통의 위치·방향 범위를 ±28mm, ±30°로 넓힌 도메인 랜덤화[17] 시연을 만들었다. 통의 색은 공정의 "
-          "판정 기준이므로 바꾸지 않았다. 비교를 위해 밝기 채널을 1~99 백분위수로 늘인 뒤 CLAHE[18]를 적용하는 "
+          "무작위로 바꾸고 통의 위치·방향 범위를 ±28mm, ±30°로 넓힌 도메인 랜덤화[16] 시연을 만들었다. 통의 색은 공정의 "
+          "판정 기준이므로 바꾸지 않았다. 비교를 위해 밝기 채널을 1~99 백분위수로 늘인 뒤 CLAHE[17]를 적용하는 "
           "전처리를 학습과 실행에 함께 쓴 정책도 만들었다."))
     add(h2("3.3 평가 방법"))
     add(P("단계별 평가는 앞 단계 통을 목표 근처에 미리 둔 상태에서 해당 정책만 50회 실행한다. 연속 평가는 실제 "
@@ -447,7 +447,7 @@ def body(media, b) -> str:
           f"밀려 놓였을 때 옆 통이 그 벽에 걸려 넘어지는 경우였다(통 사이 간격 8mm).{v8} 스텝당 평균 추론 시간은 "
           f"GTX 1080 Ti {infer_ms('v5_n100')}ms, CPU {infer_ms('v5_n100_x200')}ms(다른 학습과 공유)로 제어 주기 33ms보다 "
           f"짧았다. 모방학습 성능이 "
-          "시연 수보다 시연의 다양성과 일관성에 좌우된다는 보고[16]와 같이, 시연 수로는 시연 설계의 효과를 대신할 수 "
+          "시연 수보다 시연의 다양성과 일관성에 좌우된다는 보고[15]와 같이, 시연 수로는 시연 설계의 효과를 대신할 수 "
           "없었다."))
     if ROB:
         add(h2("4.3 환경 변화에 대한 강인성 (시뮬레이션)"))
@@ -467,12 +467,12 @@ def body(media, b) -> str:
         rows += [[g] + [rob_group(t, cs) for t, _ in models] for g, cs in ROB_GROUPS]
         w = 4500 - 1900
         add(table("표 3. 환경 변화별 단계 평균 성공률 (%, 각 20회)", [1900] + [w // len(models)] * len(models), rows))
-    add(P("실제 셀에서도 1층 적재 정책이 MCP 신호에 따라 통을 집어 적재하는 것을 확인하였으나, 위치 오차와 제어 "
+    add(P("실제 셀에서도 1층 적재 정책이 트리거 신호에 따라 통을 집어 적재하는 것을 확인하였으나, 위치 오차와 제어 "
           "지연으로 실패하는 경우가 관찰되었다. 현장 측정 기록이 남아 있지 않아 실제 수치와의 비교는 하지 않았다."))
 
     # ------------------------------------------------------------ V
     add(h1("Ⅴ. 결론"))
-    add(P("본 논문은 Jetson Orin Nano에서 YOLOv8 기반 7-segment 무게 인식과 MCP 트리거로 호출되는 단계별 ACT "
+    add(P("본 논문은 Jetson Orin Nano에서 YOLOv8 기반 7-segment 무게 인식과 TCP 트리거로 호출되는 단계별 ACT "
           "정책을 결합하여, 무게 판정부터 1층·옆·2층 순차 적재까지 이어지는 스마트 팩토리 셀을 구현하였다. 인식부는 "
           "캡처 59.5 FPS, 중거리 정확도 90%, 정분류율 91.7%, 응답 810ms를 실측으로 확인하였다. 로봇 파손 이후 같은 "
           "조건을 재현한 시뮬레이션에서는 단계별 성공률이 높아도 연속 적재에서 오차가 누적됨을 보였고, 실패의 원인이 "
@@ -493,7 +493,6 @@ def body(media, b) -> str:
         "https://github.com/huggingface/lerobot, 2024.",
         "S. Ross, G. Gordon, and D. Bagnell, “A Reduction of Imitation Learning and Structured Prediction to "
         "No-Regret Online Learning,” in Proc. AISTATS, pp. 627-635, 2011.",
-        "Anthropic, Model Context Protocol, https://modelcontextprotocol.io, 2024.",
         "E. Todorov, T. Erez, and Y. Tassa, “MuJoCo: A Physics Engine for Model-Based Control,” in Proc. "
         "IEEE/RSJ IROS, pp. 5026-5033, 2012.",
         "M. Laskey, J. Lee, R. Fox, A. Dragan, and K. Goldberg, “DART: Noise Injection for Robust Imitation "

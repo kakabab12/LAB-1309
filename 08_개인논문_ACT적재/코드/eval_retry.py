@@ -1,7 +1,7 @@
 """Chained evaluation with scale-verified retry (system-level recovery using the cell's own weight sensor).
 
 In the real cell the Jetson reads the scale after every RETURN_HOME. If the bin is still on the scale
-(reading >= 118 g) the pick failed, so the same stage is triggered again over MCP, up to --max-attempts.
+(reading >= 118 g) the pick failed, so the same stage is triggered again over the TCP trigger, up to --max-attempts.
 The scale cannot see a bad placement, so only failed picks are retried; the success test is unchanged.
 Same chained scenes (seeds) as eval_act.py, so the results compare directly with its 'chained' numbers.
 usage: python eval_retry.py --ckpt S1 S2 S3 --out results/eval/v5_n100_retry --trials 50 --max-attempts 3
