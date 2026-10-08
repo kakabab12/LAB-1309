@@ -9,16 +9,6 @@ WARNING:root:No accelerated backend detected. Using default cpu, this will be sl
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
 WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
 Loading weights from local directory
 Loading weights from local directory
 Loading weights from local directory
@@ -38,3 +28,13 @@ seq 7: oxxoooxx attempts [1, 1, 1, 1, 1, 1, 1, 1]
 seq 8: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
 seq 9: ooooooox attempts [1, 1, 1, 1, 1, 1, 1, 1]
 seq 10: ooxxxoxx attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 11: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 12: oxoooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 13: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 14: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 15: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 16: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 17: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 18: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 19: ooooooox attempts [1, 1, 1, 1, 1, 1, 1, 1]
+[pallet] full 8-stack 0.75 first attempt 0.75
