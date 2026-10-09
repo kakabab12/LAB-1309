@@ -205,9 +205,14 @@ def main() -> None:
                 r = env.evaluate_stage(stage, ref_positions=refs)
                 r.update(info)
                 seq.append(r)
+                if not r["success"]:  # the cell stops here (a missed bin would still be on the scale and the
+                    # next one would be spawned into it); cumulative success is the same either way
+                    seq += [{"success": False, "skipped": True}] * (3 - stage)
+                    break
             ok = [s["success"] for s in seq]
             seqs.append({"trial": i, "stages": seq, "cumulative": [all(ok[: k + 1]) for k in range(3)]})
-            rec.save(out / "gifs" / f"chained_t{i:02d}_{''.join('o' if o else 'x' for o in ok)}.gif")
+            tag = "".join("o" if s["success"] else "-" if s.get("skipped") else "x" for s in seq)
+            rec.save(out / "gifs" / f"chained_t{i:02d}_{tag}.gif")
         cum = np.array([s["cumulative"] for s in seqs], dtype=float).mean(0)
         results["chained"] = {"cumulative_success": cum.tolist(), "n": len(seqs), "sequences": seqs}
         print(f"[chained] cumulative 1층 {cum[0]*100:.1f}% -> 옆 {cum[1]*100:.1f}% -> 2층 {cum[2]*100:.1f}%", flush=True)

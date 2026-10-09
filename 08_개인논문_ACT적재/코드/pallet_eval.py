@@ -64,6 +64,9 @@ def main():
             r.update(slot=k, attempts=attempts, first_attempt_success=bool(first),
                      bin_pos=env.bin_state(slots[k]["name"]).pos.tolist(), target=tgt.tolist())
             rows.append(r)
+            if on_scale(env, slots[k]["name"]):  # missed bin still on the scale: the next one would be spawned
+                rows += [{"success": False, "first_attempt_success": False, "attempts": 0, "skipped": True}] * (len(pols) - k - 1)
+                break
         ok = [x["success"] for x in rows]
         ok0 = [x["first_attempt_success"] for x in rows]
         seqs.append({"trial": i, "slots": rows, "cumulative": [all(ok[: k + 1]) for k in range(len(pols))],
