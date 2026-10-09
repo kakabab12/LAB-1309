@@ -16,6 +16,11 @@ Conditions (objects, margin around the arm's path, look-alike bin, passing objec
   all          look-alike + 8 objects + passing object, 12 mm margin
   all_vis      as all, plus random light / table colour / camera mounting (v6 domain-randomisation ranges)
   tight        look-alike + 8 objects + passing object, 5 mm margin (closer than any training scene)
+Factory cell (factory.py: conveyor with running items, rack of other bins, fence posts, control box, overhead cables
+over the top camera, hazard tapes, 2 look-alikes, 2 passing objects, flickering light; touching a structure = failure):
+  factory      14 table parts from 16 kinds, 10 mm margin
+  factory_vis  as factory, plus wide random looks (light 0.25-2.5x + tint, table colour / texture: v7 ranges)
+  factory_max  16 parts, 5 mm margin, wide random looks
 
 usage: python clutter_eval.py --ckpt S1 S2 S3 --tag v5_n100 --conds none sparse dense decoy --trials 50
 """
@@ -35,7 +40,9 @@ CONDS = {  # objects, margin, look-alike, passing object, randomised looks
     "none": (0, 0.030, False, False, False), "sparse": (4, 0.030, False, False, False),
     "dense": (8, 0.012, False, False, False), "decoy": (4, 0.030, True, False, False),
     "moving": (4, 0.030, False, True, False), "dense_decoy": (8, 0.012, True, False, False),
-    "all": (8, 0.012, True, True, False), "all_vis": (8, 0.012, True, True, True), "tight": (8, 0.005, True, True, False)}
+    "all": (8, 0.012, True, True, False), "all_vis": (8, 0.012, True, True, True), "tight": (8, 0.005, True, True, False),
+    "factory": (14, 0.010, True, True, False), "factory_vis": (14, 0.010, True, True, 2), "factory_max": (16, 0.005, True, True, 2)}
+FACTORY = {"factory", "factory_vis", "factory_max"}
 VIS_SEED0 = 660000
 CLUTTER_SEED0 = 770000
 
@@ -44,8 +51,9 @@ def stage_result(env: StackEnv, stage: int, refs: dict, crefs: dict) -> dict:
     r = env.evaluate_stage(stage, ref_positions=refs)
     moved = env.clutter_moved(crefs)
     r["clutter_moved"] = moved
+    r["struct_hit"] = bool(env.struct_hit)
     r["success_plain"] = r["success"]
-    r["success"] = bool(r["success"] and not moved)
+    r["success"] = bool(r["success"] and not moved and not env.struct_hit)
     return r
 
 
@@ -60,10 +68,11 @@ def main() -> None:
     ap.add_argument("--gifs", type=int, default=2)
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--out", default="results/clutter")
+    ap.add_argument("--factory-env", action="store_true", help="factory scene file for every condition (structures parked)")
     a = ap.parse_args()
     out = Path(a.out) / a.tag
     out.mkdir(parents=True, exist_ok=True)
-    env = StackEnv(render=True, clutter=True)
+    env = StackEnv(render=True, clutter=True, factory=bool(FACTORY & set(a.conds)) or a.factory_env)
     home = ScriptedExpert(env).home_q()
     pols = [load_policy(p, a.device, None, a.n_action_steps) for p in a.ckpt]
     rec = Recorder(env, enabled=a.gifs > 0)
@@ -76,9 +85,12 @@ def main() -> None:
 
         def setup(seed: int) -> dict:
             if vis:
-                env.randomize(np.random.default_rng(VIS_SEED0 + seed))
+                env.randomize(np.random.default_rng(VIS_SEED0 + seed), level=int(vis))
             else:
                 env.reset_visuals()
+            if cond in FACTORY:
+                import factory
+                return factory.place_factory(env, np.random.default_rng(CLUTTER_SEED0 + seed), n, margin)
             return env.place_clutter(np.random.default_rng(CLUTTER_SEED0 + seed), n, margin, decoy, mover=mover)
 
         if a.mode in ("per_stage", "both"):
@@ -119,6 +131,7 @@ def main() -> None:
                         env.spawn_next_bin(stage, xy, yaw)
                     refs = {b: env.bin_state(b).pos.copy() for b in BIN_NAMES[: stage - 1]}
                     crefs = env.clutter_positions()
+                    env.struct_hit = False  # per stage (factory scenes)
                     info = run_stage(env, pols[stage - 1], home, a.device, rec)
                     r = stage_result(env, stage, refs, crefs)
                     r.update(info)

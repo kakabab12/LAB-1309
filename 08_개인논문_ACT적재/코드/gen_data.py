@@ -35,13 +35,17 @@ def main() -> None:
     ap.add_argument("--clutter", action="store_true", help="physical clutter on the table: 0-8 objects, 12-35 mm "
                     "margin around the arm's path, a look-alike bin and a passing object each in 30%% of the "
                     "episodes; an episode where the expert moved any of it is discarded")
+    ap.add_argument("--factory", action="store_true", help="factory cell (factory.py): 15%% plain, 25%% table clutter, "
+                    "60%% factory scenes (structures, 8-16 parts 5-20 mm from the arm's path, 2 look-alikes, 2 passing "
+                    "objects, flicker); with --dr the looks use the v6 or the wider v7 ranges (half each); an episode "
+                    "where the expert moved clutter or touched a structure is discarded")
     args = ap.parse_args()
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     stem = args.name or f"stage{args.stage}"
     path = out / f"{stem}.hdf5"
-    env = StackEnv(render=True, dr=args.dr, clutter=args.clutter)
+    env = StackEnv(render=True, dr=args.dr, clutter=args.clutter, factory=args.factory)
     clut_rng = np.random.default_rng(args.seed + args.stage * 100000 + 13)
     vis_rng = np.random.default_rng(args.seed + args.stage * 100000 + 7)
     rng = np.random.default_rng(args.seed + args.stage * 100000)
@@ -63,12 +67,23 @@ def main() -> None:
                 p[1] = TARGETS[1][1] + rng.uniform(-0.008, 0.013)
                 spec.placed["bin_a"] = (p, yaw)
             obs = env.reset(spec, home)
-            vis = env.randomize(vis_rng, level=args.dr_level) if args.dr else None
+            level = args.dr_level if not args.factory else (1 if vis_rng.random() < 0.5 else 2)
+            vis = env.randomize(vis_rng, level=level) if args.dr else None
             clut = None
-            if args.clutter:
+            if args.factory:
+                import factory
+                u = clut_rng.random()
+                if u < 0.15:
+                    clut = {"level": "plain"}
+                elif u < 0.40:
+                    clut = env.place_clutter(clut_rng, int(clut_rng.integers(0, 9)), float(clut_rng.uniform(0.012, 0.035)),
+                                             decoy=bool(clut_rng.random() < 0.3), mover=bool(clut_rng.random() < 0.3))
+                else:
+                    clut = factory.place_factory(env, clut_rng, int(clut_rng.integers(8, 17)), float(clut_rng.uniform(0.005, 0.020)))
+            elif args.clutter:
                 clut = env.place_clutter(clut_rng, int(clut_rng.integers(0, 9)), float(clut_rng.uniform(0.012, 0.035)),
                                          decoy=bool(clut_rng.random() < 0.3), mover=bool(clut_rng.random() < 0.3))
-            if args.dr or args.clutter:
+            if args.dr or args.clutter or args.factory:
                 obs = env.observe()
             crefs = env.clutter_positions()
             refs = {n: env.bin_state(n).pos.copy() for n in BIN_NAMES[: args.stage - 1]}
@@ -90,9 +105,9 @@ def main() -> None:
             env.settle(10)
             r = env.evaluate_stage(args.stage, ref_positions=refs)
             moved = env.clutter_moved(crefs)
-            r["success"] = r["success"] and not moved
+            r["success"] = r["success"] and not moved and not env.struct_hit
             log.append({"try": tried, "success": r["success"], "xy_err_mm": r["xy_err_mm"], "ik_err_mm": ex.last_ik_err * 1000,
-                        **({"vis": vis} if vis else {}), **({"clutter": clut, "clutter_moved": moved} if args.clutter else {})})
+                        **({"vis": vis} if vis else {}), **({"clutter": clut, "clutter_moved": moved, "struct_hit": env.struct_hit} if args.clutter or args.factory else {})})
             if not r["success"]:
                 continue
             g = f.create_group(f"episode_{kept:04d}")
@@ -106,7 +121,7 @@ def main() -> None:
                 print(f"stage {args.stage}: kept {kept}/{tried} ({time.time() - t0:.0f}s)", flush=True)
         f.attrs["tried"] = tried
         f.attrs["kept"] = kept
-    summary = {"stage": args.stage, "design": DESIGN, "dr": args.dr, "dr_level": args.dr_level if args.dr else 0, "clutter": args.clutter, "dart_sigma": args.dart_sigma, "kept": kept, "tried": tried, "expert_success_rate": kept / tried,
+    summary = {"stage": args.stage, "design": DESIGN, "dr": args.dr, "dr_level": args.dr_level if args.dr else 0, "clutter": args.clutter, "factory": args.factory, "dart_sigma": args.dart_sigma, "kept": kept, "tried": tried, "expert_success_rate": kept / tried,
                "mean_xy_err_mm": float(np.mean([l["xy_err_mm"] for l in log if l["success"]])),
                "seconds": time.time() - t0}
     (out / f"{stem}_gen.json").write_text(json.dumps({"summary": summary, "log": log}, indent=1))

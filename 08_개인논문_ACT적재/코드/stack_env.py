@@ -210,7 +210,7 @@ def _bin_xml(name: str, pos: np.ndarray, rgba: str = "0.10 0.30 0.85 1", cubes: 
     </body>'''
 
 
-def build_model_files(dr: bool = False, clutter: bool = False) -> Path:
+def build_model_files(dr: bool = False, clutter: bool = False, factory: bool = False) -> Path:
     src = ROBOT_SRC.read_text()
     tmp = ROBOT_DIR / f"_tmp_probe_{os.getpid()}.xml"
     tmp.write_text(src)
@@ -280,12 +280,14 @@ def build_model_files(dr: bool = False, clutter: bool = False) -> Path:
     <camera name="top" pos="0.20 0.0 0.62" xyaxes="0 -1 0 1 0 0" fovy="55"/>
     <camera name="overview" pos="0.66 -0.46 0.46" xyaxes="0.62 0.78 0 -0.36 0.29 0.89" fovy="45"/>
 {bins}
-{DISTRACTORS if dr else ""}{chr(10) + _clutter_xml() if clutter else ""}
+{DISTRACTORS if dr else ""}{chr(10) + _clutter_xml() if clutter or factory else ""}{chr(10) + _factory_xml() if factory else ""}
   </worldbody>
 </mujoco>
 """
     out = SCENE_DR_OUT if dr else SCENE_OUT
-    if clutter:
+    if factory:
+        out = out.with_name(out.stem + "_factory.xml")
+    elif clutter:
         out = out.with_name(out.stem + "_clutter.xml")
     _atomic_write(out, scene)
     return out
@@ -331,7 +333,7 @@ MOVER, MOVER_HALF = "mover", 0.022
 
 
 def clutter_half_height(name: str) -> float:
-    if name == DECOY:
+    if name.startswith(DECOY):  # decoy, decoy2
         return (CUP_H if OBJECT == "cup" else BIN_H) / 2
     t, sz, _ = CLUTTER_SHAPES[CLUTTER_NAMES.index(name)]
     return sz[2] if t == "box" else sz[1]
@@ -339,10 +341,15 @@ def clutter_half_height(name: str) -> float:
 
 def clutter_radius(name: str) -> float:
     """Radius of the object's footprint circle (any yaw)."""
-    if name == DECOY:
+    if name.startswith(DECOY):  # decoy, decoy2
         return CUP_R + HANDLE_OUT if OBJECT == "cup" else math.hypot(BIN_L / 2, BIN_W / 2)
     t, sz, _ = CLUTTER_SHAPES[CLUTTER_NAMES.index(name)]
     return math.hypot(sz[0], sz[1]) if t == "box" else sz[0]
+
+
+def _factory_xml() -> str:
+    import factory
+    return factory.factory_xml()
 
 
 def _clutter_xml() -> str:
@@ -398,8 +405,9 @@ class SceneSpec:
 
 class StackEnv:
     def __init__(self, render: bool = True, img_hw: tuple[int, int] = (IMG_H, IMG_W), dr: bool = False,
-                 clutter: bool = False):
-        path = build_model_files(dr, clutter)
+                 clutter: bool = False, factory: bool = False):
+        clutter = clutter or factory  # the factory scene contains the table clutter too
+        path = build_model_files(dr, clutter, factory)
         self.m = mujoco.MjModel.from_xml_path(str(path))
         self.d = mujoco.MjData(self.m)
         self.jnt_qadr = np.array([self.m.joint(j).qposadr[0] for j in JOINTS])
@@ -415,6 +423,9 @@ class StackEnv:
         self.active_bin = None
         self.dr = dr
         self.clutter = clutter
+        self.factory = factory
+        self.dyn, self.flicker, self.struct_hit, self.struct_geoms = [], None, False, np.zeros(0, int)
+        self._frng = np.random.default_rng(12345)  # light flicker dips (only in factory scenes)
         self.clutter_placed: dict = {}  # name -> position at placement (only objects on the table)
         self._vis0 = {k: getattr(self.m, k).copy() for k in ("light_diffuse", "light_dir", "mat_rgba", "mat_texid",
                                                               "cam_pos", "cam_quat")}
@@ -573,14 +584,19 @@ class StackEnv:
         return float(zmin[i0:i1, j0:j1][inside].min())
 
     def place_clutter(self, rng: np.random.Generator, n: int, margin: float, decoy: bool = False,
-                      clearance: float = 0.015, mover: bool = False) -> dict:
+                      clearance: float = 0.015, mover: bool = False, pool: list | None = None,
+                      decoys: list | None = None, circles0: list | None = None, size_of=None) -> dict:
         """Put n clutter objects (and the look-alike if decoy) on the table: only where, within `margin` of the
         object's footprint, the arm and the carried bins never came lower than the object's top + clearance, and
         not touching each other. An object that finds no such spot stays parked. Returns {name: [x, y, yaw]}."""
         m, d = self.m, self.d
-        names = ([DECOY] if decoy else []) + [CLUTTER_NAMES[k] for k in rng.choice(len(CLUTTER_NAMES), n, replace=False)]
+        # pool / decoys / circles0 / size_of: the factory scene (factory.py) adds parts, a second look-alike and
+        # the structures' footprints; the defaults keep the plain clutter test unchanged
+        pool = CLUTTER_NAMES if pool is None else pool
+        names = ((decoys or [DECOY]) if decoy else []) + [pool[k] for k in rng.choice(len(pool), min(n, len(pool)), replace=False)]
+        rad, hh = size_of if size_of is not None else (clutter_radius, clutter_half_height)
         (ax0, ax1), (ay0, ay1) = CLUTTER_AREA
-        circles, placed = [], {}
+        circles, placed = list(circles0 or []), {}
         if mover:  # a straight path (15-45 cm) where the arm never comes low, at 4-10 cm/s, placed first
             r = MOVER_HALF * math.sqrt(2)
             for _ in range(400):
@@ -603,7 +619,7 @@ class StackEnv:
                 circles += [(q, r) for q in pts]
                 placed[MOVER] = [*map(float, p0), *map(float, p1), self.mover["speed"]]
         for nm in names:
-            r, hz = clutter_radius(nm), clutter_half_height(nm)
+            r, hz = rad(nm), hh(nm)
             for _ in range(400):
                 xy = rng.uniform([ax0, ay0], [ax1, ay1])
                 if all(np.linalg.norm(xy - c) > r + rc + 0.010 for c, rc in circles) \
@@ -675,6 +691,9 @@ class StackEnv:
 
     # ------------------------------------------------------------------ step
     def step(self, action: np.ndarray) -> None:
+        if self.factory:
+            import factory
+            factory.step_dynamics(self)
         if getattr(self, "mover", None) is not None:  # clutter test: the passing object moves back and forth
             mv = self.mover
             mv["t"] += 1.0 / CONTROL_HZ
@@ -685,6 +704,8 @@ class StackEnv:
         self.d.ctrl[self.act_ids] = a
         for _ in range(N_SUBSTEPS):
             mujoco.mj_step(self.m, self.d)
+        if self.factory:
+            factory.check_struct_contacts(self)
 
     def settle(self, n_steps: int = 15) -> None:
         hold = self.d.ctrl[self.act_ids].copy()
@@ -695,6 +716,10 @@ class StackEnv:
     def reset(self, spec: SceneSpec, home_q: np.ndarray) -> dict:
         mujoco.mj_resetData(self.m, self.d)
         self.mover, self.clutter_placed = None, {}
+        if self.factory:
+            import factory
+            self.dyn, self.flicker, self.struct_hit = [], None, False
+            factory.park_all(self)
         for k, n in enumerate(BIN_NAMES):
             self.set_bin(n, PARK[k], 0.0)
         for n, (p, yaw) in spec.placed.items():

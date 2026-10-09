@@ -13,6 +13,7 @@ usage: [ACT_OBJECT=cup ACT_LAYOUT=mirror ACT_DESIGN=cuprule] python clutter_map.
 
 import argparse
 import json
+import os
 
 import mujoco
 import numpy as np
@@ -24,7 +25,8 @@ X0, Y0, RES, NX, NY = -0.15, -0.45, 0.005, 140, 180
 SIGNS = np.array([[sx, sy, sz] for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)], float)
 
 
-def draw(env: StackEnv, geoms: np.ndarray, zmin: np.ndarray) -> None:
+def draw(env: StackEnv, geoms: np.ndarray, zmin: np.ndarray, zmax: np.ndarray | None = None) -> None:
+    """zmin: lowest point seen per cell; zmax: highest (for structures above the cell, e.g. cables)."""
     m, d = env.m, env.d
     for g in geoms:
         c, h = m.geom_aabb[g, :3], m.geom_aabb[g, 3:]
@@ -35,6 +37,8 @@ def draw(env: StackEnv, geoms: np.ndarray, zmin: np.ndarray) -> None:
         if i0 > i1 or j0 > j1:
             continue
         zmin[i0:i1 + 1, j0:j1 + 1] = np.minimum(zmin[i0:i1 + 1, j0:j1 + 1], max(w[:, 2].min(), 0.0))
+        if zmax is not None:
+            zmax[i0:i1 + 1, j0:j1 + 1] = np.maximum(zmax[i0:i1 + 1, j0:j1 + 1], w[:, 2].max())
 
 
 def main() -> None:
@@ -49,6 +53,7 @@ def main() -> None:
     bins = np.array([g for g in range(m.ngeom) if m.body(m.geom_bodyid[g]).name in BIN_NAMES])
     static = np.array([m.geom("scale_body").id, m.geom("pallet").id])
     zmin = np.full((NX, NY), np.inf)
+    zmax = np.full((NX, NY), -np.inf)
     rng = np.random.default_rng(a.seed)
     ex = ScriptedExpert(env, rng)
     home = ex.home_q()
@@ -65,18 +70,21 @@ def main() -> None:
             tgt = {1: TARGETS[1], 2: stage2_target(a_now), 3: a_now + np.array([0, 0, BIN_H])}[stage]
             for act in ex.plan(env.qpos(), bs.pos, bs.yaw, tgt):
                 env.step(act)
-                draw(env, robot, zmin)
-                draw(env, bins, zmin)
+                draw(env, robot, zmin, zmax)
+                draw(env, bins, zmin, zmax)
             q0 = env.qpos()
             for i in range(30):  # RETURN_HOME, as in eval_act.run_stage
                 env.step(q0 + (home - q0) * (i + 1) / 30)
-                draw(env, robot, zmin)
+                draw(env, robot, zmin, zmax)
             env.settle(10)
             ok += env.evaluate_stage(stage)["success"]
         stats[stage] = ok / a.episodes
         print(f"stage {stage}: expert success {ok}/{a.episodes}", flush=True)
     KEEPOUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(KEEPOUT_FILE, x0=X0, y0=Y0, res=RES, zmin=zmin)
+    tmp = KEEPOUT_FILE.with_name(KEEPOUT_FILE.name + ".tmp")  # running jobs may be reading the map
+    with open(tmp, "wb") as f:
+        np.savez(f, x0=X0, y0=Y0, res=RES, zmin=zmin, zmax=zmax)
+    os.replace(tmp, KEEPOUT_FILE)
     free = np.isinf(zmin)
     print(json.dumps({"expert_success": stats, "cells_never_reached": float(free.mean())}))
 
