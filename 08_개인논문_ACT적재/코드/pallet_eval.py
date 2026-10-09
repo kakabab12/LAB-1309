@@ -23,7 +23,7 @@ HORIZON = 300
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--runs", nargs=8, required=True)
+    ap.add_argument("--runs", nargs="+", required=True, help="one run per slot in placement order; 4 runs = the first layer only (2x2)")
     ap.add_argument("--step", type=int, default=30000)
     ap.add_argument("--start", type=int, default=0)
     ap.add_argument("--trials", type=int, default=10)
@@ -47,7 +47,7 @@ def main():
         env.reset(SE.SceneSpec(stage=1, new_bin_xy=xy, new_bin_yaw=yaw), home)
         rec.enabled = i - a.start < a.gifs
         rows = []
-        for k in range(len(slots)):
+        for k in range(len(pols)):
             if k > 0:
                 xy, yaw = SE.sample_pick(rng)
                 env.spawn_next_bin(k + 1, xy, yaw)
@@ -66,15 +66,15 @@ def main():
             rows.append(r)
         ok = [x["success"] for x in rows]
         ok0 = [x["first_attempt_success"] for x in rows]
-        seqs.append({"trial": i, "slots": rows, "cumulative": [all(ok[: k + 1]) for k in range(8)],
-                     "cumulative_first": [all(ok0[: k + 1]) for k in range(8)]})
+        seqs.append({"trial": i, "slots": rows, "cumulative": [all(ok[: k + 1]) for k in range(len(pols))],
+                     "cumulative_first": [all(ok0[: k + 1]) for k in range(len(pols))]})
         rec.save(out / "gifs" / f"pallet_t{i:02d}_{''.join('o' if o else 'x' for o in ok)}.gif")
         print(f"seq {i}: {''.join('o' if o else 'x' for o in ok)} attempts {[x['attempts'] for x in rows]}", flush=True)
     res = {"runs": a.runs, "k": a.k, "n": len(seqs), "slot_success": np.mean([[x["success"] for x in s["slots"]] for s in seqs], 0).tolist(),
            "cumulative_success": np.mean([s["cumulative"] for s in seqs], 0).tolist(),
            "cumulative_first_attempt": np.mean([s["cumulative_first"] for s in seqs], 0).tolist(), "sequences": seqs}
     (out / "results.json").write_text(json.dumps(res, indent=1, default=float))
-    print("[pallet] full 8-stack", res["cumulative_success"][-1], "first attempt", res["cumulative_first_attempt"][-1], flush=True)
+    print(f"[pallet] full {len(pols)}-stack", res["cumulative_success"][-1], "first attempt", res["cumulative_first_attempt"][-1], flush=True)
     rec.close()
     env.close()
 

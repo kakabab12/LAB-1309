@@ -403,6 +403,20 @@ class SceneSpec:
     placed: dict = field(default_factory=dict)  # name -> (pos, yaw)
 
 
+def make_renderer(m, h: int, w: int, tries: int = 60, wait_s: float = 60.0):
+    """mujoco.Renderer, waiting while the GPU has no memory left for another offscreen buffer (trainings and other
+    rendering jobs share it): retry once a minute for up to an hour instead of failing the job."""
+    import time
+    for k in range(tries):
+        try:
+            return mujoco.Renderer(m, h, w)
+        except Exception as e:  # mujoco.FatalError: offscreen framebuffer not complete / EGL errors
+            if k == tries - 1:
+                raise
+            print(f"renderer not available ({str(e)[:60]}), retry in {wait_s:.0f}s", flush=True)
+            time.sleep(wait_s)
+
+
 class StackEnv:
     def __init__(self, render: bool = True, img_hw: tuple[int, int] = (IMG_H, IMG_W), dr: bool = False,
                  clutter: bool = False, factory: bool = False):
@@ -419,7 +433,7 @@ class StackEnv:
         self.bin_dadr = {n: self.m.joint(f"{n}_joint").dofadr[0] for n in BIN_NAMES}
         self.site = self.m.site("gripperframe").id
         self.render_enabled = render
-        self.renderer = mujoco.Renderer(self.m, img_hw[0], img_hw[1]) if render else None
+        self.renderer = make_renderer(self.m, img_hw[0], img_hw[1]) if render else None
         self.active_bin = None
         self.dr = dr
         self.clutter = clutter

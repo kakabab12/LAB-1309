@@ -1,0 +1,29 @@
+{"stage": 5, "episodes": 100, "frames": 30000, "image_bytes": 290986406, "data": ["data/pallet2_s5.jpk.npz"], "steps": 30000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"], "state_noise": 0.1}
+Traceback (most recent call last):
+  File "/home/user/ACT/act_sim/train_act.py", line 239, in <module>
+    main()
+  File "/home/user/ACT/act_sim/train_act.py", line 215, in main
+    loss, info = policy.forward(batch)
+  File "/home/user/ACT/act_sim/.venv/lib/python3.10/site-packages/lerobot/policies/act/modeling_act.py", line 157, in forward
+    actions_hat, (mu_hat, log_sigma_x2_hat) = self.model(batch)
+  File "/home/user/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1751, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/user/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1762, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/user/ACT/act_sim/.venv/lib/python3.10/site-packages/lerobot/policies/act/modeling_act.py", line 493, in forward
+    cam_features = self.backbone(img)["feature_map"]
+  File "/home/user/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1751, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/user/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1762, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/user/.local/lib/python3.10/site-packages/torchvision/models/_utils.py", line 69, in forward
+    x = module(x)
+  File "/home/user/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1751, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/user/.local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1762, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/user/.local/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 554, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+  File "/home/user/.local/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 549, in _conv_forward
+    return F.conv2d(
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 10.90 GiB of which 32.88 MiB is free. Process 292574 has 1.42 GiB memory in use. Process 305885 has 153.00 MiB memory in use. Process 348714 has 1.40 GiB memory in use. Process 351079 has 1.42 GiB memory in use. Process 388698 has 1.40 GiB memory in use. Process 392498 has 1.38 GiB memory in use. Including non-PyTorch memory, this process has 586.00 MiB memory in use. Of the allocated memory 396.02 MiB is allocated by PyTorch, and 25.98 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

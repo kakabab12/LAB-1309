@@ -271,3 +271,14 @@
 [10-09 22:58:49] integrated test start: 3 objects x 2 layouts, rule designs + randomisation + factory cell, 300 demos each per stage
 [10-09 22:58:52] pallet drift test: pal2n02_s5 [slot 4] 5/20 pal2n05_s5 [slot 4] 9/20 pal2n05_s1 [slot 0] 20/20 (before: slot 5 2/20, slot 1 18/20)
 [10-09 23:01:27] noise check: s2_v4n05_n100 (main task stage 2, 0.05 rad), pal2n10_s5 (0.1 rad)
+[10-10 00:29:25] clutter eval (chained only): v5_n100, v6_n1000 now, v9_n1000 when trained
+[10-10 00:32:04] pallet 2x2 (one layer) eval: pal2n05_s1 + pal2_s2..s4 and pal2_s1..s4, 40 sequences each
+[10-10 00:32:58] pallet v3 start: slots 2-4, 6-8 with state noise 0.05 rad (slot 1 = pal2n05_s1, slot 5 = best of 0.05 / 0.1)
+[10-10 00:42:45] orchestrator start: 23 trainings (max 4 at once, >= 3000 MB free), 54 demo packs, 14 evaluations
+[10-10 00:42:45] start train train_s2_v4n05_n100
+[10-10 00:44:16] start gen gen_i_bin_orig_s3_p0
+[10-10 00:44:16] start gen gen_i_bin_orig_s3_p1
+[10-10 00:44:16] start gen gen_i_bin_orig_s3_p2
+[10-10 00:44:16] start gen gen_i_bin_mirror_s1_p0
+[10-10 00:44:16] start gen gen_i_bin_mirror_s1_p1
+[10-10 00:44:16] start gen gen_i_bin_mirror_s1_p2

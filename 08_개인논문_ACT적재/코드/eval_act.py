@@ -59,8 +59,9 @@ class Recorder:
         self.enabled = enabled
         self.frames = []
         if enabled:
-            self.big = mujoco.Renderer(env.m, 300, 400)
-            self.small = mujoco.Renderer(env.m, 150, 200)
+            from stack_env import make_renderer
+            self.big = make_renderer(env.m, 300, 400)
+            self.small = make_renderer(env.m, 150, 200)
         self.env = env
 
     def snap(self, label: str = "") -> None:

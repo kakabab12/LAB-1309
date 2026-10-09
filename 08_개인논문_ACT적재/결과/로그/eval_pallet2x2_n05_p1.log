@@ -1,0 +1,40 @@
+Exception ignored in: <function Renderer.__del__ at 0x77460f5adb40>
+Traceback (most recent call last):
+  File "/home/user/ACT/act_sim/.venv/lib/python3.10/site-packages/mujoco/renderer.py", line 337, in __del__
+    self.close()
+  File "/home/user/ACT/act_sim/.venv/lib/python3.10/site-packages/mujoco/renderer.py", line 323, in close
+    self._gl_context.free()
+  File "/home/user/ACT/act_sim/.venv/lib/python3.10/site-packages/mujoco/egl/__init__.py", line 131, in free
+    EGL.eglMakeCurrent(EGL_DISPLAY, EGL.EGL_NO_SURFACE,
+  File "/home/user/ACT/act_sim/.venv/lib/python3.10/site-packages/OpenGL/error.py", line 230, in glCheckError
+    raise self._errorClass(
+OpenGL.raw.EGL._errors.EGLError: EGLError(
+	err = EGL_NOT_INITIALIZED,
+	baseOperation = eglMakeCurrent,
+	cArguments = (
+		<OpenGL._opaque.EGLDisplay_pointer object at 0x7745933d7540>,
+		<OpenGL._opaque.EGLSurface_pointer object at 0x77460ff225c0>,
+		<OpenGL._opaque.EGLSurface_pointer object at 0x77460ff225c0>,
+		<OpenGL._opaque.EGLContext_pointer object at 0x77460ff230c0>,
+	),
+	result = 0
+)
+Exception ignored in: <function GLContext.__del__ at 0x77460f5ad240>
+Traceback (most recent call last):
+  File "/home/user/ACT/act_sim/.venv/lib/python3.10/site-packages/mujoco/egl/__init__.py", line 138, in __del__
+    self.free()
+  File "/home/user/ACT/act_sim/.venv/lib/python3.10/site-packages/mujoco/egl/__init__.py", line 131, in free
+    EGL.eglMakeCurrent(EGL_DISPLAY, EGL.EGL_NO_SURFACE,
+  File "/home/user/ACT/act_sim/.venv/lib/python3.10/site-packages/OpenGL/error.py", line 230, in glCheckError
+    raise self._errorClass(
+OpenGL.raw.EGL._errors.EGLError: EGLError(
+	err = EGL_NOT_INITIALIZED,
+	baseOperation = eglMakeCurrent,
+	cArguments = (
+		<OpenGL._opaque.EGLDisplay_pointer object at 0x7745933d7540>,
+		<OpenGL._opaque.EGLSurface_pointer object at 0x77460ff225c0>,
+		<OpenGL._opaque.EGLSurface_pointer object at 0x77460ff225c0>,
+		<OpenGL._opaque.EGLContext_pointer object at 0x77460ff230c0>,
+	),
+	result = 0
+)
