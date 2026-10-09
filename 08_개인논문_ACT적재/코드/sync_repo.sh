@@ -66,13 +66,13 @@ for f in logs/train_*.log logs/eval_*.log logs/gen_*.log; do [ -f "$f" ] && tail
 
 # figures and paper
 cp paper/fig*.png "$R/결과/그림/" 2>/dev/null || true
-cp results/stack_*.png results/pallet_expert_final.png results/design_versions.png results/grip_check_*.png results/stage3_inspect.png results/robust_views.png results/clahe_views.png results/robust_views_beyond.png results/v7_views.png results/side_offset_v5_v8.png "$R/결과/그림/" 2>/dev/null || true
+cp results/stack_*.png results/pallet_*.png results/design_versions.png results/grip_check_*.png results/stage3_inspect.png results/robust_views.png results/clahe_views.png results/robust_views_beyond.png results/v7_views.png results/side_offset_v5_v8.png "$R/결과/그림/" 2>/dev/null || true
 [ -f paper/out/paper.docx ] && cp paper/out/paper.docx "$R/논문/"
 [ -f paper/out/paper.pdf ] && cp paper/out/paper.pdf "$R/논문/"
 
 # code
 cp stack_env.py expert.py gen_data.py train_act.py eval_act.py make_gif.py batch_expert.py sync_repo.sh analyze.py dataset_preview.py \
-   convert_jpeg.py publish.sh stack_photos.py grasp_tolerance.py grasp_offsets.py wall_rule_test.py design_photos.py grip_check.py inspect_stage3.py expert_eval.py robust_eval.py preprocess.py wide_expert_test.py eval_retry.py robust_summary.py merge_eval.py make_showcase.py fig_side_offset.py verify_il.py make_object_stl.py pallet_grid.py gen_pallet.py pallet_eval.py \
+   convert_jpeg.py publish.sh stack_photos.py grasp_tolerance.py grasp_offsets.py wall_rule_test.py design_photos.py grip_check.py inspect_stage3.py expert_eval.py robust_eval.py preprocess.py wide_expert_test.py eval_retry.py robust_summary.py merge_eval.py make_showcase.py fig_side_offset.py verify_il.py make_object_stl.py fig_pallet_layout.py pallet_slot_check.py run_pallet_v2.sh run_pallet_k25.sh run_pallet_fix.sh run_pallet_fix2.sh gen_pallet_more.sh pallet_grid.py gen_pallet.py pallet_eval.py \
    run_queue3.sh run_queue4.sh run_queue6.sh run_queue7.sh run_queue8.sh gen_all_v2.sh gen_stage_v2.sh gen_more_v2.sh gen_v4.sh gen_v5.sh gen_v6.sh run_queue9.sh run_queue10.sh run_post.sh run_post2.sh gen_pallet_all.sh run_queue_pallet.sh gen_v7.sh run_queue11.sh run_queue12.sh "$R/코드/" 2>/dev/null || true
 mkdir -p "$R/코드/paper/templates" && cp paper/*.py "$R/코드/paper/" && cp paper/templates/*.docx "$R/코드/paper/templates/" 2>/dev/null || true
 echo "synced to $R"
