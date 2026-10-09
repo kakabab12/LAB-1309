@@ -56,6 +56,20 @@ class GridExpert(E.ScriptedExpert):
     EPISODE_STEPS = 300
 
     VIA_FAR_ONLY = os.environ.get("PALLET_VIA", "all") == "far"  # skip the robot-side via point for the near row
+    # position first: where the wrist cannot also reach the approach tilt (upper layer, far corner = slot 5) the IK
+    # gave up 7-11 mm of position for orientation; re-solve such waypoints with a lower orientation weight
+    POS_FIRST = os.environ.get("PALLET_IK_POS", "0") == "1"
+
+    def _ik(self, q, p, R):
+        q1, err = self.ik.solve(q, p, R)
+        if self.POS_FIRST and err > 0.002:
+            for w in (0.1, 0.04, 0.015):
+                q2, e2 = self.ik.solve(q, p, R, iters=150, w_rot=w)
+                if e2 < err:
+                    q1, err = q2, e2
+                if err <= 0.002:
+                    break
+        return q1, err
 
     def plan(self, q_start, bin_pos, bin_yaw, target, jitter=True, upper=False, far=True):
         rng = self.rng
@@ -97,7 +111,7 @@ class GridExpert(E.ScriptedExpert):
                 pi_ = prev_p + s * (p - prev_p)
                 yi = prev_yaw + s * (yaw - prev_yaw)
                 gi = prev_g + min(1.0, i / max(1, n * 0.7)) * (g - prev_g)
-                q, err = self.ik.solve(q, pi_, self.geo.R_target(yi, pi_[:2], pi_[2]))
+                q, err = self._ik(q, pi_, self.geo.R_target(yi, pi_[:2], pi_[2]))
                 max_err = max(max_err, err)
                 qq = q.copy()
                 qq[5] = gi

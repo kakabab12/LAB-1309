@@ -1,2 +1,12 @@
 stage 1: kept 10/10 (261s)
 stage 1: kept 20/20 (490s)
+stage 1: kept 30/30 (717s)
+stage 1: kept 40/40 (929s)
+stage 1: kept 50/51 (1144s)
+stage 1: kept 60/62 (1378s)
+stage 1: kept 70/72 (1567s)
+stage 1: kept 80/82 (1766s)
+stage 1: kept 90/92 (1934s)
+stage 1: kept 100/102 (2107s)
+{"stage": 1, "design": "cuprule", "dr": true, "dr_level": 1, "clutter": false, "factory": true, "dart_sigma": 0.0, "kept": 100, "tried": 102, "expert_success_rate": 0.9803921568627451, "mean_xy_err_mm": 2.720906416609095, "seconds": 2107.477643966675}
+i_cup_mirror_s1_p1.hdf5: 100 episodes -> i_cup_mirror_s1_p1.jpk.npz 358 MB (46s)

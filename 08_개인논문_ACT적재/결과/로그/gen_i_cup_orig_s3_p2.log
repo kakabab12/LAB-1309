@@ -6,3 +6,7 @@ stage 3: kept 50/50 (1495s)
 stage 3: kept 60/62 (1855s)
 stage 3: kept 70/72 (2202s)
 stage 3: kept 80/83 (2564s)
+stage 3: kept 90/93 (2836s)
+stage 3: kept 100/103 (3045s)
+{"stage": 3, "design": "cuprule", "dr": true, "dr_level": 1, "clutter": false, "factory": true, "dart_sigma": 0.0, "kept": 100, "tried": 103, "expert_success_rate": 0.970873786407767, "mean_xy_err_mm": 3.026002188378624, "seconds": 3045.307867527008}
+i_cup_orig_s3_p2.hdf5: 100 episodes -> i_cup_orig_s3_p2.jpk.npz 379 MB (54s)

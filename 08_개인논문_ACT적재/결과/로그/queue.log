@@ -332,3 +332,34 @@
 [10-10 04:36:43] regif done
 [10-10 04:38:06] done gen_i_cup_orig_s3_p0 
 [10-10 04:38:06] start gen gen_i_cup_mirror_s2_p0
+[10-10 04:40:38] done gen_i_cup_orig_s3_p1 
+[10-10 04:40:38] start gen gen_i_cup_mirror_s2_p1
+[10-10 04:43:40] done gen_i_cup_orig_s3_p2 
+[10-10 04:43:40] start gen gen_i_cup_mirror_s2_p2
+[10-10 04:51:45] done train_pal2n10_s5 
+[10-10 04:51:45] start train train_g_box_orig_v2b_s1
+[10-10 04:53:16] start eval slotcheck_pal2n10_s5
+[10-10 04:59:50] done gen_i_cup_mirror_s1_p0 
+[10-10 04:59:50] start gen gen_i_cup_mirror_s3_p0
+[10-10 05:05:24] done gen_i_cup_mirror_s1_p1 
+[10-10 05:05:24] start gen gen_i_cup_mirror_s3_p1
+[10-10 05:06:55] done gen_i_cup_mirror_s1_p2 
+[10-10 05:06:55] start gen gen_i_cup_mirror_s3_p2
+[10-10 05:19:33] done gen_i_cup_mirror_s2_p0 
+[10-10 05:19:33] start gen gen_i_box_orig_s1_p0
+[10-10 05:21:34] done gen_i_cup_mirror_s2_p1 
+[10-10 05:21:35] start gen gen_i_box_orig_s1_p1
+[10-10 05:22:05] done gen_i_cup_mirror_s2_p2 
+[10-10 05:22:05] start gen gen_i_box_orig_s1_p2
+[10-10 05:24:06] done slotcheck_pal2n10_s5 7/20
+[10-10 05:35:13] done gen_i_cup_mirror_s3_p0 
+[10-10 05:35:14] start gen gen_i_box_orig_s2_p0
+[10-10 05:40:35] clutter eval: v9 done: none 94; all 88; tight 88; factory 44; factory_vis 30; factory_max 24; 
+[10-10 05:40:47] done train_g_cup_orig_cupnaive_s1 
+[10-10 05:40:47] start train train_g_box_orig_v5_s1
+[10-10 05:42:47] done gen_i_cup_mirror_s3_p1 
+[10-10 05:42:47] done gen_i_cup_mirror_s3_p2 
+[10-10 05:42:48] start gen gen_i_box_orig_s2_p1
+[10-10 05:42:48] start gen gen_i_box_orig_s2_p2
+[10-10 05:54:55] done eval_v5n05_n100 chained 100% -> 98% -> 98%
+[10-10 05:57:33] pallet slot 5 fix: position-first IK expert, 4 x 25 demos
