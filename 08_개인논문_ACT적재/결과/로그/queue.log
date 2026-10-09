@@ -250,3 +250,8 @@
 [10-09 11:21:37] train pal2_s3 (pallet v2 slot 3, 100 demos)
 [10-09 11:23:07] train pal2_s4 (pallet v2 slot 4, 100 demos)
 [10-09 11:24:37] train pal2_s5 (pallet v2 slot 5, 100 demos)
+[10-09 14:34:42] train pal2_s6 (pallet v2 slot 6, 100 demos)
+[10-09 14:36:42] train pal2_s7 (pallet v2 slot 7, 100 demos)
+[10-09 14:38:12] train pal2_s8 (pallet v2 slot 8, 100 demos)
+[10-09 16:39:26] pallet v2 policies trained; evaluating 40 sequences with re-planning every 25 steps
+[10-09 16:49:25] weight-triggered retry eval v5_n100 (simulated scale reading >= 60 g -> retry), 2 x 100 sequences

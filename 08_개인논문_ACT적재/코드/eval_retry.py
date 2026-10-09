@@ -11,12 +11,31 @@ import argparse
 import json
 from pathlib import Path
 
+import mujoco
 import numpy as np
 import torch
 
 from eval_act import EVAL_SEED0, Recorder, load_policy, run_stage
 from expert import ScriptedExpert
 from stack_env import BIN_H, BIN_NAMES, SCALE_C, SCALE_H, SCALE_HALF, StackEnv, sample_pick, sample_scene
+
+
+G = 9.81
+SCALE_TRIGGER_G = 60.0  # half of a full bin (123 g): above it the bin is still on the scale
+
+
+def scale_reading_g(env: StackEnv) -> float:
+    """Simulated scale display: total normal contact force on the scale body, in grams (what the 7-segment shows)."""
+    m, d = env.m, env.d
+    sb = m.body("scale").id
+    f6 = np.zeros(6)
+    total = 0.0
+    for i in range(d.ncon):
+        c = d.contact[i]
+        if sb in (m.geom_bodyid[c.geom1], m.geom_bodyid[c.geom2]):
+            mujoco.mj_contactForce(m, d, i, f6)
+            total += abs(f6[0])
+    return 1000.0 * total / G
 
 
 def on_scale(env: StackEnv, name: str) -> bool:
@@ -35,6 +54,8 @@ def main():
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--gifs", type=int, default=0)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--trigger", choices=["position", "weight"], default="position",
+                    help="retry when the bin is still on the scale: by its pose, or by the simulated scale reading")
     a = ap.parse_args()
     torch.set_num_threads(2)
     out = Path(a.out)
@@ -56,15 +77,19 @@ def main():
             refs = {n: env.bin_state(n).pos.copy() for n in BIN_NAMES[: stage - 1]}
             name = BIN_NAMES[stage - 1]
             attempts, first = 0, None
+            readings = []
             while True:
                 attempts += 1
                 run_stage(env, pols[stage - 1], home, a.device, rec)
                 r = env.evaluate_stage(stage, ref_positions=refs)
                 if first is None:
                     first = bool(r["success"])
-                if attempts >= a.max_attempts or not on_scale(env, name):
+                grams = scale_reading_g(env)
+                still = grams >= SCALE_TRIGGER_G if a.trigger == "weight" else on_scale(env, name)
+                readings.append({"attempt": attempts, "scale_g": round(grams, 1), "on_scale_pose": on_scale(env, name)})
+                if attempts >= a.max_attempts or not still:
                     break
-            r.update(attempts=attempts, first_attempt_success=first)
+            r.update(attempts=attempts, first_attempt_success=first, scale=readings)
             seq.append(r)
         ok = [s["success"] for s in seq]
         first_ok = [s["first_attempt_success"] for s in seq]
@@ -75,7 +100,7 @@ def main():
     cum = np.array([s["cumulative"] for s in seqs], float).mean(0)
     cum0 = np.array([s["cumulative_first"] for s in seqs], float).mean(0)
     att = np.array([[st["attempts"] for st in s["stages"]] for s in seqs])
-    res = {"ckpt": a.ckpt, "max_attempts": a.max_attempts, "cumulative_success": cum.tolist(),
+    res = {"ckpt": a.ckpt, "trigger": a.trigger, "max_attempts": a.max_attempts, "cumulative_success": cum.tolist(),
            "cumulative_first_attempt": cum0.tolist(), "mean_attempts_per_stage": att.mean(0).tolist(),
            "retried_stage_runs": int((att > 1).sum()), "n": len(seqs), "sequences": seqs}
     (out / "results.json").write_text(json.dumps(res, indent=1, default=float))
