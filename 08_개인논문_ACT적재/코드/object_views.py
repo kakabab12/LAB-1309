@@ -42,6 +42,11 @@ def tile(path: str) -> None:
         env.settle(15)
     r.update_scene(env.d, "overview")
     after = r.render().copy()
+    cam = mujoco.MjvCamera()  # close-up of the finished stack (for the paper figure)
+    cam.lookat[:] = [*(TARGETS[1][:2] + TARGETS[2][:2]) / 2, 0.045]
+    cam.distance, cam.azimuth, cam.elevation = 0.36, 205 if TARGETS[2][1] > 0 else 155, -28
+    r.update_scene(env.d, cam)
+    Image.fromarray(r.render()).save(path.replace(".png", "_close.png"))
     im = Image.fromarray(np.concatenate([before, after], 1))
     label = f"{os.environ.get('ACT_OBJECT', 'bin')} / {os.environ.get('ACT_LAYOUT', 'orig')} layout: before -> after 3 stages"
     ImageDraw.Draw(im).rectangle((0, 0, 800, 22), fill=(255, 255, 255))

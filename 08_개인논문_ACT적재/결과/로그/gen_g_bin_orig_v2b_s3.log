@@ -1,0 +1,12 @@
+stage 3: kept 10/10 (253s)
+stage 3: kept 20/20 (523s)
+stage 3: kept 30/30 (757s)
+stage 3: kept 40/40 (1012s)
+stage 3: kept 50/50 (1226s)
+stage 3: kept 60/60 (1464s)
+stage 3: kept 70/70 (1705s)
+stage 3: kept 80/80 (1939s)
+stage 3: kept 90/90 (2178s)
+stage 3: kept 100/100 (2417s)
+{"stage": 3, "design": "v2b", "dr": false, "dr_level": 0, "clutter": false, "factory": false, "dart_sigma": 0.0, "kept": 100, "tried": 100, "expert_success_rate": 1.0, "mean_xy_err_mm": 2.0823456439490973, "seconds": 2416.86883187294}
+g_bin_orig_v2b_s3.hdf5: 100 episodes -> g_bin_orig_v2b_s3.jpk.npz 259 MB (56s)

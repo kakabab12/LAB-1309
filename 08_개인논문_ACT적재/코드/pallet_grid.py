@@ -131,9 +131,9 @@ def evaluate(env, slots, k, refs, target) -> dict:
 _build_orig = SE.build_model_files
 
 
-def _build_with_arena(dr: bool = False, clutter: bool = False):
+def _build_with_arena(dr: bool = False, *args, **kwargs):
     """Same scene, with a larger constraint arena (12+ bins in contact need more than the 16 MB default)."""
-    path = _build_orig(dr, clutter)
+    path = _build_orig(dr, *args, **kwargs)
     txt = path.read_text()
     if "<size memory" not in txt:
         txt = txt.replace("<option ", '<size memory="64M"/>\n  <option ', 1)

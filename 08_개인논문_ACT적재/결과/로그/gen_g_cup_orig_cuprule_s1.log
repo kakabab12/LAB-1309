@@ -1,0 +1,12 @@
+stage 1: kept 10/10 (130s)
+stage 1: kept 20/20 (264s)
+stage 1: kept 30/30 (391s)
+stage 1: kept 40/40 (525s)
+stage 1: kept 50/50 (672s)
+stage 1: kept 60/60 (824s)
+stage 1: kept 70/70 (974s)
+stage 1: kept 80/80 (1121s)
+stage 1: kept 90/90 (1273s)
+stage 1: kept 100/100 (1427s)
+{"stage": 1, "design": "cuprule", "dr": false, "dr_level": 0, "clutter": false, "factory": false, "dart_sigma": 0.0, "kept": 100, "tried": 100, "expert_success_rate": 1.0, "mean_xy_err_mm": 3.708174246864772, "seconds": 1426.619469165802}
+g_cup_orig_cuprule_s1.hdf5: 100 episodes -> g_cup_orig_cuprule_s1.jpk.npz 249 MB (56s)

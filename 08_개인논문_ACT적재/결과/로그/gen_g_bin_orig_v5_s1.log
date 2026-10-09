@@ -1,0 +1,12 @@
+stage 1: kept 10/10 (209s)
+stage 1: kept 20/20 (419s)
+stage 1: kept 30/30 (625s)
+stage 1: kept 40/40 (805s)
+stage 1: kept 50/50 (985s)
+stage 1: kept 60/60 (1162s)
+stage 1: kept 70/70 (1346s)
+stage 1: kept 80/80 (1527s)
+stage 1: kept 90/90 (1709s)
+stage 1: kept 100/100 (1892s)
+{"stage": 1, "design": "v5", "dr": false, "dr_level": 0, "clutter": false, "factory": false, "dart_sigma": 0.0, "kept": 100, "tried": 100, "expert_success_rate": 1.0, "mean_xy_err_mm": 2.5322874505197364, "seconds": 1892.4312825202942}
+g_bin_orig_v5_s1.hdf5: 100 episodes -> g_bin_orig_v5_s1.jpk.npz 242 MB (45s)

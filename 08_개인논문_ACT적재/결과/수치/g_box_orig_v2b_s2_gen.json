@@ -1,0 +1,14 @@
+{
+ "stage": 2,
+ "design": "v2b",
+ "dr": false,
+ "dr_level": 0,
+ "clutter": false,
+ "factory": false,
+ "dart_sigma": 0.0,
+ "kept": 100,
+ "tried": 100,
+ "expert_success_rate": 1.0,
+ "mean_xy_err_mm": 3.270240451870072,
+ "seconds": 1717.887594461441
+}

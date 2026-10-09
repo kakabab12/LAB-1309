@@ -5,7 +5,7 @@
 #     the handle = cuprule), domain randomisation (v6 or v7 ranges) + 15 % plain / 25 % table clutter / 60 % factory
 #     scenes (gen_data.py --dr --factory, keep-out map per object and layout from clutter_map.py), 300 per
 #     object/layout/stage -> 1800 per stage
-#  2) train s{1,2,3}_int_n1800 on all of them (60k steps, checkpoints every 10k)
+#  2) train s{1,2,3}_int_n1800 on all of them (40k steps, checkpoints every 10k)
 #  3) evaluate every object/layout on none / all / factory / factory_vis / factory_max (clutter_eval.py)
 # Launch:  systemd-run --user --unit=act-integrated -p MemoryMax=16G -p Nice=10 -p WorkingDirectory=$PWD \
 #            --setenv=MUJOCO_GL=egl --setenv=MALLOC_MMAP_THRESHOLD_=1048576 /bin/bash $PWD/run_integrated.sh
@@ -19,7 +19,7 @@ gpu_free() { nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits | 
 mem_avail_gb() { awk '/MemAvailable/ {print int($2 / 1048576)}' /proc/meminfo; }
 COMBOS=("bin orig v5" "bin mirror v5" "cup orig cuprule" "cup mirror cuprule" "box orig v5" "box mirror v5")
 TAG=int_n1800
-STEPS=60000
+STEPS=40000  # 60k planned; 40k to finish by the weekend (10/11)
 
 # keep-out maps for every object / layout, and the CPU free of the generalisation test's demo generation
 for c in "${COMBOS[@]}"; do set -- $c; s=$([ "$1" = bin ] && [ "$2" = orig ] && echo "" || echo "_$1$([ "$2" = mirror ] && echo _mirror)")
@@ -66,7 +66,7 @@ say "integrated policies trained"
 ev() {  # obj lay design
   ACT_OBJECT=$1 ACT_LAYOUT=$2 ACT_DESIGN=$3 CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=2 $PY clutter_eval.py \
       --ckpt runs/s1_$TAG/$ck runs/s2_$TAG/$ck runs/s3_$TAG/$ck --tag ${TAG}_$1_$2 --conds none all factory factory_vis factory_max --factory-env \
-      --trials 40 --gifs 2 > logs/clutter_${TAG}_$1_$2.log 2>&1
+      --mode chained --trials 50 --gifs 2 > logs/clutter_${TAG}_$1_$2.log 2>&1
   say "integrated eval $1 $2: $(grep chained logs/clutter_${TAG}_$1_$2.log | tr '\n' ' ')"
 }
 for c in "${COMBOS[@]}"; do ev $c & done

@@ -1,0 +1,3 @@
+{"stage": 3, "episodes": 1000, "frames": 270000, "image_bytes": 2742062798, "data": ["data/v9_stage3.jpk.npz"], "steps": 30000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"], "state_noise": 0.0}
+{"step": 2000, "loss": 1.1111129713058472, "l1_loss": 0.18142927907407283, "kld_loss": 0.09296836953610182, "elapsed_s": 1139.124144077301}
+{"step": 4000, "loss": 0.4400376757979393, "l1_loss": 0.1493729929625988, "kld_loss": 0.029066468235105277, "elapsed_s": 2059.129085302353}

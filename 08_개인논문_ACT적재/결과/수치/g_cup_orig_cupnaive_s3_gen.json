@@ -1,0 +1,14 @@
+{
+ "stage": 3,
+ "design": "cupnaive",
+ "dr": false,
+ "dr_level": 0,
+ "clutter": false,
+ "factory": false,
+ "dart_sigma": 0.0,
+ "kept": 100,
+ "tried": 107,
+ "expert_success_rate": 0.9345794392523364,
+ "mean_xy_err_mm": 2.1213565428523378,
+ "seconds": 1964.4891300201416
+}

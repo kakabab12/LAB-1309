@@ -258,3 +258,16 @@
 [10-09 18:16:24] clutter test start: v9 demos (v6 + physical clutter, 1000/stage), zero-shot eval of v5_n100 and v6_n1000
 [10-09 18:44:51] pallet v2 eval done: [pallet] full 8-stack 0.35 first attempt 0.35 [pallet] full 8-stack 0.35 first attempt 0.35 
 [10-09 19:47:58] pallet drift test: slot 5 / slot 1 policies with state-input noise 0.02 / 0.05 rad
+[10-09 21:17:29] gen v9: stage 1 1000/1001; stage 2 1000/1024; stage 3 1000/1001; 
+[10-09 21:17:29] train s1_v9_n1000 (v9: v6 + physical clutter, 1000 demos)
+[10-09 21:18:22] generalisation start: 6 object/layout conditions x 2 designs x 3 stages (100 demos each)
+[10-09 22:24:09] train s2_v9_n1000 (v9: v6 + physical clutter, 1000 demos)
+[10-09 22:26:09] train s3_v9_n1000 (v9: v6 + physical clutter, 1000 demos)
+[10-09 22:26:15] generalisation start: 2 object/layout conditions x 2 designs x 3 stages (100 demos each)
+[10-09 22:30:13] pallet drift test: pal2n02_s5  pal2n05_s5  pal2n05_s1  (before: slot 5 2/20, slot 1 18/20)
+[10-09 22:58:13] generalisation: demos ready -> audit
+[10-09 22:58:16] generalisation audit: naive: widest gap 50-66 deg over 9 sets | rule: 3-7 deg over 9 sets
+[10-09 22:58:16] train g_cup_orig_cupnaive_s1
+[10-09 22:58:49] integrated test start: 3 objects x 2 layouts, rule designs + randomisation + factory cell, 300 demos each per stage
+[10-09 22:58:52] pallet drift test: pal2n02_s5 [slot 4] 5/20 pal2n05_s5 [slot 4] 9/20 pal2n05_s1 [slot 0] 20/20 (before: slot 5 2/20, slot 1 18/20)
+[10-09 23:01:27] noise check: s2_v4n05_n100 (main task stage 2, 0.05 rad), pal2n10_s5 (0.1 rad)

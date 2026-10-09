@@ -12,9 +12,10 @@ say() { echo "[$(date '+%m-%d %H:%M:%S')] $*" >> $LOG; }
 n_train() { pgrep -fc "^.venv/bin/python train_act.py" || true; }
 gpu_free() { nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits | head -1; }
 mem_avail_gb() { awk '/MemAvailable/ {print int($2 / 1048576)}' /proc/meminfo; }
+# (10/9 22:40, to finish by the weekend: the bin's naive-vs-rule comparison is the main experiment already (v2 vs
+# v4/v5), and the mirrored layouts are covered by the integrated test; so only the cup and the box are compared here)
 COND=(  # object layout naive-design rule-design
-  "bin orig v2b v5" "cup orig cupnaive cuprule" "box orig v2b v5"
-  "bin mirror v2b v5" "cup mirror cupnaive cuprule" "box mirror v2b v5")
+  "cup orig cupnaive cuprule" "box orig v2b v5")
 tag() { echo "g_${1}_${2}_${3}"; }  # object layout design
 # the CPU is shared with the clutter test: start once its demonstrations are packed
 while [ ! -f data/v9_stage3.jpk.npz ] && systemctl --user is-active --quiet act-clutter; do sleep 60; done

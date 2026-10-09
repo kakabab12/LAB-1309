@@ -1,0 +1,12 @@
+stage 3: kept 10/10 (160s)
+stage 3: kept 20/21 (350s)
+stage 3: kept 30/32 (542s)
+stage 3: kept 40/43 (750s)
+stage 3: kept 50/53 (919s)
+stage 3: kept 60/64 (1133s)
+stage 3: kept 70/74 (1328s)
+stage 3: kept 80/85 (1531s)
+stage 3: kept 90/95 (1724s)
+stage 3: kept 100/107 (1964s)
+{"stage": 3, "design": "cupnaive", "dr": false, "dr_level": 0, "clutter": false, "factory": false, "dart_sigma": 0.0, "kept": 100, "tried": 107, "expert_success_rate": 0.9345794392523364, "mean_xy_err_mm": 2.1213565428523378, "seconds": 1964.4891300201416}
+g_cup_orig_cupnaive_s3.hdf5: 100 episodes -> g_cup_orig_cupnaive_s3.jpk.npz 266 MB (60s)

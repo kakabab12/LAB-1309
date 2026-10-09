@@ -270,26 +270,107 @@ def ym(model: str, key: str) -> str:
         return MISSING
 
 
+# ---------------------------------------------------------------- new experiments (10/9-10/11)
+def _json(rel: str) -> dict | None:
+    p = ROOT / rel
+    return json.loads(p.read_text()) if p.exists() else None
+
+
+def wretry(key: str = "cumulative_success") -> str:
+    """Weight-verified retry (simulated scale reading >= 60 g -> run the stage again), both halves of 200."""
+    rs = [_json(f"results/eval/v5_n100_wretry_p{k}/results.json") for k in (0, 1)]
+    if not all(rs):
+        return MISSING
+    n = sum(r["n"] for r in rs)
+    k = round(sum(r[key][2] * r["n"] for r in rs))
+    return f"{k}/{n}"
+
+
+def clut(tag: str, cond: str, k: int = 2) -> str:
+    """Chained success (%) of a model on a clutter / factory condition (clutter_eval.py)."""
+    r = _json(f"results/clutter/{tag}/{cond}.json")
+    if not r or "chained" not in r:
+        return MISSING
+    return f"{100 * r['chained']['cumulative_success'][k]:.0f}"
+
+
+def clut_stage(tag: str, cond: str) -> str:
+    """Mean per-stage success (%) on a clutter / factory condition."""
+    r = _json(f"results/clutter/{tag}/{cond}.json")
+    if not r or "per_stage" not in r:
+        return MISSING
+    return f"{100 * sum(r['per_stage'][s]['success_rate'] for s in ('1', '2', '3')) / 3:.0f}"
+
+
+CLUT_COND = ["sparse", "dense", "decoy", "moving", "dense_decoy", "all", "all_vis", "tight"]
+
+
+def clut_avg(tag: str, conds=None) -> str:
+    """Mean chained success over the clutter conditions."""
+    v = []
+    for c in conds or CLUT_COND:
+        r = _json(f"results/clutter/{tag}/{c}.json")
+        if not r or "chained" not in r:
+            return MISSING
+        v.append(r["chained"]["cumulative_success"][2])
+    return f"{100 * sum(v) / len(v):.0f}"
+
+
+def gen_chain(obj: str, design: str, k: int = 2) -> str:
+    """Chained success (%) of the generalisation test (run_general.sh, original layout)."""
+    r = RES_GEN.get(f"{obj}_{design}")
+    if not r or "chained" not in r:
+        return MISSING
+    return f"{100 * r['chained']['cumulative_success'][k]:.0f}"
+
+
+RES_GEN = {f"{o}_{d}": _load(f"g_{o}_orig_{d}") for o, ds in (("bin", ("v2b", "v5")), ("cup", ("cupnaive", "cuprule")),
+                                                               ("box", ("v2b", "v5"))) for d in ds}
+AUDIT_GEN = _json("results/demo_audit_general.json") or {}
+
+
+def gen_gap(obj: str, design: str) -> str:
+    """Largest empty band in the grasp wrist-roll angle over the three stages (demo audit, deg)."""
+    v = [r["widest_gap_deg"] for r in AUDIT_GEN.values() if r["object"] == obj and r["layout"] == "orig" and r["design"] == design]
+    return f"{max(v):.0f}" if v else MISSING
+
+
+INT_COMBOS = [(o, l) for o in ("bin", "cup", "box") for l in ("orig", "mirror")]
+
+
+def int_res(cond: str, agg: str = "mean") -> str:
+    """Integrated policy (one per stage for all objects / layouts): chained success over the 6 combinations."""
+    v = []
+    for o, l in INT_COMBOS:
+        r = _json(f"results/clutter/int_n1800_{o}_{l}/{cond}.json")
+        if not r or "chained" not in r:
+            return MISSING
+        v.append(100 * r["chained"]["cumulative_success"][2])
+    return f"{(sum(v) / len(v) if agg == 'mean' else min(v) if agg == 'min' else max(v)):.0f}"
+
+
 ABSTRACT = (
     "This paper presents an edge-AI smart-factory cell that sorts products by weight and stacks them with a "
-    "low-cost robot arm. On a Jetson Orin Nano, a YOLOv8n model (validation mAP50 86.3%) reads the 7-segment "
-    "display of a digital scale; separating capture and inference threads raised the capture rate from 1.2 to "
-    "59.5 FPS, two-stage digital-zoom inference raised mid-range accuracy from 45% to 90%, and the cell sorted "
-    "91.7% of items correctly with an 810 ms response. When a bin reaches 118 g, a TCP trigger signal "
-    "runs stage-specific ACT (Action Chunking with Transformers) policies on an SO-101 arm that stack the "
-    "bin on the first floor, beside the first bin and on top of it. Because the arm was damaged after the field "
-    "tests, the cell was rebuilt in MuJoCo with the same robot model, cameras and 30 Hz control to evaluate the "
-    "stacking quantitatively. Per-stage success hides error accumulation: with the initial 100 demonstrations "
-    f"per stage the placements succeeded in {pct('v1_n100', 1)}%, {pct('v1_n100', 2)}% and {pct('v1_n100', 3)}% "
-    f"of trials but only {chain('v1_n100', 2)}% of three-stage sequences. Replaying the failures showed three causes "
-    "in how the demonstrations were made rather than in the policy: the fixed jaw approached too close to the bin "
-    "wall, the scripted demonstrator switched to another wall when the bin was rotated by more than about 8 degrees, "
-    "and lifting straight up after release tipped the top bin off the 2 mm rims below. Fixing them raised the "
-    f"sequence success with the same 100 demonstrations to {chain('v5_n100', 2)}% and with 1000 demonstrations to "
-    f"{chain('v5_n1000', 2)}%. Domain randomization kept {rob_avg('v6_n1000')}% average per-stage success under "
-    f"fifteen environment changes, against {rob_avg('v5_n1000')}% without it; adding brightness normalization and "
-    f"CLAHE lowered it to {rob_avg('v6c_n1000')}%."
+    "low-cost robot arm, and a demonstration-design method that makes its imitation-learned stacking reliable. On a "
+    "Jetson Orin Nano, a YOLOv8n model reads the 7-segment display of a digital scale (59.5 FPS capture, 91.7% "
+    "correct sorting, 810 ms response); a bin of 118 g or more triggers stage-specific ACT (Action Chunking with "
+    "Transformers) policies on an SO-101 arm that stack it on the first floor, beside the first bin and on top of it. "
+    "Because the arm was damaged after the field tests, stacking was evaluated in a MuJoCo replica of the cell. With "
+    f"the initial 100 scripted demonstrations per stage only {chain('v1_n100', 2)}% of three-stage sequences "
+    "succeeded. We traced the failures to how the demonstrations were made and propose three design rules (grasp "
+    "clearance at the centre of the capture window, one consistent grasp feature, backing off before lifting) "
+    "together with a pre-training audit that flags ambiguous grasp strategies as an empty band in the wrist angle "
+    f"at grasp time. The rules raised sequence success to {seq200()}% over 200 sequences, and re-running a stage "
+    f"while the scale still reads the bin made it {wretry()}. The rules carried over to a cup with a handle "
+    f"({gen_chain('cup', 'cupnaive')} to {gen_chain('cup', 'cuprule')}%) and a rectangular box "
+    f"({gen_chain('box', 'v2b')} to {gen_chain('box', 'v5')}%). With domain randomization and a cluttered factory "
+    "cell (conveyor, racks, posts, overhead cables in the camera view, parts close to the arm's path), one policy "
+    f"per stage stacked all three objects in two cell layouts with {int_res('factory')}% average sequence success."
 )
+
+
+def _audit(key: str):
+    return (_json("results/demo_audit.json") or {}).get(key, {}).get("widest_gap_deg")
 
 
 def body(media, b) -> str:
@@ -304,195 +385,164 @@ def body(media, b) -> str:
 
     # ------------------------------------------------------------ I
     add(h1("Ⅰ. 서론"))
-    add(P("제조·물류 현장은 인력 부족과 반복 작업에 따른 산업재해 문제로 자동화 수요가 커지고 있으며 산업용 로봇의 "
-          "설치 대수도 꾸준히 늘고 있다[1]. 그러나 정해진 좌표를 반복하는 규칙 기반 셀은 제품 상태를 판정하거나 "
-          "물체가 놓인 위치가 바뀌는 상황에 유연하게 대응하기 어렵다."))
-    add(P("딥러닝 객체 탐지 모델인 YOLO[2] 계열은 실시간 산업 비전에 널리 쓰이며, YOLOv8[3]은 에지 장치에서도 "
-          "동작한다. 로봇 조작에서는 ACT(Action Chunking with Transformers)[4]가 저가 로봇팔과 수십~수백 회의 "
-          "원격조작 시연만으로 정밀한 조작을 학습할 수 있음을 보였고, LeRobot[5]은 이를 SO-101 같은 저가 로봇팔에서 "
-          "바로 쓸 수 있도록 공개하였다. 그러나 무게 판정 같은 공정 판단과 학습 기반 조작을 하나의 에지 셀로 묶고, "
-          "앞선 적재 결과에 따라 다음 목표가 정해지는 순차 적재를 정량적으로 분석한 사례는 드물다. 모방학습은 앞선 "
-          "동작의 작은 오차가 다음 상태를 학습 분포 밖으로 밀어내 오차가 누적되는 문제가 알려져 있으며[6], 순차 "
-          "적재에서는 이 오차가 단계를 넘어 쌓인다."))
-    add(P("본 논문은 Jetson Orin Nano를 중심으로 디지털 저울의 7-segment 표시값을 YOLOv8로 판독하여 기준 무게(118g) "
-          "이상인 통을 선별하고, TCP 트리거 신호로 단계별 ACT 정책을 호출하여 SO-101 로봇팔이 "
-          "통을 1층, 첫 통 옆, 첫 통 위(2층) 순서로 적재하는 셀을 구현한다. 현장 시험 이후 로봇팔이 파손되어 적재 "
-          "성능을 다시 실측할 수 없었으므로, 같은 로봇 모델·카메라·제어 주기를 갖는 MuJoCo[7] 셀을 구성하여 적재를 "
-          "정량적으로 평가한다. 기여는 다음과 같다. ① 무게 인식부터 순차 적재까지 이어지는 에지 셀을 구현하고 인식 "
-          "성능을 실측하였다. ② 연속 적재 실패의 원인이 정책보다 시연 설계(파지 여유, 잡는 벽의 일관성, 놓은 뒤 "
-          f"물러나기)에 있음을 밝히고, 이를 고쳐 시연 100회의 연속 성공률을 {chain('v1_n100', 2)}%에서 {seq200()}%로 "
-          f"높였다. ③ 도메인 랜덤화로 환경 변화 평균 {rob_avg('v6_n1000')}%를 유지하였고, CLAHE 전처리와 지나친 "
-          "무작위화는 오히려 성능을 낮춤을 보였다."))
+    add(P("제조·물류 현장은 인력 부족과 반복 작업에 따른 산업재해 문제로 자동화 수요가 커지고 있다[1]. 그러나 정해진 "
+          "좌표를 반복하는 규칙 기반 셀은 제품 상태를 판정하거나 물체가 놓인 위치가 바뀌는 상황에 대응하기 어렵다. "
+          "YOLO[2] 계열의 YOLOv8[3]은 에지 장치에서도 실시간으로 동작하며, ACT(Action Chunking with Transformers)[4]는 "
+          "저가 로봇팔과 수십~수백 회의 시연만으로 정밀한 조작을 학습할 수 있음을 보였고 LeRobot[5]이 이를 SO-101 "
+          "로봇팔에 공개하였다. 그러나 모방학습은 앞선 동작의 작은 오차가 다음 상태를 학습 분포 밖으로 밀어내 오차가 "
+          "누적되며[6], 같은 상황에서 시연 동작이 서로 다르면 정책이 그 사이의 동작을 내어 실패한다[18]. 순차 적재에서는 "
+          "이 오차가 단계를 넘어 쌓인다."))
+    add(P("본 논문은 Jetson Orin Nano에서 디지털 저울의 7-segment 표시값을 YOLOv8로 판독하여 기준 무게(118g) 이상인 통을 "
+          "선별하고, TCP 트리거 신호로 단계별 ACT 정책을 호출하여 SO-101이 통을 1층, 첫 통 옆, 첫 통 위(2층) 순서로 "
+          "적재하는 셀을 구현한다. 로봇팔이 파손된 뒤에는 같은 로봇 모델·카메라·제어 주기의 MuJoCo[7] 셀로 적재를 "
+          "정량 평가하였다. 기여는 다음과 같다. ① 연속 적재 실패의 원인이 정책이 아니라 시연 설계에 있음을 밝히고, 세 "
+          "가지 시연 설계 규칙과 잡는 방식의 갈림을 학습 전에 찾는 시연 점검 지표를 제안하여 같은 시연 100회의 연속 "
+          f"성공률을 {chain('v1_n100', 2)}%에서 {seq200()}%로 높였다. ② 인식부의 저울을 적재 성공 확인에도 써서 실패한 "
+          f"단계를 다시 실행하게 하였다({wretry()}). ③ 규칙이 손잡이 컵과 직사각형 상자에도 그대로 통하고, 도메인 "
+          "랜덤화와 공장형 잡동사니 환경에서 세 물체·두 배치를 단계별 정책 하나로 적재할 수 있음을 보였다."))
 
     # ------------------------------------------------------------ II
     add(h1("Ⅱ. 시스템 구성"))
-    add(h2("2.1 전체 구성"))
-    add(P("그림 1은 전체 구성이다. 3D 프린팅 색상 분류 컨베이어[9]는 TCS34725 RGB 센서로 큐브의 색을 판별하여 "
-          "빨강·초록 큐브(불량)는 불량함으로, 파랑 큐브(정상)는 디지털 저울 위의 파란 통으로 보낸다. 컨베이어의 "
-          "스테퍼 모터와 분류 서보는 Arduino Mega 2560이 제어하고 인식과 판단은 Jetson Orin Nano가 맡아, 저수준 "
-          "모터 제어와 AI 추론을 분리하였다. Jetson은 저울 표시부를 USB 카메라(640×480)로 촬영해 무게를 판독하고, "
-          "통의 무게가 118g 이상이면 로봇 실행기에 TCP 트리거 신호를 보낸다. 두 번째 USB 카메라에서는 큰 상자와 작은 "
-          "상자를 구분하는 YOLOv8n-seg 모델을 함께 실행한다. 로봇은 통의 벽을 집어 1층, 첫 통 옆, 첫 통 위(2층) "
-          "순서로 적재하고 이 3단계 묶음을 옆으로 이어 가며 쌓는다. 적재 후에는 홈 자세로 돌아오며, 저울이 비면 빈 통을 저울에 올려 공정을 반복한다. FastAPI 서버는 영상 스트리밍, 성능 "
-          "지표, 원격 시작·정지, LLM 기반 공정 질의 기능을 제공한다."))
+    add(P("그림 1은 전체 구성이다. 색상 분류 컨베이어[9]는 RGB 센서로 큐브를 판별하여 파랑 큐브(정상)만 디지털 저울 "
+          "위의 통으로 보내고, 스테퍼 모터와 서보는 Arduino Mega 2560이, 인식과 판단은 Jetson Orin Nano가 맡는다. "
+          "Jetson은 저울 표시부를 USB 카메라로 촬영해 무게를 판독하고 118g 이상이면 로봇 실행기에 TCP 트리거 신호를 "
+          "보낸다. 인식부는 캡처와 추론을 다른 스레드로 나누고 ONNX Runtime[10] 최적화를 적용하였으며, 표시부를 먼저 "
+          "찾아 잘라 확대한 뒤 숫자를 다시 탐지하는 2단계 디지털 줌과, 겹친 숫자 상자를 자릿수 구역별로 정리하는 조합 "
+          "규칙으로 '118'을 읽는다. 로봇은 손목·상단 카메라와 6관절 SO-101이며, 실행기는 단계 신호를 받으면 해당 "
+          "정책을 실행하고 홈 자세로 돌아와 다음 신호를 기다린다. ACT는 영상과 관절값으로부터 앞으로 100스텝의 관절 "
+          "목표값을 한 번에 예측하며(ResNet18[11]·Transformer[12]·CVAE), 작업 지시문을 쓰지 않으므로 단계마다 정책을 "
+          "따로 학습하였다."))
     add(fig(media, FIG / "fig1_system.png", "그림 1. 시스템 구성"))
 
-    add(h2("2.2 7-segment 무게 인식"))
-    add(P("인식부는 네 가지로 구성하였다. 캡처 스레드는 최신 프레임만 공유 버퍼에 쓰고 추론 스레드가 5초 주기로 이를 "
-          "가져와 추론하여, 단일 루프에서 추론이 캡처를 막던 문제를 없앴다. ONNX Runtime[10] 세션에는 연산 스레드 6개, "
-          "병렬 실행, 전체 그래프 최적화를 적용하여 단일 스레드 대비 약 3배 빠르게 하였다. 거리가 멀어 숫자가 작아지면 "
-          "'8'을 '1'로 읽었으므로, 1단계에서 표시부(screen) 영역을 찾고 여백 15화소와 함께 잘라 640×640으로 확대한 뒤 "
-          "숫자를 다시 탐지하는 2단계 디지털 줌을 썼다. 한 숫자에 여러 상자가 겹쳐 '118'이 '111111888'로 조합되는 문제는 "
-          "① 비숫자 클래스 제거, ② IoU 0.4 NMS, ③ 자릿수 구역별 최고 신뢰도 선택, ④ 반복 숫자 복원의 4단계로 "
-          "해결하였다."))
-
-    add(h2("2.3 ACT 기반 순차 적재"))
-    add(P("로봇은 그리퍼를 포함해 6개 관절을 갖는 SO-101 팔로워암이며, 손목 카메라(front)와 상단 카메라(top)를 쓴다. "
-          "시연은 사람이 리더암을 움직이면 팔로워암이 따라 움직이는 원격조작으로, 30Hz로 영상과 관절값을 기록해 "
-          "단계마다 100회와 200회의 두 차례 수집하였다."))
-    add(P("ACT는 현재 영상과 관절값으로부터 앞으로 k=100스텝의 관절 목표값(행동 청크)을 한 번에 예측한다. "
-          "ResNet18[11] 영상 특징과 관절값을 Transformer[12] 인코더-디코더로 처리하고, 시연의 다양성은 CVAE "
-          "잠재변수로 흡수하며, 손실은 L1 재구성 오차와 KL 항(가중치 10)의 합이다[4]. 별도의 객체 검출 없이 영상에서 "
-          "통의 위치를 스스로 익힌다. LeRobot의 ACT는 작업 지시문을 입력으로 쓰지 않으므로 1층·옆·2층 단계마다 "
-          "정책 π_{1}, π_{2}, π_{3}을 따로 학습하였다. 학습은 PC(NVIDIA L4, RTX 3060)에서 하고 체크포인트만 "
-          "Jetson Orin Nano로 옮겨 실행하였다."))
-    add(P("실행기는 TCP 서버(포트 8765)에서 run 신호를 기다리다(WAIT) 해당 단계의 정책을 실행하고(RUNNING), "
-          "시작 자세로 돌아온 뒤(RETURN_HOME) 다음 신호를 기다린다. 실행 중에 들어온 신호는 무시하고, 세 단계를 "
-          "마치면 DONE 상태에서 reset 신호를 기다린다. Jetson에서는 스레드 수 제한, CUDA 지연 로딩, 자동 혼합 "
-          "정밀도를 적용하였다."))
-
     # ------------------------------------------------------------ III
-    add(h1("Ⅲ. 시뮬레이션 기반 적재 평가"))
+    add(h1("Ⅲ. 제안 방법"))
     add(h2("3.1 시뮬레이션 셀"))
-    add(P("현장 시험 이후 로봇팔이 파손되어 적재 결과를 다시 측정할 수 없었다. 이에 MuJoCo[7]로 실제 셀을 "
-          "재현하였다(그림 2). 로봇은 공식 SO-101 모델[13]의 손목 카메라 버전으로 STS3215 서보의 위치 제어 특성을 "
-          "포함하며, 카메라 배치, 제어 주기(30Hz), 관절 목표값 행동 공간을 실제와 같게 하였다. 영상은 실제 경량 "
-          "추론 설정과 같은 160×120을 쓴다. 분류 통은 공개 모델의 출력 무게(통 33g)와 시연 영상으로부터 "
-          "64×64×52mm(벽 2mm)로 정하고 내부 큐브를 포함해 123g으로 두었다. 저울 위 통은 위치 ±20mm, 방향 ±20°, "
-          "먼저 쌓인 통은 목표에서 ±8mm, ±5°로 무작위화하였다."))
-    add(fig(media, FIG / "fig2_sim.png", "그림 2. 시뮬레이션 셀 (a) 전체 (b) 손목 카메라 (c) 상단 카메라"))
-    add(h2("3.2 시연 설계와 학습"))
-    add(P("원격조작 대신 역기구학 기반 스크립트 전문가로 시연을 만들었으며, ACT 원 논문도 시뮬레이션 과제에서 "
-          "스크립트 시연을 사용하였고[4], 시연을 자동으로 만들어 데이터 양을 늘리는 방법도 연구되고 있다[14]. "
-          "전문가는 통의 앞벽(로봇 쪽 벽)을 고정 집게는 바깥, 움직이는 집게는 안쪽에 두고 "
-          "집어 옮기며, 경유점 사이를 최소 저크 궤적으로 잇고 구간 속도(±10%)와 경유점 위치(최대 ±6mm)를 흔들어 "
-          "사람 시연의 변동을 흉내 냈다. 특히 고정 집게를 벽 바깥 9mm에 두고 내려가도록 하여, 집게가 벽을 사이에 둘 수 있는 "
-          "범위(바깥 0~17mm)의 가운데로 접근하게 하였다. 초기 설계(여유 1.5mm)는 안쪽으로 3mm만 어긋나도 집게가 벽 위에 "
-          "걸렸으나(−6mm에서 성공 17%), 이 설계는 −11~+9mm의 위치 오차에서도 파지에 성공하였다(전문가 시험 각 4~6회). 또한 통이 "
-          "얼마나 돌아가 있든 늘 같은 벽을 잡게 하였다. 로봇을 가장 많이 향한 벽을 고르면 통이 약 8° 넘게 돌았을 때 "
-          "잡는 벽이 앞벽에서 옆벽으로 바뀌어, 카메라에는 거의 같은 장면인데 시연 동작이 두 갈래로 나뉘기 때문이다"
-          "(4.2절). 2층에 놓을 때는 그리퍼를 벌린 뒤 벽 바깥으로 5mm 물러났다가 올라가게 하였다. 시연은 270스텝(9초)이며 성공한 것만 남겼다(전문가 성공률 1층 "
-          f"{expert_rate(1, 'v4_stage')}%, 옆 {expert_rate(2, 'v4_stage')}%, 2층 {expert_rate(3, 'v5_stage')}%)."))
-    add(P("비교를 위해 실행하는 관절 목표에만 상관 잡음(σ=0.005rad)을 더해 되돌아오는 동작을 담은 DART[8] 시연도 "
-          "만들었다. 학습은 실제 시스템과 같은 LeRobot 0.3.3 ACT 기본 설정(청크 100, 배치 8, "
-          "AdamW 학습률 1×10^{-5})으로 단계별 30,000스텝 수행하였으며, 시연 영상은 JPEG(품질 90)로 저장하였다."))
-    add(P("현장의 조명, 작업대, 카메라 장착 위치는 시연 때와 달라질 수 있다. 이에 대비해 시연마다 조명 세기(0.45~1.7배)와 "
-          "방향, 작업대 색, 카메라 장착 위치(상단 ±12mm·±2.5°, 손목 ±3mm·±2.5°), 파란색이 아닌 주변 물건(최대 3개)을 "
-          "무작위로 바꾸고 통의 위치·방향 범위를 ±28mm, ±30°로 넓힌 도메인 랜덤화[16] 시연을 만들었다. 통의 색은 공정의 "
-          "판정 기준이므로 바꾸지 않았다. 비교를 위해 밝기 채널을 1~99 백분위수로 늘인 뒤 CLAHE[17]를 적용하는 "
-          "전처리를 학습과 실행에 함께 쓴 정책도 만들었다."))
-    add(h2("3.3 평가 방법"))
-    add(P("단계별 평가는 앞 단계 통을 목표 근처에 미리 둔 상태에서 해당 정책만 50회 실행한다. 연속 평가는 실제 "
-          "셀처럼 π_{1}→π_{2}→π_{3}을 같은 장면에서 이어서 실행하고 실행마다 홈 자세로 복귀한다(50회). 통 중심이 "
-          "목표에서 15mm, 높이가 8mm, 기울기가 10° 이내이고 먼저 쌓인 통이 10mm 이상 밀리지 않으면 성공으로 보았으며, "
-          "평가 장면은 시연에 쓰지 않은 난수 시드로 만들었다."))
+    add(P("MuJoCo로 실제 셀을 재현하였다(그림 2). 공식 SO-101 모델[13]에 실제와 같은 카메라 배치, 30Hz 제어, 관절 목표값 "
+          "행동 공간, 160×120 영상을 썼다. 통은 64×64×52mm(벽 2mm), 123g이며, 저울 위 통은 위치 ±20mm·방향 ±20°, 먼저 "
+          "쌓인 통은 목표에서 ±8mm·±5°로 무작위화하였다. 시연은 역기구학 기반 스크립트 전문가로 만들었으며(ACT도 "
+          "시뮬레이션 과제에 스크립트 시연을 사용[4], 자동 시연 생성[14]), 구간 속도와 경유점을 흔들어 사람 시연의 변동을 "
+          "흉내 내고 성공한 시연만 남겼다. 학습은 실제 시스템과 같은 LeRobot 0.3.3 ACT 기본 설정(청크 100, 배치 8)으로 "
+          "단계별 30,000스텝이다."))
+    fig2 = FIG / "fig2_env.png"
+    add(fig(media, fig2 if fig2.exists() else FIG / "fig2_sim.png",
+            "그림 2. 시뮬레이션 셀 (a) 전체 (b) 손목 카메라 (c) 상단 카메라 (d) 컵 (e) 직사각형 상자 (f) 공장형 환경"))
+    add(h2("3.2 실패 기반 시연 설계 규칙"))
+    add(P("연속 평가의 실패 장면을 재생하여 원인을 찾고, 다음 세 규칙으로 시연을 고쳤다. R1(파지 여유): 고정 집게를 벽 "
+          "바깥 9mm에 두고 내려가, 집게가 벽을 사이에 둘 수 있는 범위(바깥 0~17mm)의 가운데로 접근한다. 초기 설계(1.5mm)는 "
+          "안쪽으로 3mm만 어긋나도 집게가 벽 위에 걸렸다. R2(일관된 파지 위치): 물체가 돌아가 있어도 늘 같은 부위를 잡는다. "
+          "로봇과 가장 가까운 벽을 잡으면 통이 약 8° 넘게 돌았을 때 잡는 벽이 바뀌어, 카메라에는 거의 같은 장면인데 시연 "
+          "동작이 두 갈래가 된다. R3(물러나기): 2층에 놓은 뒤 그리퍼를 벌리고 벽 바깥으로 5mm 물러났다가 올라간다. 곧장 "
+          "올라가면 2mm 벽 위의 통을 끌어 올려 기울게 하였다."))
+    add(h2("3.3 학습 전 시연 점검"))
+    add(P("R2 위반은 학습 전에 찾을 수 있다. 각 시연에서 그리퍼가 닫히는 순간의 손목 회전각을 모아 정렬하고, 이웃한 값 "
+          "사이의 가장 넓은 빈 구간을 잰다. 잡는 방식이 하나면 각도가 물체 방향을 따라 연속으로 퍼지지만, 두 방식이 섞이면 "
+          "두 무리 사이에 수십 도의 빈 구간이 생긴다(그림 3). 학습 없이 시연만으로 계산되며, 빈 구간이 큰 시연 집합은 R2에 "
+          "맞게 다시 만든다."))
+    fig3 = FIG.parent / "results" / "demo_audit_general.png"
+    if fig3.exists():
+        add(fig(media, fig3, "그림 3. 잡는 순간의 손목 회전각 (1층 시연, 주황 사람식, 파랑 R2)"))
+    add(h2("3.4 무게 확인 재시도"))
+    add(P("단계를 실행한 뒤 저울 무게를 다시 읽어, 통이 저울에 남아 있으면(60g 이상) 같은 단계를 다시 실행한다(최대 3회). "
+          "시뮬레이션에서는 저울 판에 걸리는 수직 접촉력을 무게로 환산하였다(가득 찬 통 123.0g, 빈 저울 0g). 무게 인식부가 "
+          "적재의 성공 판정까지 맡아 두 부분이 하나의 공정으로 이어진다."))
+    add(h2("3.5 공장형 환경 무작위화"))
+    add(P("현장의 조명·작업대·카메라 장착 위치 변화에 대비해 조명(0.45~1.7배), 작업대 색, 카메라 위치(상단 ±12mm·±2.5°, "
+          "손목 ±3mm)를 무작위화하였다(도메인 랜덤화[16]). 더 나아가 실제 공장처럼 컨베이어(움직이는 물건 포함), 다른 색 "
+          "통이 놓인 선반, 기둥, 제어함, 상단 카메라 앞을 지나는 천장 케이블, 경고 테이프, 부품 16종(8~16개), 닮은 빈 통, "
+          "지나가는 물체, 깜빡이는 조명을 매번 다르게 두었다(그림 2(f)). 물건을 팔과 부딪히지 않는 곳에 두기 위해, 전문가 "
+          "시연 120회에서 팔과 들고 가는 통이 각 지점 위로 내려온 최저·최고 높이를 5mm 격자로 기록한 작업 공간 지도를 "
+          "만들고, 물건은 최저 높이보다 15mm 이상 낮게(케이블은 최고 높이 40mm 위로) 두었다. 이 지도는 실제 셀에서 물건을 "
+          "두면 안 되는 구역 표시로도 쓸 수 있다. 통의 색은 공정의 판정 기준이므로 바꾸지 않았다."))
+    add(h2("3.6 평가 방법"))
+    add(P("단계별 평가는 앞 단계 통을 목표 근처에 둔 상태에서 해당 정책만, 연속 평가는 실제 셀처럼 π_{1}→π_{2}→π_{3}을 "
+          "같은 장면에서 이어서 실행한다(각 50회, 시연에 쓰지 않은 시드). 통 중심이 목표에서 15mm, 높이가 8mm, 기울기가 "
+          "10° 이내이고 먼저 쌓인 통이 10mm 이상 밀리지 않으면 성공이며, 잡동사니 환경에서는 주변 물건을 10mm 이상 밀거나 "
+          "구조물에 닿아도 실패로 보았다."))
 
     # ------------------------------------------------------------ IV
     add(h1("Ⅳ. 실험 결과"))
     add(h2("4.1 무게 인식"))
-    add(P("표 1은 Jetson Orin Nano에서 조건별 20회 반복 측정한 인식부 성능이다. YOLO 지표는 50 에폭 학습의 마지막 "
-          "검증 결과이며, 숫자 모델의 mAP50-95가 낮은 것은 작은 숫자의 상자가 엄격한 IoU 기준에서 어긋나기 때문으로, "
-          "2단계 줌과 숫자 조합으로 보완하였다. NMS만으로는 '118'의 반복 숫자가 사라져 '18'이 되었으나 ④단계에서 "
-          "복원되었다. 오분류 5건은 주로 조명이 고르지 않은 조건에서 '8'을 '1'로 읽은 경우로, 3.2절의 밝기 정규화·"
-          "CLAHE를 인식부에 적용하는 것은 향후 과제로 남긴다."))
+    add(P("표 1은 Jetson Orin Nano에서 조건별 20회 반복 측정한 인식부 성능이다. 오분류 5건은 주로 조명이 고르지 않은 "
+          "조건에서 '8'을 '1'로 읽은 경우였다."))
     add(table("표 1. 무게 인식부 실측 성능 (Jetson Orin Nano)", [2150, 2350],
               [["항목", "결과"],
                ["숫자 탐지 YOLOv8n (13 클래스)",
                 f"mAP50 {ym('number', 'metrics/mAP50(B)')}%, mAP50-95 {ym('number', 'metrics/mAP50-95(B)')}%"],
-               ["상자 분할 YOLOv8n-seg (2 클래스)", f"mAP50 {ym('box', 'metrics/mAP50(B)')}%"],
                ["캡처 속도", "1.2 → 59.5 FPS (캡처·추론 분리)"],
                ["중거리 / 원거리 정확도", "45 → 90% / 15 → 80% (2단계 줌)"],
-               ["3자리 조합 정확도", "87.5% (70/80)"],
                ["기준값(118g) 분류 정분류율", "91.7% (55/60)"],
                ["인식부터 명령 전송까지 응답", "약 810ms"]]))
 
-    add(h2("4.2 ACT 순차 적재 (시뮬레이션)"))
+    add(h2("4.2 시연 설계 규칙 (시뮬레이션)"))
     rows = [["시연 설계 (단계별 시연 수)", "1층", "옆", "2층", "연속 (95% CI)"]]
-    for name, label in (("v1_n100", "① 초기 설계 (100)"), ("n100", "② +여유 9mm (100)"),
-                        ("v4_n100", "③ +같은 벽 (100)"),
-                        ("v5_n100", "④ +물러나기 (100)"),
-                        ("v5_n1000", "④ (1000)"), ("v5_dart1000", "④+DART (1000)"),
-                        ("v6_n1000", "④+무작위화 (1000)"), ("v67_n2000", "④+넓은 무작위화 섞기 (2000)")):
-        if name == "v67_n2000" and not RES.get(name):
-            continue
+    for name, label in (("v1_n100", "① 초기 설계 (100)"), ("n100", "② +R1 여유 9mm (100)"),
+                        ("v4_n100", "③ +R2 같은 벽 (100)"), ("v5_n100", "④ +R3 물러나기 (100)"),
+                        ("v5_n1000", "④ (1000)"), ("v6_n1000", "④+무작위화 (1000)")):
         rows.append([label, pct(name, 1), pct(name, 2), pct(name, 3), chain_ci(name)])
-    add(table("표 2. 적재 성공률 (%, 시뮬레이션, 각 50회)", [1900, 470, 470, 470, 1190], rows))
-    nfig = 3
-    if (FIG / "fig_wallswitch_n100.png").exists():
-        add(fig(media, FIG / "fig_wallswitch_n100.png",
-                f"그림 {nfig}. 저울 위 통의 회전각과 단계별 결과 (여유 9mm, 로봇 쪽 벽, 시연 100)"))
-        nfig += 1
-    add(P(f"표 2에서 초기 시연(①)은 단계별 "
-          f"{pct('v1_n100', 1)}%, {pct('v1_n100', 2)}%, {pct('v1_n100', 3)}%였으나 앞 단계의 오차가 넘어가 연속 "
-          f"{chain('v1_n100', 2)}%에 그쳤다. 실패 장면을 다시 재생해 원인을 찾고 시연 설계를 차례로 고쳤다. 고정 집게가 "
-          f"벽 위에 걸리던 문제는 파지 여유 9mm(②)로 줄었고(연속 {chain('n100', 2)}%), 남은 실패 {ws('fail_total')}건 중 "
-          f"{ws('band_fails')}건은 통이 +7.5° 넘게 돌아 전문가가 잡는 벽을 바꾸는 구간에서 일어났다(그림 3, 실패율 "
-          f"{ws_rate('band')}% 대 {ws_rate('rest')}%). 정책이 앞벽과 옆벽 시연의 중간인 모서리로 간 것으로, 시연을 200회로 "
-          f"늘리면 오히려 연속 {chain('n200', 2)}%로 낮아졌다. 늘 같은 벽을 잡게 하자(③) 집기 실패가 없어졌고(연속 "
-          f"{chain('v4_n100', 2)}%), 남은 2층 실패는 그리퍼가 곧장 올라가며 2mm 벽 위의 통을 끌어 올려 기운 경우였다. "
-          f"벌린 뒤 5mm 물러났다 올라가게 하자(④) 단계별 {pct('v5_n100', 1)}%, {pct('v5_n100', 2)}%, "
-          f"{pct('v5_n100', 3)}%, 연속 {chain('v5_n100', 2)}%가 되었다. 장면 200개 평가(CPU)에서는 연속 {big_txt('c')}"
-          f"(평균 위치 오차 {xy_mean()}mm, 허용 오차를 10mm로 줄이면 {chain_at(10)}%)였고, "
-          f"남은 2건은 통을 집지 못해 저울에 남은 경우라 저울을 다시 읽어 재실행하게 하자 연속 {retry_ci('v5_n100')}가 "
-          "되었다. 영상을 가리면 세 단계 모두 0/10으로, 정책은 영상에서 통을 찾아 움직였다. 카메라를 하나만 쓰면(시연 200) "
-          f"상단만으로 연속 {chain('v5t_n200', 2)}%(둘 다 {chain('v5_n200', 2)}%)였으나 손목만으로는 들고 있는 통이 아래 통을 "
-          f"가려 2층이 {pct('v5w_n200', 3)}%, 연속 {chain('v5w_n200', 2)}%로 떨어져 상단 카메라가 핵심이었다."))
-    if (FIG / "fig3_scaling.png").exists():
-        add(fig(media, FIG / "fig3_scaling.png", f"그림 {nfig}. 시연 수에 따른 적재 성공률 (④ 시연)"))
-        nfig += 1
-    v8 = ""  # v8 (side bin placed relative to bin A) was worse than ④; kept in the journal (10/8), cut for the 5-page limit
-    add(P(f"④ 시연을 200, 500, 1000회로 늘려도 연속 성공률은 {chain('v5_n200', 2)}%, {chain('v5_n500', 2)}%, "
-          f"{chain('v5_n1000', 2)}%로 시연 100회에서 이미 포화되었고(그림 4), DART 잡음 주입(1000회)도 {chain('v5_dart1000', 2)}%로 "
-          f"차이가 없었다. 남은 실패는 1층 통이 옆 칸 쪽으로 9~11mm "
-          f"밀려 놓였을 때 옆 통이 그 벽에 걸려 넘어지는 경우였다(통 사이 간격 8mm).{v8} 스텝당 평균 추론 시간은 "
-          f"GTX 1080 Ti {infer_ms('v5_n100')}ms, CPU {infer_ms('v5_n100_x200')}ms(다른 학습과 공유)로 제어 주기 33ms보다 "
-          f"짧았다. 모방학습 성능이 "
-          "시연 수보다 시연의 다양성과 일관성에 좌우된다는 보고[15]와 같이, 시연 수로는 시연 설계의 효과를 대신할 수 "
-          "없었다."))
-    if ROB:
-        add(h2("4.3 환경 변화에 대한 강인성 (시뮬레이션)"))
-        add(P("학습한 정책에 표 3의 환경 변화를 한 가지씩 주고 단계별로 20회씩 평가하였다. 시연을 1000회로 늘리면 조명과 주변 "
-              "물건에는 강해졌으나 작업대 색이 바뀌면 옆 단계가 20%까지 떨어졌다. 도메인 랜덤화를 쓰면 변화 조건 평균 "
-              f"{rob_avg('v6_n1000')}%(무작위화 없이 {rob_avg('v5_n1000')}%)였고 작업대 색 변화에서도 100%를 유지했다. "
-              f"밝기 정규화·CLAHE를 더하면 오히려 {rob_avg('v6c_n1000')}%로 낮아졌고, 특히 체크무늬 작업대에서 "
-              f"{rob('v6_n1000', 'table_checker')}%에서 {rob('v6c_n1000', 'table_checker')}%로 떨어졌다. 국소 대비를 키우는 "
-              f"CLAHE가 작업대 무늬까지 강조했기 때문으로 보인다. 무작위화 범위를 더 넓히면(조명 0.25~2.5배·색 조명·무늬 작업대) "
-              f"체크무늬 작업대는 {rob('v7_n1000', 'table_checker')}%로 나아졌으나 놓는 위치가 약 7mm 치우쳐 연속 "
-              f"{chain('v7_n1000', 2)}%로 낮아졌다. 이를 기존 무작위화 시연과 섞으면(2000회) 범위 밖 네 조건 평균이 "
-              f"{rob_group('v67_n2000', BEYOND)}%(v6 {rob_group('v6_n1000', BEYOND)}%)로 가장 높았으나 연속은 "
-              f"{chain('v67_n2000', 2)}%로, 범위와 정밀도가 맞교환되었다. 무작위화 없이 CLAHE만 쓴 경우(시연 200)도 조명 세 조건 평균 "
-              f"{rob_group('v5c_n200', ['dark', 'bright', 'light_side'])}%로 쓰지 않은 경우"
-              f"({rob_group('v5_n200', ['dark', 'bright', 'light_side'])}%)보다 낮았다. 무게(100~200g)와 관측 지연(최대 133ms)에는 모든 정책이 "
-              f"강했다."))
-        models = [(t, lab) for t, lab in ROB_MODELS if t in ROB]
-        rows = [["변화"] + [lab for _, lab in models]]
-        rows += [[g] + [rob_group(t, cs) for t, _ in models] for g, cs in ROB_GROUPS]
-        w = 4500 - 1900
-        add(table("표 3. 환경 변화별 단계 평균 성공률 (%, 각 20회)", [1900] + [w // len(models)] * len(models), rows))
-    add(P("실제 셀에서도 1층 적재 정책이 트리거 신호에 따라 통을 집어 적재하는 것을 확인하였으나, 위치 오차와 제어 "
-          "지연으로 실패하는 경우가 관찰되었다. 현장 측정 기록이 남아 있지 않아 실제 수치와의 비교는 하지 않았다."))
+    add(table("표 2. 시연 설계별 적재 성공률 (%, 각 50회)", [1900, 470, 470, 470, 1190], rows))
+    g2, g3 = _audit("stage1:② 여유 9mm (벽 전환 있음)"), _audit("stage1:③ 같은 벽")
+    add(P(f"초기 시연(①)은 단계별 {pct('v1_n100', 1)}%, {pct('v1_n100', 2)}%, {pct('v1_n100', 3)}%였으나 앞 단계 오차가 "
+          f"넘어가 연속 {chain('v1_n100', 2)}%에 그쳤다. R1로 집게가 벽 위에 걸리는 실패가 줄었고(연속 {chain('n100', 2)}%), "
+          f"남은 실패 {ws('fail_total')}건 중 {ws('band_fails')}건은 전문가가 잡는 벽을 바꾸는 회전 구간에서 일어났다. "
+          f"이 시연은 3.3절의 점검에서 손목 각도에 {g2 if g2 is not None else MISSING}°의 빈 구간을 보였고, 시연을 200회로 "
+          f"늘리면 오히려 연속 {chain('n200', 2)}%로 낮아졌다. R2를 적용하자 빈 구간이 {g3 if g3 is not None else MISSING}°로 "
+          f"사라지고 집기 실패가 없어졌으며(③, 연속 {chain('v4_n100', 2)}%), R3까지 적용한 ④는 연속 {chain('v5_n100', 2)}%, "
+          f"장면 200개에서 {big_txt('c')}(평균 위치 오차 {xy_mean()}mm)였다. ④의 시연을 1000회로 늘리거나 DART[8] 잡음을 "
+          f"넣어도 {chain('v5_n1000', 2)}%, {chain('v5_dart1000', 2)}%로 나아지지 않아, 시연 수가 시연 설계를 대신하지 "
+          f"못했다[15]. 남은 실패는 통을 집지 못해 저울에 남은 경우였으며, 무게 확인 재시도로 첫 시도 "
+          f"{wretry('cumulative_first_attempt')}에서 {wretry()}가 되었다. 영상을 가리면 0/10으로 정책은 영상에서 통을 찾아 "
+          f"움직였고, 카메라를 하나만 쓰면 상단만 {chain('v5t_n200', 2)}%, 손목만 {chain('v5w_n200', 2)}%로 상단 카메라가 "
+          "핵심이었다."))
+
+    add(h2("4.3 다른 물체로의 일반화"))
+    add(P("규칙이 통에만 맞춘 것이 아님을 확인하기 위해 잡을 곳이 다른 이유로 애매한 두 물체를 더 시험하였다(그림 2(d)(e)). "
+          "손잡이 컵(육각, 지름 70mm)은 손잡이가 로봇 쪽(±30°)을 향해 로봇에 가까운 면이 막히므로 사람처럼 잡으면 손잡이의 "
+          "왼쪽·오른쪽 중 가까운 쪽으로 갈리고, R2로는 늘 손잡이 오른쪽 면을 잡는다. 직사각형 상자(90×60mm)는 로봇 쪽 벽을 "
+          "잡으면 긴 벽과 짧은 벽이 바뀌어 놓인 방향까지 달라지며, R2로는 늘 같은 짧은 벽을 잡는다. 두 설계 모두 R1·R3은 같다."))
+    g_bin = [x for x in (_audit(f"stage{k}:② 여유 9mm (벽 전환 있음)") for k in (1, 2, 3)) if x is not None]
+    g_bin_r = [x for x in (_audit("stage1:③ 같은 벽"), _audit("stage2:③ 같은 벽"), _audit("stage3:④ 같은 벽 + 물러나기"))
+               if x is not None]
+    rows = [["물체 (애매한 이유)", "빈 구간(°) 사람식→R2", "연속(%) 사람식→R2"],
+            ["정사각형 통 (네 벽이 같음)", f"{max(g_bin):.0f} → {max(g_bin_r):.0f}" if g_bin and g_bin_r else MISSING,
+             f"{chain('n100', 2)} → {chain('v5_n100', 2)}"],
+            ["손잡이 컵 (손잡이 좌·우)", f"{gen_gap('cup', 'cupnaive')} → {gen_gap('cup', 'cuprule')}",
+             f"{gen_chain('cup', 'cupnaive')} → {gen_chain('cup', 'cuprule')}"],
+            ["직사각형 상자 (긴·짧은 벽)", f"{gen_gap('box', 'v2b')} → {gen_gap('box', 'v5')}",
+             f"{gen_chain('box', 'v2b')} → {gen_chain('box', 'v5')}"]]
+    add(table("표 3. 물체별 시연 점검과 연속 성공률 (시연 100회, 각 50회)", [1900, 1300, 1300], rows))
+    add(P("표 3과 같이 사람식 시연은 세 물체 모두 손목 각도에 큰 빈 구간을 보였고, R2로 고치면 빈 구간이 사라지며 연속 "
+          "성공률이 올랐다. 점검 지표가 학습 전에 실패할 시연을 가려낸 것이다."))
+
+    add(h2("4.4 환경 변화와 공장형 잡동사니"))
+    rows = [["환경 (연속 성공률 %)", "④ (100)", "+무작위화", "+잡동사니", "통합"],
+            ["변화 없음", clut("v5_n100", "none"), clut("v6_n1000", "none"), clut("v9_n1000", "none"),
+             clut("int_n1800_bin_orig", "none")],
+            ["잡동사니 8조건 평균", clut_avg("v5_n100"), clut_avg("v6_n1000"), clut_avg("v9_n1000"), "-"],
+            ["잡동사니 전부", clut("v5_n100", "all"), clut("v6_n1000", "all"), clut("v9_n1000", "all"),
+             clut("int_n1800_bin_orig", "all")],
+            ["공장형", clut("v5_n100", "factory"), clut("v6_n1000", "factory"), clut("v9_n1000", "factory"),
+             clut("int_n1800_bin_orig", "factory")],
+            ["공장형+외관 무작위", clut("v5_n100", "factory_vis"), clut("v6_n1000", "factory_vis"),
+             clut("v9_n1000", "factory_vis"), clut("int_n1800_bin_orig", "factory_vis")],
+            ["공장형 최대(16개, 5mm)", clut("v5_n100", "factory_max"), clut("v6_n1000", "factory_max"),
+             clut("v9_n1000", "factory_max"), clut("int_n1800_bin_orig", "factory_max")]]
+    add(table("표 4. 잡동사니·공장형 환경의 연속 성공률 (%, 통, 각 50회)", [1500, 750, 750, 750, 750], rows))
+    add(P(f"조명·작업대·카메라 위치·관측 지연 등 15가지 변화를 한 가지씩 주면 도메인 랜덤화 정책이 단계 평균 "
+          f"{rob_avg('v6_n1000')}%(무작위화 없이 {rob_avg('v5_n1000')}%)를 유지했으며, 밝기 정규화·CLAHE[17]를 더하면 "
+          f"{rob_avg('v6c_n1000')}%로 오히려 낮아졌다. 표 4는 실제로 부딪히는 잡동사니(물건 4~8개, 닮은 통, 지나가는 물체)와 "
+          f"공장형 환경의 결과이다. 무작위화 없는 ④는 잡동사니 전부에서 {clut('v5_n100', 'all')}%로 떨어졌고, 잡동사니를 "
+          f"넣은 시연(+잡동사니, 1000회)은 {clut('v9_n1000', 'all')}%였다. 세 물체·두 배치·공장형 환경을 섞은 시연 1800회로 "
+          f"단계별 정책 하나를 학습한 통합 정책은 공장형 환경에서 6가지 물체·배치 조합 평균 {int_res('factory')}%"
+          f"(최저 {int_res('factory', 'min')}%), 외관까지 무작위화하면 {int_res('factory_vis')}%였다."))
 
     # ------------------------------------------------------------ V
     add(h1("Ⅴ. 결론"))
-    add(P("본 논문은 Jetson Orin Nano에서 YOLOv8 기반 7-segment 무게 인식과 TCP 트리거로 호출되는 단계별 ACT "
-          "정책을 결합하여, 무게 판정부터 1층·옆·2층 순차 적재까지 이어지는 스마트 팩토리 셀을 구현하였다. 인식부는 "
-          "캡처 59.5 FPS, 중거리 정확도 90%, 정분류율 91.7%, 응답 810ms를 실측으로 확인하였다. 로봇 파손 이후 같은 "
-          "조건을 재현한 시뮬레이션에서는 단계별 성공률이 높아도 연속 적재에서 오차가 누적됨을 보였고, 실패의 원인이 "
-          "정책보다 시연 설계(파지 여유, 잡는 벽의 일관성, 놓은 뒤 물러나기)에 있음을 밝혀 시연 100회의 연속 성공률을 "
-          f"{chain('v1_n100', 2)}%에서 {big_txt('c')}로 높였다(저울 재시도 포함 {retry('v5_n100')}%). 도메인 랜덤화로 "
-          f"환경 변화 15조건에서 평균 {rob_avg('v6_n1000')}%를 유지했으며 CLAHE 전처리는 오히려 성능을 낮췄다. 시뮬레이션 결과는 "
-          "스크립트 시연과 단순화된 접촉 모델에 기반하므로 실제 원격조작 시연의 성능과 다를 수 있으며, 향후 로봇을 "
-          "복구하여 같은 파지 설계로 실측 검증할 예정이다."))
+    add(P("본 논문은 Jetson Orin Nano에서 YOLOv8 기반 7-segment 무게 인식과 TCP 트리거로 호출되는 단계별 ACT 정책을 "
+          "결합한 스마트 팩토리 적재 셀을 구현하고, 시뮬레이션으로 적재를 정량 평가하였다. 연속 적재 실패의 원인이 시연 "
+          "설계에 있음을 밝혀 세 가지 시연 설계 규칙과 학습 전 시연 점검 지표를 제안하였고, 시연 100회의 연속 성공률을 "
+          f"{chain('v1_n100', 2)}%에서 {seq200()}%로, 무게 확인 재시도로 {wretry()}로 높였다. 규칙은 손잡이 컵과 직사각형 "
+          "상자에도 통했으며, 공장형 잡동사니 환경에서도 단계별 정책 하나로 세 물체·두 배치를 적재하였다. 결과는 스크립트 "
+          "시연과 단순화된 접촉 모델에 기반하므로, 향후 로봇을 복구하여 같은 규칙으로 실측 검증할 예정이다."))
 
     refs = [
         "International Federation of Robotics, World Robotics 2024: Industrial Robots, IFR, 2024.",
@@ -524,6 +574,7 @@ def body(media, b) -> str:
         "pp. 23-30, 2017.",
         "K. Zuiderveld, \u201cContrast Limited Adaptive Histogram Equalization,\u201d in Graphics Gems IV, "
         "Academic Press, pp. 474-485, 1994.",
+        "S. Belkhale, Y. Cui, and D. Sadigh, \u201cData Quality in Imitation Learning,\u201d in Proc. NeurIPS, 2023.",
     ]
     add(b["references"](refs))
     return "".join(out)
