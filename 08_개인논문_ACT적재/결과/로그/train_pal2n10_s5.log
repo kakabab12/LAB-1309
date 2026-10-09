@@ -1,6 +1,3 @@
-{"stage": 5, "episodes": 100, "frames": 30000, "image_bytes": 290986406, "data": ["data/pallet2_s5.jpk.npz"], "steps": 30000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"], "state_noise": 0.1}
-Traceback (most recent call last):
-  File "/home/user/ACT/act_sim/train_act.py", line 239, in <module>
     main()
   File "/home/user/ACT/act_sim/train_act.py", line 215, in main
     loss, info = policy.forward(batch)
@@ -27,3 +24,17 @@ Traceback (most recent call last):
   File "/home/user/.local/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 549, in _conv_forward
     return F.conv2d(
 torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 10.90 GiB of which 32.88 MiB is free. Process 292574 has 1.42 GiB memory in use. Process 305885 has 153.00 MiB memory in use. Process 348714 has 1.40 GiB memory in use. Process 351079 has 1.42 GiB memory in use. Process 388698 has 1.40 GiB memory in use. Process 392498 has 1.38 GiB memory in use. Including non-PyTorch memory, this process has 586.00 MiB memory in use. Of the allocated memory 396.02 MiB is allocated by PyTorch, and 25.98 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+{"stage": 5, "episodes": 100, "frames": 30000, "image_bytes": 290986406, "data": ["data/pallet2_s5.jpk.npz"], "steps": 30000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"], "state_noise": 0.1}
+{"step": 2000, "loss": 1.0870395997166633, "l1_loss": 0.15245953291654588, "kld_loss": 0.09345800664275884, "elapsed_s": 885.2530543804169}
+{"step": 4000, "loss": 0.4134099812805653, "l1_loss": 0.12204263035207986, "kld_loss": 0.02913673521950841, "elapsed_s": 1754.7097067832947}
+{"step": 6000, "loss": 0.21165318295359611, "l1_loss": 0.10384778346866369, "kld_loss": 0.01078053992241621, "elapsed_s": 2639.157706260681}
+{"step": 8000, "loss": 0.1560319722443819, "l1_loss": 0.0990899652428925, "kld_loss": 0.005694200675934553, "elapsed_s": 3511.385093688965}
+{"step": 10000, "loss": 0.13029244728386402, "l1_loss": 0.09149386633187533, "kld_loss": 0.003879858087748289, "elapsed_s": 4351.924021959305}
+{"step": 12000, "loss": 0.1114375589042902, "l1_loss": 0.08435204293578863, "kld_loss": 0.0027085516043007375, "elapsed_s": 5218.345438957214}
+{"step": 14000, "loss": 0.10267171990126371, "l1_loss": 0.08163264751434327, "kld_loss": 0.0021039072424173357, "elapsed_s": 6125.136059999466}
+{"step": 16000, "loss": 0.09264851620420814, "l1_loss": 0.07605567773804069, "kld_loss": 0.0016592838428914547, "elapsed_s": 6984.689719676971}
+{"step": 18000, "loss": 0.0854178678803146, "l1_loss": 0.07176499197259545, "kld_loss": 0.0013652875833213328, "elapsed_s": 7839.4350509643555}
+{"step": 20000, "loss": 0.0763510269112885, "l1_loss": 0.06539047222584486, "kld_loss": 0.0010960554890334607, "elapsed_s": 8696.293028116226}
+{"step": 22000, "loss": 0.07582680348306894, "l1_loss": 0.06644640309736133, "kld_loss": 0.000938040055334568, "elapsed_s": 9536.532695293427}
+{"step": 24000, "loss": 0.07385286916047334, "l1_loss": 0.06560226457193494, "kld_loss": 0.0008250604569911957, "elapsed_s": 10369.752706050873}
+{"step": 26000, "loss": 0.0704238666780293, "l1_loss": 0.06327692482620478, "kld_loss": 0.0007146941870450974, "elapsed_s": 11176.242705821991}

@@ -1,0 +1,12 @@
+stage 2: kept 10/11 (394s)
+stage 2: kept 20/21 (740s)
+stage 2: kept 30/32 (1138s)
+stage 2: kept 40/44 (1520s)
+stage 2: kept 50/54 (1949s)
+stage 2: kept 60/64 (2439s)
+stage 2: kept 70/76 (2999s)
+stage 2: kept 80/86 (3455s)
+stage 2: kept 90/97 (3981s)
+stage 2: kept 100/107 (4408s)
+{"stage": 2, "design": "v5", "dr": true, "dr_level": 1, "clutter": false, "factory": true, "dart_sigma": 0.0, "kept": 100, "tried": 107, "expert_success_rate": 0.9345794392523364, "mean_xy_err_mm": 2.71927566599628, "seconds": 4408.13911485672}
+i_bin_mirror_s2_p2.hdf5: 100 episodes -> i_bin_mirror_s2_p2.jpk.npz 381 MB (101s)

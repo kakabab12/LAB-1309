@@ -1,0 +1,11 @@
+stage 2: kept 10/10 (281s)
+stage 2: kept 20/20 (574s)
+stage 2: kept 30/30 (868s)
+stage 2: kept 40/40 (1141s)
+stage 2: kept 50/50 (1414s)
+stage 2: kept 60/60 (1699s)
+stage 2: kept 70/70 (1933s)
+stage 2: kept 80/80 (2182s)
+stage 2: kept 90/90 (2399s)
+stage 2: kept 100/100 (2721s)
+{"stage": 2, "design": "cuprule", "dr": true, "dr_level": 1, "clutter": false, "factory": true, "dart_sigma": 0.0, "kept": 100, "tried": 100, "expert_success_rate": 1.0, "mean_xy_err_mm": 4.607392376924388, "seconds": 2721.291046142578}

@@ -1,0 +1,26 @@
+{
+ "stage": 1,
+ "episodes": 100,
+ "frames": 27000,
+ "image_bytes": 248882843,
+ "data": [
+  "data/g_cup_orig_cuprule_s1.jpk.npz"
+ ],
+ "steps": 30000,
+ "batch": 8,
+ "lr": 1e-05,
+ "params": 51597238,
+ "img_hw": [
+  120,
+  160
+ ],
+ "chunk_size": 100,
+ "kl_weight": 10.0,
+ "device": "NVIDIA GeForce GTX 1080 Ti",
+ "preprocess": null,
+ "cams": [
+  "front",
+  "top"
+ ],
+ "state_noise": 0.0
+}

@@ -282,3 +282,47 @@
 [10-10 00:44:16] start gen gen_i_bin_mirror_s1_p0
 [10-10 00:44:16] start gen gen_i_bin_mirror_s1_p1
 [10-10 00:44:16] start gen gen_i_bin_mirror_s1_p2
+[10-10 01:05:33] HEALTH WARN: no CPU time for 5 min: pid 506765 bash -c ACT_OBJECT=bin ACT_LAYOUT=orig ACT_DESIGN=v5 nice -n 15 .venv/bin/python gen_data. ; no CPU time for 5 min: pid 506767 bash -c ACT_OBJECT=bin ACT_LAYOUT=orig ACT_DESIGN=v5 nice -n 15 .venv/bin/python gen_data. ; no CPU time for 5 min: pid 506768 bash -c ACT_OBJECT=bin ACT_LAYOUT=orig ACT_DESIGN=v5 nice -n 15 .venv/bin/python gen_data. ; no CPU time for 5 min: pid 506769 bash -c ACT_OBJECT=bin ACT_LAYOUT=mirror ACT_DESIGN=v5 nice -n 15 .venv/bin/python gen_dat ; no CPU time for 5 min: pid 506771 bash -c ACT_OBJECT=bin ACT_LAYOUT=mirror ACT_DESIGN=v5 nice -n 15 .venv/bin/python gen_dat ; no CPU time for 5 min: pid 506773 bash -c ACT_OBJECT=bin ACT_LAYOUT=mirror ACT_DESIGN=v5 nice -n 15 .venv/bin/python gen_dat
+[10-10 01:13:14] start train train_pal2n10_s5
+[10-10 01:43:09] done gen_i_bin_mirror_s1_p2 
+[10-10 01:43:09] start gen gen_i_bin_mirror_s2_p0
+[10-10 01:43:39] done gen_i_bin_mirror_s1_p0 
+[10-10 01:43:40] start gen gen_i_bin_mirror_s2_p1
+[10-10 01:44:10] done gen_i_bin_mirror_s1_p1 
+[10-10 01:44:10] start gen gen_i_bin_mirror_s2_p2
+[10-10 02:00:16] HEALTH WARN: train_pal2n10_s5.log: OutOfMemoryError
+[10-10 02:00:24] done gen_i_bin_orig_s3_p1 
+[10-10 02:00:24] start gen gen_i_bin_mirror_s3_p0
+[10-10 02:02:56] done gen_i_bin_orig_s3_p2 
+[10-10 02:02:57] start gen gen_i_bin_mirror_s3_p1
+[10-10 02:03:57] done gen_i_bin_orig_s3_p0 
+[10-10 02:03:57] start gen gen_i_bin_mirror_s3_p2
+[10-10 02:09:32] start train train_g_cup_orig_cupnaive_s1
+[10-10 02:11:51] v9 trained
+[10-10 02:52:53] done gen_i_bin_mirror_s2_p0 
+[10-10 02:52:54] start gen gen_i_cup_orig_s1_p0
+[10-10 02:58:34] done gen_i_bin_mirror_s2_p1 
+[10-10 02:58:35] start gen gen_i_cup_orig_s1_p1
+[10-10 02:59:36] done gen_i_bin_mirror_s2_p2 
+[10-10 02:59:37] start gen gen_i_cup_orig_s1_p2
+[10-10 03:34:14] done gen_i_bin_mirror_s3_p0 
+[10-10 03:34:15] start gen gen_i_cup_orig_s2_p0
+[10-10 03:39:24] done gen_i_bin_mirror_s3_p2 
+[10-10 03:39:25] start gen gen_i_cup_orig_s2_p1
+[10-10 03:42:30] done gen_i_bin_mirror_s3_p1 
+[10-10 03:42:31] start gen gen_i_cup_orig_s2_p2
+[10-10 03:44:03] done gen_i_cup_orig_s1_p0 
+[10-10 03:44:04] start gen gen_i_cup_orig_s3_p0
+[10-10 03:49:13] done gen_i_cup_orig_s1_p1 
+[10-10 03:49:14] start gen gen_i_cup_orig_s3_p1
+[10-10 03:51:17] done gen_i_cup_orig_s1_p2 
+[10-10 03:51:18] start gen gen_i_cup_orig_s3_p2
+[10-10 04:15:04] start train train_g_cup_orig_cuprule_s1
+[10-10 04:18:36] start eval eval_v5n05_n100
+[10-10 04:19:06] done train_s2_v4n05_n100 
+[10-10 04:21:10] done gen_i_cup_orig_s2_p0 
+[10-10 04:21:10] start gen gen_i_cup_mirror_s1_p0
+[10-10 04:24:27] clutter eval: v5 / v6 done: v5_n100 none 98; v5_n100 all 0; v5_n100 tight 2; v5_n100 factory 0; v5_n100 factory_vis 0; v5_n100 factory_max 0; v6_n1000 none 98; v6_n1000 all 58; v6_n1000 tight 56; v6_n1000 factory 10; v6_n1000 factory_vis 10; v6_n1000 factory_max 4; 
+[10-10 04:27:36] clutter: act-clutter stopped after v9 none/decoy/all (both protocols); remaining extra conditions (sparse, dense, moving, dense_decoy, all_vis) dropped to free the CPU for the integrated demos; table conditions run in act-cluttereval2
+[10-10 04:28:55] done gen_i_cup_orig_s2_p1 
+[10-10 04:28:56] start gen gen_i_cup_mirror_s1_p1
