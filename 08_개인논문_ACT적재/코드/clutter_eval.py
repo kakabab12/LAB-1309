@@ -45,6 +45,7 @@ CONDS = {  # objects, margin, look-alike, passing object, randomised looks
 FACTORY = {"factory", "factory_vis", "factory_max"}
 VIS_SEED0 = 660000
 CLUTTER_SEED0 = 770000
+FLICKER_SEED0 = 880000
 
 
 def stage_result(env: StackEnv, stage: int, refs: dict, crefs: dict) -> dict:
@@ -90,6 +91,9 @@ def main() -> None:
                 env.reset_visuals()
             if cond in FACTORY:
                 import factory
+                # light flicker dips: own stream per trial (one stream per process made a trial depend on the trials
+                # and conditions run before it; from 10-10 04:40, the v5 / v6 / first v9 factory runs used the old way)
+                env._frng = np.random.default_rng(FLICKER_SEED0 + seed)
                 return factory.place_factory(env, np.random.default_rng(CLUTTER_SEED0 + seed), n, margin)
             return env.place_clutter(np.random.default_rng(CLUTTER_SEED0 + seed), n, margin, decoy, mover=mover)
 

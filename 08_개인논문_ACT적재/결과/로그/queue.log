@@ -326,3 +326,9 @@
 [10-10 04:27:36] clutter: act-clutter stopped after v9 none/decoy/all (both protocols); remaining extra conditions (sparse, dense, moving, dense_decoy, all_vis) dropped to free the CPU for the integrated demos; table conditions run in act-cluttereval2
 [10-10 04:28:55] done gen_i_cup_orig_s2_p1 
 [10-10 04:28:56] start gen gen_i_cup_mirror_s1_p1
+[10-10 04:30:28] done gen_i_cup_orig_s2_p2 
+[10-10 04:30:29] start gen gen_i_cup_mirror_s1_p2
+[10-10 04:33:03] start train train_pal2n05_s2
+[10-10 04:36:43] regif done
+[10-10 04:38:06] done gen_i_cup_orig_s3_p0 
+[10-10 04:38:06] start gen gen_i_cup_mirror_s2_p0
