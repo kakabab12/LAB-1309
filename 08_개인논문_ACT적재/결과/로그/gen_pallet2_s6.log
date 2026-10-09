@@ -1,0 +1,12 @@
+slot 5: kept 10/13 (1766s)
+slot 5: kept 20/24 (3315s)
+slot 5: kept 30/36 (4962s)
+slot 5: kept 40/49 (6754s)
+slot 5: kept 50/61 (8377s)
+slot 5: kept 60/74 (9484s)
+slot 5: kept 70/86 (10117s)
+slot 5: kept 80/98 (10745s)
+slot 5: kept 90/110 (11351s)
+slot 5: kept 100/121 (11919s)
+{"slot": 5, "layer": 1, "row": 0, "col": 1, "kept": 100, "tried": 121, "expert_success_rate": 0.8264462809917356, "seconds": 11919.43281531334, "layout": {"rows": 2, "cols": 2, "layers": 2, "x0": 0.2, "y0": 0.017}}
+pallet2_s6.hdf5: 100 episodes -> pallet2_s6.jpk.npz 297 MB (16s)

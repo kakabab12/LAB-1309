@@ -1,0 +1,12 @@
+slot 2: kept 10/10 (854s)
+slot 2: kept 20/20 (1775s)
+slot 2: kept 30/30 (2698s)
+slot 2: kept 40/40 (3617s)
+slot 2: kept 50/50 (4521s)
+slot 2: kept 60/60 (5424s)
+slot 2: kept 70/70 (6339s)
+slot 2: kept 80/80 (7257s)
+slot 2: kept 90/90 (8179s)
+slot 2: kept 100/100 (9082s)
+{"slot": 2, "layer": 0, "row": 1, "col": 0, "kept": 100, "tried": 100, "expert_success_rate": 1.0, "seconds": 9082.318314790726, "layout": {"rows": 2, "cols": 2, "layers": 2, "x0": 0.2, "y0": 0.017}}
+pallet2_s3.hdf5: 100 episodes -> pallet2_s3.jpk.npz 287 MB (22s)

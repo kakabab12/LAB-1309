@@ -1,0 +1,12 @@
+slot 7: kept 10/11 (2791s)
+slot 7: kept 20/21 (5269s)
+slot 7: kept 30/32 (8032s)
+slot 7: kept 40/42 (9623s)
+slot 7: kept 50/52 (10564s)
+slot 7: kept 60/62 (11531s)
+slot 7: kept 70/73 (12430s)
+slot 7: kept 80/83 (13110s)
+slot 7: kept 90/93 (13771s)
+slot 7: kept 100/105 (14543s)
+{"slot": 7, "layer": 1, "row": 0, "col": 0, "kept": 100, "tried": 105, "expert_success_rate": 0.9523809523809523, "seconds": 14543.240993022919, "layout": {"rows": 2, "cols": 2, "layers": 2, "x0": 0.2, "y0": 0.017}}
+pallet2_s8.hdf5: 100 episodes -> pallet2_s8.jpk.npz 304 MB (15s)

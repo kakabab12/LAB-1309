@@ -244,3 +244,9 @@
 [10-09 05:49:49] gen pallet more stopped: pal_s7b (300 demos) + k25 = 16/20, not better than 100 demos (11/12) -> more demos do not fix the +y bias / neighbour collisions; testing a wider column gap instead
 [10-09 05:50:20] pallet fix2 full eval stopped (pal_s7b gave no gain in the slot check)
 [10-09 07:14:06] pallet v2 start (x0 0.20, y0 0.017, column gap 0.014 m): 8 x 100 demos
+[10-09 11:18:36] pallet v2: demos ready ()
+[10-09 11:18:36] train pal2_s1 (pallet v2 slot 1, 100 demos)
+[10-09 11:20:07] train pal2_s2 (pallet v2 slot 2, 100 demos)
+[10-09 11:21:37] train pal2_s3 (pallet v2 slot 3, 100 demos)
+[10-09 11:23:07] train pal2_s4 (pallet v2 slot 4, 100 demos)
+[10-09 11:24:37] train pal2_s5 (pallet v2 slot 5, 100 demos)

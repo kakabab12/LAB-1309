@@ -1,0 +1,17 @@
+{
+ "slot": 7,
+ "layer": 1,
+ "row": 0,
+ "col": 0,
+ "kept": 100,
+ "tried": 105,
+ "expert_success_rate": 0.9523809523809523,
+ "seconds": 14543.240993022919,
+ "layout": {
+  "rows": 2,
+  "cols": 2,
+  "layers": 2,
+  "x0": 0.2,
+  "y0": 0.017
+ }
+}
