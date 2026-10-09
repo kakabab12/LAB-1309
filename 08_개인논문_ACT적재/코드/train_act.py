@@ -135,8 +135,8 @@ def make_config(img_hw: tuple[int, int], device: str) -> ACTConfig:
 class Sampler:
     """Uniform random (episode, t) samples with ACT action chunks and padding flags."""
 
-    def __init__(self, demos: Demos, chunk: int, rng: np.random.Generator):
-        self.d, self.chunk, self.rng = demos, chunk, rng
+    def __init__(self, demos: Demos, chunk: int, rng: np.random.Generator, state_noise: float = 0.0):
+        self.d, self.chunk, self.rng, self.state_noise = demos, chunk, rng, state_noise
 
     def batch(self, bs: int, device: str) -> dict:
         T = self.d.T
@@ -147,7 +147,9 @@ class Sampler:
             S, A = self.d.episode(i)
             idx = np.arange(t, t + self.chunk)
             pad.append(idx >= T)
-            st.append(S[t])
+            # --state-noise: Gaussian noise (rad) on the joint-state input only, so the policy cannot copy its
+            # own (lagging) joint state into the action chunk and has to rely on the cameras for positions
+            st.append(S[t] + self.rng.normal(0, self.state_noise, size=S.shape[1]).astype(S.dtype) if self.state_noise else S[t])
             act.append(A[np.minimum(idx, T - 1)])
             for cam in CAMS:
                 imgs[cam].append(self.d.image(i, t, PACK_CAMS.index(cam)))
@@ -172,6 +174,7 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--preprocess", choices=["clahe"], default=None, help="camera preprocessing (also used at eval)")
     ap.add_argument("--cams", nargs="+", choices=PACK_CAMS, default=list(PACK_CAMS), help="cameras the policy sees")
+    ap.add_argument("--state-noise", type=float, default=0.0, help="std (rad) of noise on the state input in training")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
     global CAMS
@@ -193,14 +196,14 @@ def main() -> None:
     policy = ACTPolicy(cfg, dataset_stats=stats).to(device)
     policy.train()
     opt = torch.optim.AdamW(policy.get_optim_params(), lr=cfg.optimizer_lr, weight_decay=cfg.optimizer_weight_decay)
-    sampler = Sampler(demos, cfg.chunk_size, rng)
+    sampler = Sampler(demos, cfg.chunk_size, rng, args.state_noise)
     release_heap()
     n_params = sum(p.numel() for p in policy.parameters())
     meta = {"stage": args.stage, "episodes": len(demos), "frames": len(demos) * demos.T, "image_bytes": demos.nbytes,
             "data": [str(p) for p in paths if p.exists()], "steps": args.steps,
             "batch": args.batch, "lr": cfg.optimizer_lr, "params": n_params, "img_hw": list(img_hw),
             "chunk_size": cfg.chunk_size, "kl_weight": cfg.kl_weight, "device": torch.cuda.get_device_name(0),
-            "preprocess": args.preprocess, "cams": list(CAMS)}
+            "preprocess": args.preprocess, "cams": list(CAMS), "state_noise": args.state_noise}
     (out / "train_meta.json").write_text(json.dumps(meta, indent=1))
     print(json.dumps(meta), flush=True)
 

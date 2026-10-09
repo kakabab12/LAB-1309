@@ -1,0 +1,13 @@
+{
+ "stage": 1,
+ "design": "v4",
+ "dr": true,
+ "dr_level": 1,
+ "clutter": true,
+ "dart_sigma": 0.0,
+ "kept": 200,
+ "tried": 200,
+ "expert_success_rate": 1.0,
+ "mean_xy_err_mm": 1.8420986310174905,
+ "seconds": 3134.3425767421722
+}

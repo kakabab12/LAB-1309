@@ -9,24 +9,6 @@ WARNING:root:No accelerated backend detected. Using default cpu, this will be sl
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
 WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
-WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
-WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
 Loading weights from local directory
 Loading weights from local directory
 Loading weights from local directory
@@ -38,3 +20,21 @@ Loading weights from local directory
 seq 0: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
 seq 1: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
 seq 2: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 3: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 4: xooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 5: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 6: ooooxooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 7: ooooxooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 8: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 9: xooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 10: ooooxooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 11: ooooxooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 12: oxoooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 13: ooooooxx attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 14: ooooxooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 15: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 16: ooooxooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 17: oooooxoo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 18: ooooxooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 19: ooooxooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+[pallet] full 8-stack 0.35 first attempt 0.35

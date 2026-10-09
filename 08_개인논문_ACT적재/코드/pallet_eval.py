@@ -61,7 +61,8 @@ def main():
                 first = r["success"] if first is None else first
                 if attempts >= a.max_attempts or not on_scale(env, slots[k]["name"]):
                     break
-            r.update(slot=k, attempts=attempts, first_attempt_success=bool(first))
+            r.update(slot=k, attempts=attempts, first_attempt_success=bool(first),
+                     bin_pos=env.bin_state(slots[k]["name"]).pos.tolist(), target=tgt.tolist())
             rows.append(r)
         ok = [x["success"] for x in rows]
         ok0 = [x["first_attempt_success"] for x in rows]

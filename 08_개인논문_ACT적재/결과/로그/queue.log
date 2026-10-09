@@ -255,3 +255,6 @@
 [10-09 14:38:12] train pal2_s8 (pallet v2 slot 8, 100 demos)
 [10-09 16:39:26] pallet v2 policies trained; evaluating 40 sequences with re-planning every 25 steps
 [10-09 16:49:25] weight-triggered retry eval v5_n100 (simulated scale reading >= 60 g -> retry), 2 x 100 sequences
+[10-09 18:16:24] clutter test start: v9 demos (v6 + physical clutter, 1000/stage), zero-shot eval of v5_n100 and v6_n1000
+[10-09 18:44:51] pallet v2 eval done: [pallet] full 8-stack 0.35 first attempt 0.35 [pallet] full 8-stack 0.35 first attempt 0.35 
+[10-09 19:47:58] pallet drift test: slot 5 / slot 1 policies with state-input noise 0.02 / 0.05 rad

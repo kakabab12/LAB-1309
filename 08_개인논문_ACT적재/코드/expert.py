@@ -12,7 +12,7 @@ import os
 import mujoco
 import numpy as np
 
-from stack_env import BIN_H, BIN_W, CONTROL_HZ, GRIPPER_CLOSED, GRIPPER_OPEN, JOINTS, TARGETS, StackEnv
+from stack_env import BIN_H, BIN_L, BIN_W, CONTROL_HZ, CUP_SEG, GRIPPER_CLOSED, GRIPPER_OPEN, JOINTS, OBJECT, TARGETS, StackEnv
 
 ARM = 5  # first five joints; joint 6 is the gripper
 # Demonstration design. v4 grasps one fixed wall (normal nearest -x) over the whole pick-yaw range;
@@ -21,7 +21,17 @@ ARM = 5  # first five joints; joint 6 is the gripper
 # and tipped a bin standing on the 2 mm rims of the bin below).
 DESIGN = os.environ.get("ACT_DESIGN", "v2")
 WALL_REF = np.array([-1.0, 0.0]) if DESIGN in ("v4", "v5", "v8") else None
-BACKOFF = 0.005 if DESIGN == "v5" else 0.0  # m along the outward wall normal, after opening
+BACKOFF = 0.005 if DESIGN in ("v5", "v2b", "cupnaive", "cuprule") else 0.0  # m along the outward wall normal, after opening
+# v2b = v2 (wall facing the robot, switches walls) + back-off: the "naive" counterpart of v5 in the generalisation test
+# Cup (stack_env.OBJECT == "cup"): where on the rim to grasp. Both designs avoid the handle and keep the 9 mm clearance
+# and the back-off; they differ only in how the grasp point is chosen:
+#   cupnaive - like a person: the rim point facing the robot, or if the handle is in the way (within 45 deg of it)
+#              the facet beside the handle on the side of that point (left or right -> two strategies that switch
+#              when the handle passes the robot-facing point)
+#   cuprule  - always the facet to the right of the handle (seen from above): one continuous strategy; the right
+#              side keeps the grasp within the arm's reach over the whole pick area
+# (with the 6-facet cup the 45 deg grasp direction snaps to the next facet centre, 60 deg from the handle)
+CUP_HANDLE_CLEAR = math.radians(45)
 # v8 (stage 2 only) = v4 + keep a real gap to bin A: when A was left shifted towards B's slot, B is placed that much
 # further out (the slot itself and the success test are unchanged).
 SIDE_GAP = 0.006
@@ -32,6 +42,16 @@ def stage2_target(a_pos: np.ndarray) -> np.ndarray:
     if DESIGN == "v8":
         t[1] = max(t[1], a_pos[1] + BIN_W + SIDE_GAP)
     return t
+
+
+def half_extent(n_world: np.ndarray, yaw: float) -> float:
+    """Half size of the object along the grasp normal (box: long or short wall; square bin: the same; cup: radius).
+    For bins and boxes the normal is always one of the wall normals, so exactly one of |lx|, |ly| is 1."""
+    if OBJECT == "cup":
+        return BIN_W / 2
+    c, sn = math.cos(yaw), math.sin(yaw)
+    lx, ly = c * n_world[0] + sn * n_world[1], -sn * n_world[0] + c * n_world[1]
+    return abs(lx) * BIN_L / 2 + abs(ly) * BIN_W / 2
 
 
 def wrap(a: float) -> float:
@@ -186,6 +206,16 @@ class ScriptedExpert:
 
     @staticmethod
     def facing_wall_normal(center_xy: np.ndarray, yaw: float) -> np.ndarray:
+        if OBJECT == "cup":
+            a0 = math.atan2(-center_xy[1], -center_xy[0])  # rim point facing the robot
+            if DESIGN == "cuprule":
+                a = yaw - CUP_HANDLE_CLEAR
+            else:
+                d = wrap(a0 - yaw)
+                a = a0 if abs(d) >= CUP_HANDLE_CLEAR else yaw + math.copysign(CUP_HANDLE_CLEAR, d)
+            step = 2 * math.pi / CUP_SEG  # to the nearest facet centre
+            a = yaw + round(wrap(a - yaw) / step) * step
+            return np.array([math.cos(a), math.sin(a), 0.0])
         ref = WALL_REF if WALL_REF is not None else -center_xy / np.linalg.norm(center_xy)
         cands = [np.array([math.cos(yaw + k * math.pi / 2), math.sin(yaw + k * math.pi / 2), 0.0]) for k in range(4)]
         return max(cands, key=lambda n: n[:2] @ ref)
@@ -203,14 +233,15 @@ class ScriptedExpert:
         yaw_place = yaw_pick + wrap(yaw_place - yaw_pick)
         n_place = np.array([-1.0, 0.0, 0.0])
 
-        off = BIN_W / 2 + self.CLEAR
+        half = half_extent(n_pick, bin_yaw)  # distance from the object centre to the grasped wall
+        off = half + self.CLEAR
         rim_pick = bin_pos[2] + BIN_H / 2
         rim_place = target[2] + BIN_H / 2
         p0, _ = self.ik.fk(q_start)
         grasp = np.array([*(bin_pos[:2] + off * n_pick[:2]), rim_pick - self.GRASP_DEPTH]) + jx(0.0015)
         pre = grasp + np.array([0, 0, self.APPROACH_DZ]) + jx(0.006)
         lift = np.array([grasp[0], grasp[1], self.CARRY_Z]) + jx(0.006)
-        place = np.array([*(target[:2] + (BIN_W / 2) * n_place[:2]), rim_place - self.GRASP_DEPTH + 0.004]) + jx(0.0015)
+        place = np.array([*(target[:2] + half * n_place[:2]), rim_place - self.GRASP_DEPTH + 0.004]) + jx(0.0015)
         above = np.array([place[0], place[1], self.CARRY_Z]) + jx(0.006)
         backoff = place + BACKOFF * n_place
         retreat = backoff + np.array([0, 0, 0.06]) + jx(0.006)

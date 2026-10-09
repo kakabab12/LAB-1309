@@ -25,13 +25,14 @@ def main() -> None:
     ap.add_argument("--out", default=None)
     ap.add_argument("--te", type=float, default=None, help="ACT temporal ensembling coefficient (re-plan every step)")
     ap.add_argument("--k", type=int, default=None, help="re-plan every k steps instead of the full chunk")
+    ap.add_argument("--step", type=int, default=30000, help="checkpoint step")
     a = ap.parse_args()
     GP.NOISE_XY = a.noise
     GP.NOISE_YAW = math.radians(2) * a.noise / 0.003
     slots = PG.configure(**GP.LAYOUT)
     env = PG.make_env(slots, render=True)
     home = PG.GridExpert(env).home_q()
-    pol = load_policy(f"runs/{a.run}/ckpt_030000", "cpu", a.te, a.k)
+    pol = load_policy(f"runs/{a.run}/ckpt_{a.step:06d}", "cpu", a.te, a.k)
     rec = Recorder(env, enabled=False)
     rows = []
     for i in range(a.trials):
