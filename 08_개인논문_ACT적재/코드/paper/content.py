@@ -338,11 +338,34 @@ def gen_gap(obj: str, design: str) -> str:
 INT_COMBOS = [(o, l) for o in ("bin", "cup", "box") for l in ("orig", "mirror")]
 
 
+# Final models (10/11). The integrated policy and the bin policy with factory-cell demos were trained in rounds; the
+# paper reports the LAST round whose evaluation is complete (not the best-scoring one), together with its steps.
+INT_ROUNDS = [("int120_n1800", 120000), ("int80_n1800", 80000), ("int_n1800", 40000)]
+INT_CONDS = ("none", "all", "factory", "factory_vis", "factory_max")
+
+
+def _int_complete(tag: str) -> bool:
+    return all((ROOT / "results" / "clutter" / f"{tag}_{o}_{l}" / f"{c}.json").exists() for o, l in INT_COMBOS for c in INT_CONDS)
+
+
+INT_TAG, INT_STEPS = next(((t, n) for t, n in INT_ROUNDS if _int_complete(t)), INT_ROUNDS[-1])
+FAC_ROUNDS = [("v11_n1500", 500), ("v10_n1300", 300)]  # tag, factory-cell demos per stage added to v9's 1000
+FAC_CONDS = ("none", "all", "tight", "factory", "factory_vis", "factory_max")
+FAC_TAG, FAC_DEMOS = next(((t, n) for t, n in FAC_ROUNDS
+                           if all((ROOT / "results" / "clutter" / t / f"{c}.json").exists() for c in FAC_CONDS)), FAC_ROUNDS[-1])
+
+
+def eval_chain(name: str, k: int = 2) -> str:
+    """Chained success (%) of any results/eval/<name> run (e.g. g_cup_orig_cuprule300)."""
+    r = _load(name)
+    return f"{100 * r['chained']['cumulative_success'][k]:.0f}" if r and "chained" in r else MISSING
+
+
 def int_res(cond: str, agg: str = "mean") -> str:
     """Integrated policy (one per stage for all objects / layouts): chained success over the 6 combinations."""
     v = []
     for o, l in INT_COMBOS:
-        r = _json(f"results/clutter/int_n1800_{o}_{l}/{cond}.json")
+        r = _json(f"results/clutter/{INT_TAG}_{o}_{l}/{cond}.json")
         if not r or "chained" not in r:
             return MISSING
         v.append(100 * r["chained"]["cumulative_success"][2])
@@ -508,31 +531,30 @@ def body(media, b) -> str:
             ["손잡이 컵 (손잡이 좌·우)", f"{gen_gap('cup', 'cupnaive')} → {gen_gap('cup', 'cuprule')}",
              f"{gen_chain('cup', 'cupnaive')} → {gen_chain('cup', 'cuprule')}"],
             ["직사각형 상자 (긴·짧은 벽)", f"{gen_gap('box', 'v2b')} → {gen_gap('box', 'v5')}",
-             f"{gen_chain('box', 'v2b')} → {gen_chain('box', 'v5')}"]]
+             f"{gen_chain('box', 'v2b')} → {gen_chain('box', 'v5')}"],
+            ["손잡이 컵 R2, 시연 300·관절 잡음", "-", f"→ {eval_chain('g_cup_orig_cuprule300')}"]]
     add(table("표 3. 물체별 시연 점검과 연속 성공률 (시연 100회, 각 50회)", [1900, 1300, 1300], rows))
     add(P("표 3과 같이 사람식 시연은 세 물체 모두 손목 각도에 큰 빈 구간을 보였고, R2로 고치면 빈 구간이 사라지며 연속 "
-          "성공률이 올랐다. 점검 지표가 학습 전에 실패할 시연을 가려낸 것이다."))
+          "성공률이 올랐다. 점검 지표가 학습 전에 실패할 시연을 가려낸 것이다. 컵은 R2에서도 놓는 위치 오차가 남았으나 "
+          f"(실패의 대부분), R2 시연을 300회로 늘리고 관절값 입력에 잡음을 더하면 {eval_chain('g_cup_orig_cuprule300')}%가 "
+          "되었다."))
 
     add(h2("4.4 환경 변화와 공장형 잡동사니"))
-    rows = [["환경 (연속 성공률 %)", "④ (100)", "+무작위화", "+잡동사니", "통합"],
-            ["변화 없음", clut("v5_n100", "none"), clut("v6_n1000", "none"), clut("v9_n1000", "none"),
-             clut("int_n1800_bin_orig", "none")],
-            ["잡동사니 전부", clut("v5_n100", "all"), clut("v6_n1000", "all"), clut("v9_n1000", "all"),
-             clut("int_n1800_bin_orig", "all")],
-            ["잡동사니 팔 경로 5mm", clut("v5_n100", "tight"), clut("v6_n1000", "tight"), clut("v9_n1000", "tight"), "-"],
-            ["공장형", clut("v5_n100", "factory"), clut("v6_n1000", "factory"), clut("v9_n1000", "factory"),
-             clut("int_n1800_bin_orig", "factory")],
-            ["공장형+외관 무작위", clut("v5_n100", "factory_vis"), clut("v6_n1000", "factory_vis"),
-             clut("v9_n1000", "factory_vis"), clut("int_n1800_bin_orig", "factory_vis")],
-            ["공장형 최대(16개, 5mm)", clut("v5_n100", "factory_max"), clut("v6_n1000", "factory_max"),
-             clut("v9_n1000", "factory_max"), clut("int_n1800_bin_orig", "factory_max")]]
-    add(table("표 4. 잡동사니·공장형 환경의 연속 성공률 (%, 통, 각 50회)", [1500, 750, 750, 750, 750], rows))
+    it = f"{INT_TAG}_bin_orig"
+    rows = [["환경 (연속 %)", "④ (100)", "+무작위화", "+잡동사니", "+공장", "통합"]]
+    for cond, label in (("none", "변화 없음"), ("all", "잡동사니 전부"), ("tight", "잡동사니 팔 경로 5mm"),
+                        ("factory", "공장형"), ("factory_vis", "공장형+외관 무작위"), ("factory_max", "공장형 최대(16개, 5mm)")):
+        rows.append([label] + [clut(t, cond) for t in ("v5_n100", "v6_n1000", "v9_n1000", FAC_TAG)]
+                    + ["-" if cond == "tight" else clut(it, cond)])
+    add(table("표 4. 잡동사니·공장형 환경의 연속 성공률 (%, 통, 각 50회)", [1300, 640, 640, 640, 640, 640], rows))
     add(P(f"조명·작업대·카메라 위치·관측 지연 등 15가지 변화를 한 가지씩 주면 도메인 랜덤화 정책이 단계 평균 "
           f"{rob_avg('v6_n1000')}%(무작위화 없이 {rob_avg('v5_n1000')}%)를 유지했으며, 밝기 정규화·CLAHE[17]를 더하면 "
           f"{rob_avg('v6c_n1000')}%로 오히려 낮아졌다. 표 4는 실제로 부딪히는 잡동사니(물건 4~8개, 닮은 통, 지나가는 물체)와 "
           f"공장형 환경의 결과이다. 무작위화 없는 ④는 잡동사니 전부에서 {clut('v5_n100', 'all')}%로 떨어졌고, 잡동사니를 "
-          f"넣은 시연(+잡동사니, 1000회)은 {clut('v9_n1000', 'all')}%였다. 세 물체·두 배치·공장형 환경을 섞은 시연 1800회로 "
-          f"단계별 정책 하나를 학습한 통합 정책은 공장형 환경에서 6가지 물체·배치 조합 평균 {int_res('factory')}%"
+          f"넣은 시연(+잡동사니, 1000회)은 {clut('v9_n1000', 'all')}%였으나 공장형에서는 {clut('v9_n1000', 'factory')}%였고, "
+          f"여기에 공장형 장면의 시연을 단계당 {FAC_DEMOS}회 더하자(+공장) {clut(FAC_TAG, 'factory')}%가 되었다. 세 물체·두 "
+          f"배치·공장형 환경을 섞은 시연 1800회로 단계별 정책 하나를 {INT_STEPS // 1000}k 스텝 학습한 통합 정책은 공장형 "
+          f"환경에서 6가지 물체·배치 조합 평균 {int_res('factory')}%"
           f"(최저 {int_res('factory', 'min')}%), 외관까지 무작위화하면 {int_res('factory_vis')}%였다."))
 
     # ------------------------------------------------------------ V

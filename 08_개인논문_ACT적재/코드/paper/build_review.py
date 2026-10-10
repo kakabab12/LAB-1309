@@ -288,17 +288,13 @@ def body_xml(media: Media, cite: Cites) -> str:
              f"{C.chain('v5_n100', 2)} / {C.gen_chain('cup', 'cuprule')} / {C.gen_chain('box', 'v5')}"]]
     add(table("표 3. 물체별 시연 점검과 연속 성공률", "Table 3. Demonstration audit and sequence success per object",
               [1900, 1300, 1300], rows))
-    rows = [["Environment (sequence %)", "R1-R3", "+DR", "+clutter", "Integrated"],
-            ["No clutter", C.clut("v5_n100", "none"), C.clut("v6_n1000", "none"), C.clut("v9_n1000", "none"),
-             C.clut("int_n1800_bin_orig", "none")],
-            ["Table clutter (all)", C.clut("v5_n100", "all"), C.clut("v6_n1000", "all"), C.clut("v9_n1000", "all"),
-             C.clut("int_n1800_bin_orig", "all")],
-            ["Factory cell", C.clut("v5_n100", "factory"), C.clut("v6_n1000", "factory"), C.clut("v9_n1000", "factory"),
-             C.clut("int_n1800_bin_orig", "factory")],
-            ["Factory + random looks", C.clut("v5_n100", "factory_vis"), C.clut("v6_n1000", "factory_vis"),
-             C.clut("v9_n1000", "factory_vis"), C.clut("int_n1800_bin_orig", "factory_vis")]]
+    it = f"{C.INT_TAG}_bin_orig"
+    rows = [["Environment (sequence %)", "R1-R3", "+DR", "+clutter", "+factory", "Integrated"]]
+    for cond, label in (("none", "No clutter"), ("all", "Table clutter (all)"), ("factory", "Factory cell"),
+                        ("factory_vis", "Factory + random looks")):
+        rows.append([label] + [C.clut(t, cond) for t in ("v5_n100", "v6_n1000", "v9_n1000", C.FAC_TAG)] + [C.clut(it, cond)])
     add(table("표 4. 잡동사니·공장형 환경의 연속 성공률 (%, 통)", "Table 4. Sequence success in cluttered and factory cells (%, bin)",
-              [1600, 720, 720, 720, 740], rows))
+              [1500, 600, 600, 600, 600, 600], rows))
     add(body("손잡이 컵과 직사각형 상자에서도 사람식 시연은 큰 빈 구간을 보였고 R2로 고치면 연속 성공률이 올랐다(표 3). "
              f"잡동사니가 있으면 무작위화 없는 정책은 {C.clut('v5_n100', 'all')}%로 떨어졌으나, 세 물체·두 배치·공장형 환경을 "
              f"섞은 시연 1800회로 학습한 통합 정책은 공장형 환경에서 여섯 조합 평균 {C.int_res('factory')}%"

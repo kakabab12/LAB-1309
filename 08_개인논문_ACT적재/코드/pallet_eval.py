@@ -36,7 +36,9 @@ def main():
     slots = PG.configure(**LAYOUT)
     env = PG.make_env(slots, render=True)
     home = PG.GridExpert(env).home_q()
-    pols = [load_policy(f"runs/{r}/ckpt_{a.step:06d}", "cpu", None, a.k) for r in a.runs]
+    # a run may carry its own checkpoint step as "name@step" (slots retrained for longer)
+    pols = [load_policy(f"runs/{r.split('@')[0]}/ckpt_{int(r.split('@')[1]) if '@' in r else a.step:06d}", "cpu", None,
+                        a.k) for r in a.runs]
     rec = Recorder(env, enabled=a.gifs > 0)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)

@@ -495,3 +495,11 @@
 [10-11 04:55:09] start eval eval_pallet3_p0
 [10-11 04:55:09] start eval eval_pallet3_p1
 [10-11 04:57:51] pallet slot 5 fix: full 2x2x2 eval with pal3n05_s5 (2 x 20 sequences)
+[10-11 06:45:07] start train s3_int120_n1800 (from s3_int80_n1800/ckpt_080000)
+[10-11 06:46:38] round2: s1_v11_n1900 not trained
+[10-11 07:08:04] start train s3_v11_n1500 (from s3_v10_n1300/ckpt_050000)
+[10-11 07:12:08] done eval_pallet3_p0 full 8-stack 45%, slots [95, 100, 100, 80, 80, 85, 85, 90]
+[10-11 07:13:38] done eval_pallet3_p1 full 8-stack 65%, slots [90, 95, 100, 95, 75, 90, 95, 95]
+[10-11 07:13:38] orchestrator finished
+[10-11 07:18:56] pallet slot 5 fix: done eval pallet4 ([pallet] full 8-stack 0.6 first attempt 0.6 [pallet] full 8-stack 0.7 first attempt 0.7 )
+[10-11 07:20:55] pallet more: +100 demos and state noise for slots 1 4 6 7 8, then full 2x2x2 eval

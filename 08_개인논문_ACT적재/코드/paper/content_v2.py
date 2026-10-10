@@ -19,8 +19,8 @@ usage: python paper/build_paper.py --content content_v2 --out paper/out/paper_v2
 from __future__ import annotations
 
 import content as C
-from content import (FIG, MISSING, ROOT, _audit, _json, big_txt, chain, chain_ci, clut, gen_chain, gen_gap, int_res,
-                     pct, rob_avg, seq200, wretry, ws, xy_mean, ym)
+from content import (FAC_DEMOS, FAC_TAG, FIG, INT_STEPS, INT_TAG, MISSING, ROOT, _audit, _json, big_txt, chain,
+                     chain_ci, clut, eval_chain, gen_chain, gen_gap, int_res, pct, rob_avg, seq200, wretry, ws, xy_mean, ym)
 
 TITLE_KO, AUTHORS_KO, AFFIL_KO, EMAIL = C.TITLE_KO, C.AUTHORS_KO, C.AFFIL_KO, C.EMAIL
 TITLE_EN, AUTHORS_EN, AFFIL_EN = C.TITLE_EN, C.AUTHORS_EN, C.AFFIL_EN
@@ -261,7 +261,8 @@ def body(media, b) -> str:
             ["손잡이 컵 (손잡이 좌·우)", f"{gen_gap('cup', 'cupnaive')} → {gen_gap('cup', 'cuprule')}",
              f"{gen_chain('cup', 'cupnaive')} → {gen_chain('cup', 'cuprule')}"],
             ["직사각형 상자 (긴·짧은 벽)", f"{gen_gap('box', 'v2b')} → {gen_gap('box', 'v5')}",
-             f"{gen_chain('box', 'v2b')} → {gen_chain('box', 'v5')}"]]
+             f"{gen_chain('box', 'v2b')} → {gen_chain('box', 'v5')}"],
+            ["손잡이 컵 R2, 시연 300·관절 잡음", "-", f"→ {eval_chain('g_cup_orig_cuprule300')}"]]
     add(table("표 3. 물체별 시연 점검과 연속 성공률 (시연 100회, 각 50회)", [1900, 1300, 1300], rows))
     add(P("규칙이 통에만 맞춘 것이 아님을 확인하기 위해, 다른 이유로 잡을 곳이 애매한 두 물체를 더 시험하였다(그림 2(d)(e)). "
           "손잡이가 로봇 쪽(±30°)을 향하는 손잡이 컵(육각, 지름 70mm)은 사람처럼 잡으면 손잡이의 왼쪽·오른쪽 중 가까운 "
@@ -270,35 +271,33 @@ def body(media, b) -> str:
           f"손목 각도에 큰 빈 구간을 보였고, R2 시연은 빈 구간이 거의 없었으며 연속 성공률은 통 {chain('n100', 2)}→"
           f"{chain('v5_n100', 2)}%, 컵 {gen_chain('cup', 'cupnaive')}→{gen_chain('cup', 'cuprule')}%, 상자 "
           f"{gen_chain('box', 'v2b')}→{gen_chain('box', 'v5')}%였다. "
-          + ("학습 전에 계산한 빈 구간이 학습 뒤 성공률의 차이를 미리 보여 준 것이다." if all(rule_ok) else
-             "빈 구간은 학습 전에 시연의 갈림을 드러냈으나, 성공률 차이는 물체에 따라 달랐다." if None not in rule_ok
-             else "")))
+          + ("학습 전에 계산한 빈 구간이 학습 뒤 성공률의 차이를 미리 보여 준 것이다. " if all(rule_ok) else
+             "빈 구간은 학습 전에 시연의 갈림을 드러냈으나, 성공률 차이는 물체에 따라 달랐다. " if None not in rule_ok
+             else "")
+          + (f"컵의 R2 실패는 대부분 놓는 위치 오차였으며, R2 시연을 300회로 늘리고 관절값 입력에 잡음을 더하면 "
+             f"{eval_chain('g_cup_orig_cuprule300')}%가 되었다." if eval_chain('g_cup_orig_cuprule300') != MISSING else "")))
 
-    v9f, intf = clut("v9_n1000", "factory"), clut("int_n1800_bin_orig", "factory")
-    t44 = ("4.4 Q4: 공장형 환경은 그 환경을 담은 시연으로 대응한다" if _better(v9f, intf)
+    it = f"{INT_TAG}_bin_orig"
+    v9f, facf, intf = clut("v9_n1000", "factory"), clut(FAC_TAG, "factory"), clut(it, "factory")
+    t44 = ("4.4 Q4: 공장형 환경은 그 환경을 담은 시연으로 대응한다" if _better(v9f, facf)
            else "4.4 Q4: 환경 변화와 공장형 잡동사니")
     add(h2(t44))
-    rows = [["환경 (연속 성공률 %)", "④ (100)", "+무작위화", "+잡동사니", "통합"],
-            ["변화 없음", clut("v5_n100", "none"), clut("v6_n1000", "none"), clut("v9_n1000", "none"),
-             clut("int_n1800_bin_orig", "none")],
-            ["잡동사니 전부", clut("v5_n100", "all"), clut("v6_n1000", "all"), clut("v9_n1000", "all"),
-             clut("int_n1800_bin_orig", "all")],
-            ["잡동사니 팔 경로 5mm", clut("v5_n100", "tight"), clut("v6_n1000", "tight"), clut("v9_n1000", "tight"), "-"],
-            ["공장형", clut("v5_n100", "factory"), clut("v6_n1000", "factory"), v9f, intf],
-            ["공장형+외관 무작위", clut("v5_n100", "factory_vis"), clut("v6_n1000", "factory_vis"),
-             clut("v9_n1000", "factory_vis"), clut("int_n1800_bin_orig", "factory_vis")],
-            ["공장형 최대(16개, 5mm)", clut("v5_n100", "factory_max"), clut("v6_n1000", "factory_max"),
-             clut("v9_n1000", "factory_max"), clut("int_n1800_bin_orig", "factory_max")]]
-    add(table("표 4. 잡동사니·공장형 환경의 연속 성공률 (%, 통, 각 50회)", [1500, 750, 750, 750, 750], rows))
+    rows = [["환경 (연속 %)", "④ (100)", "+무작위화", "+잡동사니", "+공장", "통합"]]
+    for cond, label in (("none", "변화 없음"), ("all", "잡동사니 전부"), ("tight", "잡동사니 팔 경로 5mm"),
+                        ("factory", "공장형"), ("factory_vis", "공장형+외관 무작위"), ("factory_max", "공장형 최대(16개, 5mm)")):
+        rows.append([label] + [clut(t, cond) for t in ("v5_n100", "v6_n1000", "v9_n1000", FAC_TAG)]
+                    + ["-" if cond == "tight" else clut(it, cond)])
+    add(table("표 4. 잡동사니·공장형 환경의 연속 성공률 (%, 통, 각 50회)", [1300, 640, 640, 640, 640, 640], rows))
     add(P("조명·작업대·카메라 위치 등 15가지 변화를 한 가지씩 주는 정도는 외관 무작위화로 충분하였다(단계 평균 "
           f"{rob_avg('v6_n1000')}%, 무작위화 없이 {rob_avg('v5_n1000')}%). 그러나 실제로 놓인 잡동사니는 달랐다. "
           f"표 4와 같이 잡동사니 전부에서 무작위화 없는 ④는 {clut('v5_n100', 'all')}%, 무작위화만 한 정책은 "
           f"{clut('v6_n1000', 'all')}%였다. 잡동사니를 넣은 시연(1000회)은 {clut('v9_n1000', 'all')}%로 회복했지만 공장형 "
-          f"구조물 앞에서는 {v9f}%였다. 세 물체·두 배치·공장형 장면을 섞은 시연 1800회로 단계별 정책 하나를 학습한 통합 "
+          f"구조물 앞에서는 {v9f}%였고, 공장형 장면의 시연을 단계당 {FAC_DEMOS}회 더하자(+공장) {facf}%가 되었다. 세 "
+          f"물체·두 배치·공장형 장면을 섞은 시연 1800회로 단계별 정책 하나를 {INT_STEPS // 1000}k 스텝 학습한 통합 "
           f"정책은 공장형 환경에서 6가지 조합 평균 {int_res('factory')}%(최저 {int_res('factory', 'min')}%), 외관까지 "
           f"무작위화하면 {int_res('factory_vis')}%였다. 실패는 대부분 물건에 부딪힌 것이 아니라 통을 놓는 위치가 어긋난 "
-          "경우였다. " + ("환경의 변화 역시 시연에 담아야 정책이 따라갔다." if _better(v9f, intf) else
-                         "잡동사니는 시연에 담으면 회복되었으나 공장형 환경은 남은 과제이다." if _better(v9f, intf) is False
+          "경우였다. " + ("환경의 변화 역시 시연에 담아야 정책이 따라갔다." if _better(v9f, facf) else
+                         "잡동사니는 시연에 담으면 회복되었으나 공장형 환경은 남은 과제이다." if _better(v9f, facf) is False
                          else "")))
 
     # ============================================================ Ⅴ. 결론: answers, limits, more evidence, future work
@@ -307,7 +306,7 @@ def body(media, b) -> str:
           "시연 설계에 달려 있음을 보였다. 세 가지 시연 설계 규칙으로 시연 100회의 연속 성공률을 "
           f"{chain('v1_n100', 2)}%에서 {seq200()}%로, 무게 확인 재시도로 {wretry()}로 높였으며, 같은 효과를 시연 수로는 "
           "얻지 못하였다. 학습 전 점검 지표는 세 물체에서 시연의 갈림을 학습 전에 드러냈고, 잡동사니는 그것을 담은 "
-          "시연으로 회복되었다" + ("(공장형 환경도 같음)." if _better(v9f, intf) else ".")))
+          "시연으로 회복되었다" + ("(공장형 환경도 같음)." if _better(v9f, facf) else ".")))
     p_full = pallet_full("pallet4_k25")
     add(P("같은 관점은 2×2×2 팔레트 적재로 확장할 때도 통하였다. 칸별로 전문가 시연의 정확도를 확인하자 가장 먼 2층 칸의 "
           "시연만 평균 6.2mm 치우쳐 있었고(다른 칸 1.8mm, 팔이 닿는 한계에서 역기구학이 손목 각도를 우선한 탓), 이를 "
