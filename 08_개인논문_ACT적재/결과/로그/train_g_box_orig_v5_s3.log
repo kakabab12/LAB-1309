@@ -1,0 +1,29 @@
+{"stage": 3, "episodes": 100, "frames": 27000, "image_bytes": 262221451, "data": ["data/g_box_orig_v5_s3.jpk.npz"], "steps": 30000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"], "state_noise": 0.0}
+Traceback (most recent call last):
+  File "/home/user/ACT/act_sim/train_act.py", line 248, in <module>
+    main()
+  File "/home/user/ACT/act_sim/train_act.py", line 228, in main
+    opt.step()
+  File "/home/user/.local/lib/python3.10/site-packages/torch/optim/optimizer.py", line 485, in wrapper
+    out = func(*args, **kwargs)
+  File "/home/user/.local/lib/python3.10/site-packages/torch/optim/optimizer.py", line 79, in _use_grad
+    ret = func(self, *args, **kwargs)
+  File "/home/user/.local/lib/python3.10/site-packages/torch/optim/adam.py", line 246, in step
+    adam(
+  File "/home/user/.local/lib/python3.10/site-packages/torch/optim/optimizer.py", line 147, in maybe_fallback
+    return func(*args, **kwargs)
+  File "/home/user/.local/lib/python3.10/site-packages/torch/optim/adam.py", line 933, in adam
+    func(
+  File "/home/user/.local/lib/python3.10/site-packages/torch/optim/adam.py", line 757, in _multi_tensor_adam
+    exp_avg_sq_sqrt = torch._foreach_sqrt(device_exp_avg_sqs)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 10.90 GiB of which 48.31 MiB is free. Process 1464362 has 1.42 GiB memory in use. Process 1473358 has 1.42 GiB memory in use. Process 1515052 has 1.42 GiB memory in use. Including non-PyTorch memory, this process has 1.01 GiB memory in use. Of the allocated memory 787.22 MiB is allocated by PyTorch, and 70.78 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+{"stage": 3, "episodes": 100, "frames": 27000, "image_bytes": 262221451, "data": ["data/g_box_orig_v5_s3.jpk.npz"], "steps": 30000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"], "state_noise": 0.0}
+{"step": 2000, "loss": 1.0740697422623635, "l1_loss": 0.15306084033101797, "kld_loss": 0.0921008899435401, "elapsed_s": 1072.49241232872}
+{"step": 4000, "loss": 0.405046154409647, "l1_loss": 0.12249027390033007, "kld_loss": 0.028255587946623563, "elapsed_s": 2141.48077249527}
+{"step": 6000, "loss": 0.21074418731033803, "l1_loss": 0.10225696912035347, "kld_loss": 0.01084872191771865, "elapsed_s": 3340.81475687027}
+{"step": 8000, "loss": 0.15154196973890066, "l1_loss": 0.09415928419679404, "kld_loss": 0.005738268531858921, "elapsed_s": 4390.042760372162}
+{"step": 10000, "loss": 0.12374139565974474, "l1_loss": 0.0861289320141077, "kld_loss": 0.003761246334761381, "elapsed_s": 5317.046019077301}
+{"step": 12000, "loss": 0.10647219054400921, "l1_loss": 0.07938257075846195, "kld_loss": 0.0027089619822800158, "elapsed_s": 6287.976843833923}
+{"step": 14000, "loss": 0.09521821051836014, "l1_loss": 0.07414681404829025, "kld_loss": 0.0021071396581828594, "elapsed_s": 7345.053873062134}
+{"step": 16000, "loss": 0.08416044559329748, "l1_loss": 0.06776921286247671, "kld_loss": 0.001639123260974884, "elapsed_s": 7892.196523666382}
+{"step": 18000, "loss": 0.07965178525075317, "l1_loss": 0.06492379926145077, "kld_loss": 0.0014727985858917236, "elapsed_s": 8316.808898448944}

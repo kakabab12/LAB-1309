@@ -1,0 +1,20 @@
+WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
+WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
+WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
+WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
+WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
+WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
+WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+int80_n1800_cup_mirror none chained: 96% -> 64% -> 56%
+int80_n1800_cup_mirror all chained: 92% -> 56% -> 52%
+int80_n1800_cup_mirror factory chained: 86% -> 52% -> 40%
+int80_n1800_cup_mirror factory_vis chained: 78% -> 50% -> 36%
+int80_n1800_cup_mirror factory_max chained: 74% -> 40% -> 32%

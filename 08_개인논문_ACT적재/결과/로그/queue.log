@@ -456,3 +456,28 @@
 [10-10 21:05:08] done eval g_cup_orig_cupnaive_k25 chained 66% -> 38% -> 24%
 [10-10 21:06:50] done eval g_cup_orig_cuprule_k25 chained 96% -> 66% -> 42%
 [10-10 21:08:00] cup300: +200 rule demos per stage, state noise 0.05, continue from the 100-demo cup rule policies
+[10-10 21:26:34] cup300: demos ready
+[10-10 21:46:45] start train g_cup_orig_cuprule300_s1
+[10-10 22:23:31] integrated 80k: trained
+[10-10 22:23:33] start train train_g_box_orig_v2b_s3
+[10-10 22:40:31] start train g_cup_orig_cuprule300_s2
+[10-10 22:40:31] start train s3_v10_n1300 (from s3_v9_n1000/ckpt_030000)
+[10-10 23:00:17] HEALTH WARN: GPU memory almost full (11035/11264 MB)
+[10-11 00:02:44] start train g_cup_orig_cuprule300_s3
+[10-11 00:03:00] done train_pal2n05_s7 
+[10-11 00:59:33] v10: trained
+[10-11 00:59:45] start train train_g_box_orig_v5_s3
+[10-11 01:00:18] HEALTH WARN: train_g_box_orig_v5_s3.log: OutOfMemoryError ; GPU memory almost full (11130/11264 MB)
+[10-11 01:01:45] FAILED train_g_box_orig_v5_s3 (exit 1), retry later
+[10-11 01:24:54] start train train_g_box_orig_v5_s3 (try 2)
+[10-11 01:50:31] done train_g_box_orig_v2b_s3 
+[10-11 01:50:31] start train train_pal2n05_s8
+[10-11 01:52:02] start eval eval_g_box_orig_v2b
+[10-11 02:00:16] HEALTH WARN: 1 new FAILED line(s) in queue.log
+[10-11 02:29:09] done eval_g_box_orig_v2b chained 84% -> 68% -> 56%
+[10-11 02:42:06] cup300: done eval chained 96% -> 88% -> 88%
+[10-11 03:00:16] HEALTH WARN: 1 new FAILED line(s) in queue.log
+[10-11 03:40:21] v10: done eval none 98; all 88; tight 84; factory 68; factory_vis 50; factory_max 48; 
+[10-11 03:42:14] round2: v11 (v9 + 900 bin factory demos, from v10 +20k) and integrated 120k (from 80k +40k)
+[10-11 03:42:14] start train s1_v11_n1900 (from s1_v10_n1300/ckpt_050000)
+[10-11 03:43:44] start train s2_v11_n1900 (from s2_v10_n1300/ckpt_050000)

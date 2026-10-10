@@ -1,0 +1,14 @@
+{
+ "stage": 1,
+ "design": "cuprule",
+ "dr": false,
+ "dr_level": 0,
+ "clutter": false,
+ "factory": false,
+ "dart_sigma": 0.0,
+ "kept": 100,
+ "tried": 100,
+ "expert_success_rate": 1.0,
+ "mean_xy_err_mm": 3.7780373710581374,
+ "seconds": 969.5505945682526
+}

@@ -110,7 +110,7 @@ def main() -> None:
         except OSError:
             pass
     # 5) new FAILED lines
-    n_failed = qlog.count("FAILED")
+    n_failed = len(re.findall(r"\] FAILED ", qlog))  # job failures only (not this script's own warning lines)
     if n_failed > state.get("failed", n_failed):
         warn.append(f"{n_failed - state['failed']} new FAILED line(s) in queue.log")
     # 6) resources
