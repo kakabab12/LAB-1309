@@ -486,3 +486,12 @@
 [10-11 03:48:15] start train s2_int120_n1800 (from s2_int80_n1800/ckpt_080000)
 [10-11 04:06:00] integrated 80k: done eval bin_orig 88/74/; bin_mirror 72/52/; cup_orig 26/8/; cup_mirror 56/40/; box_orig 92/84/; box_mirror 88/82/; (none/factory)
 [10-11 04:07:10] v11 (fixed: 1000 + 500 factory demos per stage, the first launch asked for 1900 and stopped)
+[10-11 04:39:23] start train s1_v11_n1500 (from s1_v10_n1300/ckpt_050000)
+[10-11 04:39:36] done train_g_box_orig_v5_s3 
+[10-11 04:39:36] start eval eval_g_box_orig_v5
+[10-11 04:54:09] done eval_g_box_orig_v5 chained 100% -> 100% -> 100%
+[10-11 04:54:44] start train s2_v11_n1500 (from s2_v10_n1300/ckpt_050000)
+[10-11 04:55:09] done train_pal2n05_s8 
+[10-11 04:55:09] start eval eval_pallet3_p0
+[10-11 04:55:09] start eval eval_pallet3_p1
+[10-11 04:57:51] pallet slot 5 fix: full 2x2x2 eval with pal3n05_s5 (2 x 20 sequences)

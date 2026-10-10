@@ -16,6 +16,8 @@ best = None
 for p in pathlib.Path("results/eval").glob("*/results.json"):
     if "_ckpt" in p.parent.name or p.parent.name.endswith(("_p0", "_p1", "_p2", "_p3", "_retry")):
         continue
+    if p.parent.name.startswith(("g_", "pallet", "int")) or "_k25" in p.parent.name:
+        continue  # the rollout figure shows the main bin task only (not the cup / box / pallet models)
     r = json.loads(p.read_text())
     if "chained" not in r or len(r.get("ckpt", [])) != 3:
         continue
