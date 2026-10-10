@@ -293,8 +293,10 @@ if __name__ == "__main__":
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(HERE / "out" / "paper.docx"))
+    ap.add_argument("--content", default="content", help="text module in paper/ (content = original, content_v2 = "
+                                                         "restructured version)")
     args = ap.parse_args()
     sys.path.insert(0, str(HERE))
-    import content
+    content = importlib.import_module(args.content)
 
     build(content, Path(args.out))

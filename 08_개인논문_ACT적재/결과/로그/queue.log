@@ -409,3 +409,7 @@
 [10-10 10:11:17] start train train_s3_int_n1800
 [10-10 10:28:55] start train train_g_cup_orig_cupnaive_s2
 [10-10 10:37:50] pallet slot 5 fix: slot check pal2n05_s5 9/20 pal2n10_s5 7/20 pal3n05_s5 19/20 -> best pal3n05_s5
+[10-10 11:46:59] done train_s1_int_n1800 
+[10-10 11:46:59] start train train_g_cup_orig_cuprule_s2
+[10-10 12:21:43] done train_s2_int_n1800 
+[10-10 12:21:43] start train train_pal2n05_s4

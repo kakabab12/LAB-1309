@@ -33,6 +33,8 @@ fi
 
 $PY paper/build_paper.py --out paper/out/paper.docx > /dev/null 2>&1
 (cd paper/out && timeout 180 soffice --headless --convert-to pdf paper.docx > /dev/null 2>&1)
+$PY paper/build_paper.py --content content_v2 --out paper/out/paper_v2.docx > /dev/null 2>&1
+(cd paper/out && timeout 180 soffice --headless --convert-to pdf paper_v2.docx > /dev/null 2>&1)
 ./sync_repo.sh > /dev/null 2>&1
 cp results/analysis.md "/home/user/ACT/LAB-1309/08_개인논문_ACT적재/결과/수치/분석요약.md" 2>/dev/null || true
 

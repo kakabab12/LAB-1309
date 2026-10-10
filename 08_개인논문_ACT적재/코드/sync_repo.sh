@@ -69,7 +69,7 @@ for f in logs/train_*.log logs/eval_*.log logs/gen_*.log; do [ -f "$f" ] && tail
 cp paper/fig*.png "$R/결과/그림/" 2>/dev/null || true
 cp results/stack_*.png results/pallet_*.png results/design_versions.png results/grip_check_*.png results/stage3_inspect.png results/robust_views.png results/clahe_views.png results/robust_views_beyond.png results/v7_views.png results/side_offset_v5_v8.png "$R/결과/그림/" 2>/dev/null || true
 # clutter test (table with other objects): keep-out map, condition views, per-condition results and GIFs
-cp results/clutter_keepout*.png results/clutter_chained.png results/clutter_views.png results/object_views.png results/cup_jam_debug.png results/factory_views.png results/pallet_slot5_offsets.png results/pallet_state_noise.png results/pallet_slot5_fix.png results/demo_audit_general.png "$R/결과/그림/" 2>/dev/null || true
+cp results/clutter_keepout*.png results/clutter_chained.png results/clutter_views.png results/object_views.png results/cup_jam_debug.png results/factory_views.png results/pallet_slot5_offsets.png results/pallet_state_noise.png results/pallet_slot5_fix.png results/paper_v2_pages.png results/demo_audit_general.png "$R/결과/그림/" 2>/dev/null || true
 for d in results/clutter/*/; do
   [ -d "$d" ] || continue
   t=$(basename "$d"); mkdir -p "$R/결과/수치/clutter/$t" "$R/결과/gif/clutter/$t"
@@ -89,6 +89,8 @@ for g in results/gifs_expert/*.gif; do
 done
 [ -f paper/out/paper.docx ] && cp paper/out/paper.docx "$R/논문/"
 [ -f paper/out/paper.pdf ] && cp paper/out/paper.pdf "$R/논문/"
+[ -f paper/out/paper_v2.docx ] && cp paper/out/paper_v2.docx "$R/논문/"
+[ -f paper/out/paper_v2.pdf ] && cp paper/out/paper_v2.pdf "$R/논문/"
 
 # code
 cp stack_env.py expert.py gen_data.py train_act.py eval_act.py make_gif.py batch_expert.py sync_repo.sh analyze.py dataset_preview.py \
