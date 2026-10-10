@@ -17,3 +17,4 @@ int80_n1800_bin_mirror none chained: 84% -> 72% -> 72%
 int80_n1800_bin_mirror all chained: 86% -> 68% -> 68%
 int80_n1800_bin_mirror factory chained: 82% -> 54% -> 52%
 int80_n1800_bin_mirror factory_vis chained: 90% -> 60% -> 54%
+int80_n1800_bin_mirror factory_max chained: 84% -> 54% -> 46%

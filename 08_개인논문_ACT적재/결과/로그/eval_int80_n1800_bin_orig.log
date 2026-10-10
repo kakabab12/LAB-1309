@@ -17,3 +17,4 @@ int80_n1800_bin_orig none chained: 100% -> 92% -> 88%
 int80_n1800_bin_orig all chained: 98% -> 88% -> 84%
 int80_n1800_bin_orig factory chained: 92% -> 76% -> 74%
 int80_n1800_bin_orig factory_vis chained: 96% -> 72% -> 62%
+int80_n1800_bin_orig factory_max chained: 94% -> 66% -> 58%

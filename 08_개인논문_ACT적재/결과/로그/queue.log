@@ -481,3 +481,8 @@
 [10-11 03:42:14] round2: v11 (v9 + 900 bin factory demos, from v10 +20k) and integrated 120k (from 80k +40k)
 [10-11 03:42:14] start train s1_v11_n1900 (from s1_v10_n1300/ckpt_050000)
 [10-11 03:43:44] start train s2_v11_n1900 (from s2_v10_n1300/ckpt_050000)
+[10-11 03:45:15] start train s3_v11_n1900 (from s3_v10_n1300/ckpt_050000)
+[10-11 03:46:45] start train s1_int120_n1800 (from s1_int80_n1800/ckpt_080000)
+[10-11 03:48:15] start train s2_int120_n1800 (from s2_int80_n1800/ckpt_080000)
+[10-11 04:06:00] integrated 80k: done eval bin_orig 88/74/; bin_mirror 72/52/; cup_orig 26/8/; cup_mirror 56/40/; box_orig 92/84/; box_mirror 88/82/; (none/factory)
+[10-11 04:07:10] v11 (fixed: 1000 + 500 factory demos per stage, the first launch asked for 1900 and stopped)

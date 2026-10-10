@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/home/user/ACT/act_sim/train_act.py", line 248, in <module>
+    main()
+  File "/home/user/ACT/act_sim/train_act.py", line 193, in main
+    demos = Demos([p for p in paths if p.exists()], args.episodes)
+  File "/home/user/ACT/act_sim/train_act.py", line 70, in __init__
+    assert len(self.which) == n, f"only {len(self.which)} episodes available, wanted {n}"
+AssertionError: only 1500 episodes available, wanted 1900
