@@ -1,0 +1,11 @@
+init from runs/s1_int_n1800/ckpt_040000
+{"stage": 1, "episodes": 1800, "frames": 486000, "image_bytes": 6405693941, "data": ["data/i_bin_orig_s1_p0.jpk.npz", "data/i_bin_orig_s1_p1.jpk.npz", "data/i_bin_orig_s1_p2.jpk.npz", "data/i_bin_mirror_s1_p0.jpk.npz", "data/i_bin_mirror_s1_p1.jpk.npz", "data/i_bin_mirror_s1_p2.jpk.npz", "data/i_cup_orig_s1_p0.jpk.npz", "data/i_cup_orig_s1_p1.jpk.npz", "data/i_cup_orig_s1_p2.jpk.npz", "data/i_cup_mirror_s1_p0.jpk.npz", "data/i_cup_mirror_s1_p1.jpk.npz", "data/i_cup_mirror_s1_p2.jpk.npz", "data/i_box_orig_s1_p0.jpk.npz", "data/i_box_orig_s1_p1.jpk.npz", "data/i_box_orig_s1_p2.jpk.npz", "data/i_box_mirror_s1_p0.jpk.npz", "data/i_box_mirror_s1_p1.jpk.npz", "data/i_box_mirror_s1_p2.jpk.npz"], "steps": 40000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"], "state_noise": 0.05, "init": "runs/s1_int_n1800/ckpt_040000", "step0": 40000, "seed": 1}
+{"step": 42000, "loss": 0.09100721776485443, "l1_loss": 0.08785250201821328, "kld_loss": 0.0003154715709388256, "elapsed_s": 782.3180058002472}
+{"step": 44000, "loss": 0.08903848318383098, "l1_loss": 0.08616064416244626, "kld_loss": 0.0002877839095890522, "elapsed_s": 1491.4848582744598}
+{"step": 46000, "loss": 0.08462503148242831, "l1_loss": 0.08185763224959373, "kld_loss": 0.0002767399325966835, "elapsed_s": 2168.5636899471283}
+{"step": 48000, "loss": 0.08151216924190521, "l1_loss": 0.0791526004485786, "kld_loss": 0.0002359568700194359, "elapsed_s": 2812.6051590442657}
+{"step": 50000, "loss": 0.08210607133805752, "l1_loss": 0.0799355768598616, "kld_loss": 0.0002170494571328163, "elapsed_s": 3435.9429404735565}
+{"step": 52000, "loss": 0.08135054506361485, "l1_loss": 0.0792665707692504, "kld_loss": 0.00020839743316173554, "elapsed_s": 4058.3583097457886}
+{"step": 54000, "loss": 0.08160748168826103, "l1_loss": 0.07953443601727486, "kld_loss": 0.00020730456337332724, "elapsed_s": 4685.291806459427}
+{"step": 56000, "loss": 0.08059708422981203, "l1_loss": 0.07884171540848911, "kld_loss": 0.00017553688958287238, "elapsed_s": 5322.443897724152}
+{"step": 58000, "loss": 0.07853508079424501, "l1_loss": 0.07681060755625367, "kld_loss": 0.000172447320073843, "elapsed_s": 5987.103477478027}

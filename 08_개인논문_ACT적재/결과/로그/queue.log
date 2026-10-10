@@ -413,3 +413,28 @@
 [10-10 11:46:59] start train train_g_cup_orig_cuprule_s2
 [10-10 12:21:43] done train_s2_int_n1800 
 [10-10 12:21:43] start train train_pal2n05_s4
+[10-10 13:08:01] done train_g_cup_orig_cupnaive_s2 
+[10-10 13:08:01] start train train_g_box_orig_v2b_s2
+[10-10 13:59:21] done train_s3_int_n1800 
+[10-10 13:59:21] start train train_g_box_orig_v5_s2
+[10-10 14:00:52] start eval eval_int_n1800_bin_orig
+[10-10 14:00:52] start eval eval_int_n1800_bin_mirror
+[10-10 14:00:52] start eval eval_int_n1800_cup_orig
+[10-10 14:00:52] start eval eval_int_n1800_cup_mirror
+[10-10 14:00:52] start eval eval_int_n1800_box_orig
+[10-10 14:00:52] start eval eval_int_n1800_box_mirror
+[10-10 14:34:36] done train_g_cup_orig_cuprule_s2 
+[10-10 15:07:33] done train_pal2n05_s4 
+[10-10 15:07:33] start train train_pal2n05_s6
+[10-10 15:32:20] done eval_int_n1800_cup_orig none 0% all 0% factory 0% factory_vis 0% factory_max 0%
+[10-10 15:32:20] start train train_g_cup_orig_cupnaive_s3
+[10-10 15:35:04] integrated 80k: continue s1-s3 int_n1800 from 40k (+40k steps each), then re-evaluate
+[10-10 15:53:06] start train s1_int80_n1800 (from s1_int_n1800/ckpt_040000)
+[10-10 15:53:28] done train_g_box_orig_v2b_s2 
+[10-10 16:18:07] done eval_int_n1800_cup_mirror none 24% all 28% factory 18% factory_vis 22% factory_max 12%
+[10-10 16:49:03] start train s2_int80_n1800 (from s2_int_n1800/ckpt_040000)
+[10-10 16:49:19] done train_g_box_orig_v5_s2 
+[10-10 17:21:01] done eval_int_n1800_bin_mirror none 58% all 36% factory 28% factory_vis 30% factory_max 34%
+[10-10 17:36:36] done eval_int_n1800_bin_orig none 70% all 50% factory 36% factory_vis 40% factory_max 36%
+[10-10 17:37:36] done eval_int_n1800_box_mirror none 70% all 54% factory 50% factory_vis 42% factory_max 52%
+[10-10 17:42:08] done eval_int_n1800_box_orig none 64% all 44% factory 44% factory_vis 44% factory_max 28%

@@ -175,6 +175,8 @@ def main() -> None:
     ap.add_argument("--preprocess", choices=["clahe"], default=None, help="camera preprocessing (also used at eval)")
     ap.add_argument("--cams", nargs="+", choices=PACK_CAMS, default=list(PACK_CAMS), help="cameras the policy sees")
     ap.add_argument("--state-noise", type=float, default=0.0, help="std (rad) of noise on the state input in training")
+    ap.add_argument("--init", default=None, help="checkpoint dir to continue from (weights only, fresh optimizer)")
+    ap.add_argument("--step0", type=int, default=0, help="steps already done by --init (log / checkpoint names go on)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
     global CAMS
@@ -194,6 +196,10 @@ def main() -> None:
     stats = compute_stats(demos)
     cfg = make_config(img_hw, device)
     policy = ACTPolicy(cfg, dataset_stats=stats).to(device)
+    if args.init:
+        from safetensors.torch import load_file
+        policy.load_state_dict(load_file(str(Path(args.init) / "model.safetensors")), strict=True)
+        print("init from", args.init, flush=True)
     policy.train()
     opt = torch.optim.AdamW(policy.get_optim_params(), lr=cfg.optimizer_lr, weight_decay=cfg.optimizer_weight_decay)
     sampler = Sampler(demos, cfg.chunk_size, rng, args.state_noise)
@@ -204,13 +210,16 @@ def main() -> None:
             "batch": args.batch, "lr": cfg.optimizer_lr, "params": n_params, "img_hw": list(img_hw),
             "chunk_size": cfg.chunk_size, "kl_weight": cfg.kl_weight, "device": torch.cuda.get_device_name(0),
             "preprocess": args.preprocess, "cams": list(CAMS), "state_noise": args.state_noise}
+    if args.init:
+        meta.update(init=args.init, step0=args.step0, seed=args.seed)
     (out / "train_meta.json").write_text(json.dumps(meta, indent=1))
     print(json.dumps(meta), flush=True)
 
     log = []
     t0 = time.time()
     acc = {"loss": 0.0, "l1_loss": 0.0, "kld_loss": 0.0}
-    for step in range(1, args.steps + 1):
+    last = args.step0 + args.steps
+    for step in range(args.step0 + 1, last + 1):
         batch = sampler.batch(args.batch, device)
         loss, info = policy.forward(batch)
         opt.zero_grad(set_to_none=True)
@@ -229,7 +238,7 @@ def main() -> None:
             if step % 2000 == 0:
                 print(json.dumps(rec), flush=True)
                 (out / "train_log.json").write_text(json.dumps(log))
-        if step % args.save_every == 0 or step == args.steps:
+        if step % args.save_every == 0 or step == last:
             policy.save_pretrained(out / f"ckpt_{step:06d}")
     (out / "train_log.json").write_text(json.dumps(log))
     print("done", time.time() - t0, flush=True)
