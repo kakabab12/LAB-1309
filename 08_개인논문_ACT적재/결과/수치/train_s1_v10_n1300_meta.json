@@ -1,0 +1,32 @@
+{
+ "stage": 1,
+ "episodes": 1300,
+ "frames": 351000,
+ "image_bytes": 3619849879,
+ "data": [
+  "data/v9_stage1.jpk.npz",
+  "data/i_bin_orig_s1_p0.jpk.npz",
+  "data/i_bin_orig_s1_p1.jpk.npz",
+  "data/i_bin_orig_s1_p2.jpk.npz"
+ ],
+ "steps": 20000,
+ "batch": 8,
+ "lr": 1e-05,
+ "params": 51597238,
+ "img_hw": [
+  120,
+  160
+ ],
+ "chunk_size": 100,
+ "kl_weight": 10.0,
+ "device": "NVIDIA GeForce GTX 1080 Ti",
+ "preprocess": null,
+ "cams": [
+  "front",
+  "top"
+ ],
+ "state_noise": 0.0,
+ "init": "runs/s1_v9_n1000/ckpt_030000",
+ "step0": 30000,
+ "seed": 1
+}

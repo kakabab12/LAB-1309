@@ -438,3 +438,21 @@
 [10-10 17:36:36] done eval_int_n1800_bin_orig none 70% all 50% factory 36% factory_vis 40% factory_max 36%
 [10-10 17:37:36] done eval_int_n1800_box_mirror none 70% all 54% factory 50% factory_vis 42% factory_max 52%
 [10-10 17:42:08] done eval_int_n1800_box_orig none 64% all 44% factory 44% factory_vis 44% factory_max 28%
+[10-10 18:01:31] start train s3_int80_n1800 (from s3_int_n1800/ckpt_040000)
+[10-10 18:01:44] done train_pal2n05_s6 
+[10-10 18:24:51] done train_g_cup_orig_cupnaive_s3 
+[10-10 18:24:51] start train train_g_cup_orig_cuprule_s3
+[10-10 18:26:22] start eval eval_g_cup_orig_cupnaive
+[10-10 18:33:54] done eval_g_cup_orig_cupnaive chained 64% -> 32% -> 20%
+[10-10 18:53:25] v10 (v9 + bin factory demos): fine-tune s1-s3 from v9 30k (+20k steps, 1300 demos), then clutter/factory eval
+[10-10 19:11:59] push100: v9 with re-planning every 25 steps (clutter/factory) + 600 more bin factory demos
+[10-10 19:45:02] start train s1_v10_n1300 (from s1_v9_n1000/ckpt_030000)
+[10-10 20:40:48] start train s2_v10_n1300 (from s2_v9_n1000/ckpt_030000)
+[10-10 20:41:04] done train_g_cup_orig_cuprule_s3 
+[10-10 20:41:04] start eval eval_g_cup_orig_cuprule
+[10-10 20:51:07] done eval_g_cup_orig_cuprule chained 90% -> 56% -> 46%
+[10-10 20:52:58] push100: done eval v9k25 none 66; all 84; tight 68; factory 46; factory_vis 26; factory_max 20; | demos 6/6 packs
+[10-10 20:58:09] start train train_pal2n05_s7
+[10-10 21:05:08] done eval g_cup_orig_cupnaive_k25 chained 66% -> 38% -> 24%
+[10-10 21:06:50] done eval g_cup_orig_cuprule_k25 chained 96% -> 66% -> 42%
+[10-10 21:08:00] cup300: +200 rule demos per stage, state noise 0.05, continue from the 100-demo cup rule policies

@@ -1,0 +1,46 @@
+{
+ "stage": 3,
+ "episodes": 1800,
+ "frames": 486000,
+ "image_bytes": 6695447622,
+ "data": [
+  "data/i_bin_orig_s3_p0.jpk.npz",
+  "data/i_bin_orig_s3_p1.jpk.npz",
+  "data/i_bin_orig_s3_p2.jpk.npz",
+  "data/i_bin_mirror_s3_p0.jpk.npz",
+  "data/i_bin_mirror_s3_p1.jpk.npz",
+  "data/i_bin_mirror_s3_p2.jpk.npz",
+  "data/i_cup_orig_s3_p0.jpk.npz",
+  "data/i_cup_orig_s3_p1.jpk.npz",
+  "data/i_cup_orig_s3_p2.jpk.npz",
+  "data/i_cup_mirror_s3_p0.jpk.npz",
+  "data/i_cup_mirror_s3_p1.jpk.npz",
+  "data/i_cup_mirror_s3_p2.jpk.npz",
+  "data/i_box_orig_s3_p0.jpk.npz",
+  "data/i_box_orig_s3_p1.jpk.npz",
+  "data/i_box_orig_s3_p2.jpk.npz",
+  "data/i_box_mirror_s3_p0.jpk.npz",
+  "data/i_box_mirror_s3_p1.jpk.npz",
+  "data/i_box_mirror_s3_p2.jpk.npz"
+ ],
+ "steps": 40000,
+ "batch": 8,
+ "lr": 1e-05,
+ "params": 51597238,
+ "img_hw": [
+  120,
+  160
+ ],
+ "chunk_size": 100,
+ "kl_weight": 10.0,
+ "device": "NVIDIA GeForce GTX 1080 Ti",
+ "preprocess": null,
+ "cams": [
+  "front",
+  "top"
+ ],
+ "state_noise": 0.05,
+ "init": "runs/s3_int_n1800/ckpt_040000",
+ "step0": 40000,
+ "seed": 1
+}

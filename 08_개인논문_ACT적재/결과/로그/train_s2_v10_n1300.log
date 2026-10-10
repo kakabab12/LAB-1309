@@ -1,0 +1,4 @@
+init from runs/s2_v9_n1000/ckpt_030000
+{"stage": 2, "episodes": 1300, "frames": 351000, "image_bytes": 3690907601, "data": ["data/v9_stage2.jpk.npz", "data/i_bin_orig_s2_p0.jpk.npz", "data/i_bin_orig_s2_p1.jpk.npz", "data/i_bin_orig_s2_p2.jpk.npz"], "steps": 20000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"], "state_noise": 0.0, "init": "runs/s2_v9_n1000/ckpt_030000", "step0": 30000, "seed": 1}
+{"step": 32000, "loss": 0.08775072917342186, "l1_loss": 0.08298655143007636, "kld_loss": 0.00047641778364777566, "elapsed_s": 923.4861390590668}
+{"step": 34000, "loss": 0.08701377499848605, "l1_loss": 0.08243751088157296, "kld_loss": 0.0004576264321804047, "elapsed_s": 1690.376359462738}
