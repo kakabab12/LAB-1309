@@ -7,3 +7,6 @@ stage 1: kept 60/60 (1408s)
 stage 1: kept 70/70 (1688s)
 stage 1: kept 80/80 (1933s)
 stage 1: kept 90/90 (2172s)
+stage 1: kept 100/100 (2594s)
+{"stage": 1, "design": "v5", "dr": true, "dr_level": 1, "clutter": false, "factory": true, "dart_sigma": 0.0, "kept": 100, "tried": 100, "expert_success_rate": 1.0, "mean_xy_err_mm": 2.2430633133560276, "seconds": 2593.9145500659943}
+i_box_orig_s1_p1.hdf5: 100 episodes -> i_box_orig_s1_p1.jpk.npz 359 MB (61s)

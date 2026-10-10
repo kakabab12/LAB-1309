@@ -1,0 +1,15 @@
+{"stage": 1, "episodes": 1800, "frames": 486000, "image_bytes": 6405693941, "data": ["data/i_bin_orig_s1_p0.jpk.npz", "data/i_bin_orig_s1_p1.jpk.npz", "data/i_bin_orig_s1_p2.jpk.npz", "data/i_bin_mirror_s1_p0.jpk.npz", "data/i_bin_mirror_s1_p1.jpk.npz", "data/i_bin_mirror_s1_p2.jpk.npz", "data/i_cup_orig_s1_p0.jpk.npz", "data/i_cup_orig_s1_p1.jpk.npz", "data/i_cup_orig_s1_p2.jpk.npz", "data/i_cup_mirror_s1_p0.jpk.npz", "data/i_cup_mirror_s1_p1.jpk.npz", "data/i_cup_mirror_s1_p2.jpk.npz", "data/i_box_orig_s1_p0.jpk.npz", "data/i_box_orig_s1_p1.jpk.npz", "data/i_box_orig_s1_p2.jpk.npz", "data/i_box_mirror_s1_p0.jpk.npz", "data/i_box_mirror_s1_p1.jpk.npz", "data/i_box_mirror_s1_p2.jpk.npz"], "steps": 40000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"], "state_noise": 0.05}
+{"step": 2000, "loss": 1.2096690768003464, "l1_loss": 0.23358431436121463, "kld_loss": 0.09760847553610802, "elapsed_s": 779.2790329456329}
+{"step": 4000, "loss": 0.5016238488256931, "l1_loss": 0.177972870208323, "kld_loss": 0.03236509805545211, "elapsed_s": 1495.969958305359}
+{"step": 6000, "loss": 0.27659370698034763, "l1_loss": 0.15277279259636997, "kld_loss": 0.012382091470062733, "elapsed_s": 2171.6866364479065}
+{"step": 8000, "loss": 0.20815274693071842, "l1_loss": 0.14383907869458198, "kld_loss": 0.006431366819888353, "elapsed_s": 2836.496235370636}
+{"step": 10000, "loss": 0.17442400299012661, "l1_loss": 0.13080450942739844, "kld_loss": 0.004361949283629656, "elapsed_s": 3496.1366794109344}
+{"step": 12000, "loss": 0.1577971762046218, "l1_loss": 0.12560044704005122, "kld_loss": 0.0032196729257702827, "elapsed_s": 4154.792681932449}
+{"step": 14000, "loss": 0.14375453688204287, "l1_loss": 0.11961044944822788, "kld_loss": 0.0024144087918102743, "elapsed_s": 4816.338411569595}
+{"step": 16000, "loss": 0.13229692049324512, "l1_loss": 0.11355942558497191, "kld_loss": 0.0018737495504319668, "elapsed_s": 5478.062847852707}
+{"step": 18000, "loss": 0.12224280327558518, "l1_loss": 0.10659567527472973, "kld_loss": 0.001564712803810835, "elapsed_s": 6139.700015306473}
+{"step": 20000, "loss": 0.11255338713526726, "l1_loss": 0.09978604039177298, "kld_loss": 0.0012767346575856208, "elapsed_s": 6801.020447254181}
+{"step": 22000, "loss": 0.11430382506921888, "l1_loss": 0.10325739929452539, "kld_loss": 0.0011046425625681876, "elapsed_s": 7461.425060749054}
+{"step": 24000, "loss": 0.10744149278849363, "l1_loss": 0.09758533241227269, "kld_loss": 0.0009856160171329974, "elapsed_s": 8084.593813657761}
+{"step": 26000, "loss": 0.10532813457772136, "l1_loss": 0.09733935371041298, "kld_loss": 0.0007988780736923218, "elapsed_s": 8693.713069438934}
+{"step": 28000, "loss": 0.10115259522572159, "l1_loss": 0.09365788826718927, "kld_loss": 0.000749470666050911, "elapsed_s": 9316.340732812881}

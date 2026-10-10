@@ -1,0 +1,12 @@
+stage 3: kept 10/10 (209s)
+stage 3: kept 20/20 (428s)
+stage 3: kept 30/30 (633s)
+stage 3: kept 40/40 (839s)
+stage 3: kept 50/50 (1043s)
+stage 3: kept 60/60 (1200s)
+stage 3: kept 70/70 (1347s)
+stage 3: kept 80/80 (1487s)
+stage 3: kept 90/90 (1622s)
+stage 3: kept 100/100 (1747s)
+{"stage": 3, "design": "v5", "dr": true, "dr_level": 1, "clutter": false, "factory": true, "dart_sigma": 0.0, "kept": 100, "tried": 100, "expert_success_rate": 1.0, "mean_xy_err_mm": 2.1273578033545455, "seconds": 1746.859376192093}
+i_box_mirror_s3_p1.hdf5: 100 episodes -> i_box_mirror_s3_p1.jpk.npz 363 MB (19s)

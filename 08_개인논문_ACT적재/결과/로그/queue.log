@@ -363,3 +363,49 @@
 [10-10 05:42:48] start gen gen_i_box_orig_s2_p2
 [10-10 05:54:55] done eval_v5n05_n100 chained 100% -> 98% -> 98%
 [10-10 05:57:33] pallet slot 5 fix: position-first IK expert, 4 x 25 demos
+[10-10 06:04:02] done gen_i_box_orig_s1_p0 
+[10-10 06:04:02] start gen gen_i_box_orig_s3_p0
+[10-10 06:06:03] done gen_i_box_orig_s1_p1 
+[10-10 06:06:03] done gen_i_box_orig_s1_p2 
+[10-10 06:06:03] start gen gen_i_box_orig_s3_p1
+[10-10 06:06:03] start gen gen_i_box_orig_s3_p2
+[10-10 06:29:51] done gen_i_box_orig_s2_p0 
+[10-10 06:29:51] start gen gen_i_box_mirror_s1_p0
+[10-10 06:31:31] pallet slot 5 fix: demos ready (100/100, expert xy err mean 2.0 mm, max 4.7 mm (before: 6.2 / 11.5))
+[10-10 06:36:55] done gen_i_box_orig_s2_p2 
+[10-10 06:36:56] start gen gen_i_box_mirror_s1_p1
+[10-10 06:37:26] done gen_i_box_orig_s2_p1 
+[10-10 06:37:26] start gen gen_i_box_mirror_s1_p2
+[10-10 06:54:36] done gen_i_box_orig_s3_p0 
+[10-10 06:54:36] start gen gen_i_box_mirror_s2_p0
+[10-10 06:55:06] done gen_i_box_orig_s3_p1 
+[10-10 06:55:06] start gen gen_i_box_mirror_s2_p1
+[10-10 06:56:07] done gen_i_box_orig_s3_p2 
+[10-10 06:56:07] start gen gen_i_box_mirror_s2_p2
+[10-10 07:02:10] done gen_i_box_mirror_s1_p0 
+[10-10 07:02:10] start gen gen_i_box_mirror_s3_p0
+[10-10 07:07:44] done gen_i_box_mirror_s1_p1 
+[10-10 07:07:44] start gen gen_i_box_mirror_s3_p1
+[10-10 07:08:14] done gen_i_box_mirror_s1_p2 
+[10-10 07:08:14] start gen gen_i_box_mirror_s3_p2
+[10-10 07:25:24] done gen_i_box_mirror_s2_p0 
+[10-10 07:25:54] done gen_i_box_mirror_s2_p1 
+[10-10 07:26:55] done gen_i_box_mirror_s2_p2 
+[10-10 07:31:28] start train train_pal2n05_s3
+[10-10 07:33:28] done train_g_cup_orig_cuprule_s1 
+[10-10 07:33:58] done gen_i_box_mirror_s3_p0 
+[10-10 07:37:30] done gen_i_box_mirror_s3_p1 
+[10-10 07:38:00] done gen_i_box_mirror_s3_p2 
+[10-10 07:49:32] start train pal3n05_s5 (slot 5, position-first expert demos, state noise 0.05)
+[10-10 07:49:37] done train_pal2n05_s2 
+[10-10 08:03:45] done train_g_box_orig_v2b_s1 
+[10-10 08:03:45] integrated stage 1: state noise 0.05
+[10-10 08:03:45] start train train_s1_int_n1800
+[10-10 08:36:31] done train_g_box_orig_v5_s1 
+[10-10 08:36:31] integrated stage 2: state noise 0.05
+[10-10 08:36:31] start train train_s2_int_n1800
+[10-10 10:11:17] done train_pal2n05_s3 
+[10-10 10:11:17] integrated stage 3: state noise 0.05
+[10-10 10:11:17] start train train_s3_int_n1800
+[10-10 10:28:55] start train train_g_cup_orig_cupnaive_s2
+[10-10 10:37:50] pallet slot 5 fix: slot check pal2n05_s5 9/20 pal2n10_s5 7/20 pal3n05_s5 19/20 -> best pal3n05_s5
