@@ -503,3 +503,4 @@
 [10-11 07:13:38] orchestrator finished
 [10-11 07:18:56] pallet slot 5 fix: done eval pallet4 ([pallet] full 8-stack 0.6 first attempt 0.6 [pallet] full 8-stack 0.7 first attempt 0.7 )
 [10-11 07:20:55] pallet more: +100 demos and state noise for slots 1 4 6 7 8, then full 2x2x2 eval
+[10-11 10:13:12] v11: done eval none 98; all 86; tight 80; factory 82; factory_vis 58; factory_max 46; 
