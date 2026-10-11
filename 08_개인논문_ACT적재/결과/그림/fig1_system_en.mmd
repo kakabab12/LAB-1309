@@ -1,0 +1,36 @@
+%%{init: {"theme": "base", "themeCSS": ".edgeLabel rect, .edgeLabel .background, .labelBkg { opacity: 1 !important; fill: #ffffff !important; background-color: #ffffff !important; }", "markdownAutoWrap": false, "themeVariables": {"fontFamily": "Noto Sans, Arial, sans-serif", "fontSize": "18px", "primaryColor": "#ffffff", "primaryBorderColor": "#455a64", "lineColor": "#37474f", "clusterBkg": "#f7f9fb", "clusterBorder": "#90a4ae", "edgeLabelBackground": "#ffffff"}, "flowchart": {"htmlLabels": false, "wrappingWidth": 600, "nodeSpacing": 30, "rankSpacing": 42, "padding": 10, "curve": "basis"}}}%%
+flowchart TB
+  subgraph SORT["(1) Sorting"]
+    direction LR
+    CONV["`**Colour-sorting conveyor**
+TCS34725 RGB sensor
+red, green → reject bin`"]
+    SCALE["`**Digital scale + bin**
+7-segment display
+USB camera 640×480`"]
+    CONV -- "blue cubes" --> SCALE
+  end
+  JET["`**(2) Weight reading: Jetson Orin Nano**
+YOLOv8n · ONNX Runtime
+two-step zoom → digit assembly → grams
+re-read after a stage: ≥ 60 g → run again`"]
+  subgraph STACK["(3) Sequential stacking (ACT imitation learning)"]
+    direction LR
+    ROBOT["`**SO-101 + stage-wise ACT**
+in: wrist and top cameras, joints
+out: 100 joint targets`"]
+    PAL["`**Pallet**
+floor → beside the first bin
+→ on top (2nd layer)`"]
+    ROBOT -- "stack" --> PAL
+  end
+  SORT == "display image" ==> JET
+  JET == "≥ 118 g → TCP trigger 'run'" ==> STACK
+  classDef sort fill:#e8f1fb,stroke:#4a6fa5,stroke-width:1.5px,color:#102a43
+  classDef jet fill:#fdf3e1,stroke:#c78a1e,stroke-width:1.5px,color:#3d2a06
+  classDef act fill:#e7f4ea,stroke:#3f8a52,stroke-width:1.5px,color:#123d1f
+  classDef pal fill:#f1f1f1,stroke:#616161,stroke-width:1.5px,color:#212121
+  class CONV,SCALE sort
+  class JET jet
+  class ROBOT act
+  class PAL pal

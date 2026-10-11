@@ -19,7 +19,7 @@ usage: python paper/build_paper.py --content content_v2 --out paper/out/paper_v2
 from __future__ import annotations
 
 import content as C
-from content import (FAC_DEMOS, FAC_TAG, FIG, INT_STEPS, INT_TAG, MISSING, ROOT, _audit, _json, big_txt, chain,
+from content import (FAC_DEMOS, FAC_TAG, FAC_VIS, FIG, INT_STEPS, INT_TAG, MISSING, ROOT, _audit, _json, big_txt, chain,
                      chain_ci, clut, eval_chain, gen_chain, gen_gap, int_res, pct, rob_avg, seq200, wretry, ws, xy_mean, ym)
 
 TITLE_KO, AUTHORS_KO, AFFIL_KO, EMAIL = C.TITLE_KO, C.AUTHORS_KO, C.AFFIL_KO, C.EMAIL
@@ -81,7 +81,7 @@ def pallet_full(tag: str) -> str:
     if not all(rs):
         return MISSING
     k = sum(r["cumulative_success"][-1] * r["n"] for r in rs)
-    return f"{100 * k / sum(r['n'] for r in rs):.0f}"
+    return f"{100 * k / sum(r['n'] for r in rs):.1f}".rstrip("0").rstrip(".")  # 33/40 -> 82.5
 
 
 def _num(s: str) -> float | None:
@@ -168,7 +168,8 @@ def body(media, b) -> str:
           f"분리와 ONNX Runtime{cite('onnx')} 최적화를 적용하였다. 118g 이상이면 로봇 실행기에 TCP 트리거 신호를 "
           "보낸다. 표 1과 같이 조건별 20회 실측에서 기준값 분류 정분류율은 91.7%였고, 오분류 5건은 주로 조명이 고르지 "
           "않을 때 '8'을 '1'로 읽은 경우였다."))
-    add(fig(media, FIG / "fig1_system.png", "그림 1. 시스템 구성"))
+    add(fig(media, FIG / "fig1_system_mermaid.png", "그림 1. 시스템 구성: 컨베이어가 고른 파랑 큐브가 저울 위 통에 모이고, Jetson이 "
+                                                          "표시부 무게를 읽어 118g 이상이면 SO-101이 통을 팔레트에 순차 적재한다"))  # paper/fig1_system.mmd (old drawing: fig1_system.png)
     add(table("표 1. 무게 인식부 실측 성능 (Jetson Orin Nano)", [2150, 2350],
               [["항목", "결과"],
                ["숫자 탐지 YOLOv8n (13 클래스)",
@@ -191,27 +192,28 @@ def body(media, b) -> str:
           "30,000스텝이다."))
     fig2 = FIG / "fig2_env.png"
     add(fig(media, fig2 if fig2.exists() else FIG / "fig2_sim.png",
-            "그림 2. 시뮬레이션 셀 (a) 전체 (b) 손목 카메라 (c) 상단 카메라 (d) 컵 (e) 직사각형 상자 (f) 공장형 환경"))
+            "그림 2. 시뮬레이션 셀 (a) 전체 (b)(c) 정책이 보는 손목·상단 카메라 영상 (d)(e) 다른 모양의 물체 (f) 공장형 환경"))
 
     # ============================================================ Ⅲ. 시연 설계 방법 (the idea)
     add(h1("Ⅲ. 시연 설계 방법"))
     add(h2("3.1 실패 장면에서 찾은 세 규칙"))
     add(P("초기 시연으로 학습한 정책의 연속 평가 실패 장면을 재생해 원인을 분류하고, 다음 세 규칙으로 시연을 고쳤다. "
-          "R1(파지 여유): 고정 집게를 벽 바깥 9mm에 두고 내려가, 집게가 벽을 사이에 둘 수 있는 범위(바깥 0~17mm)의 "
-          "가운데로 접근한다. 초기 설계(1.5mm)는 안쪽으로 3mm만 어긋나도 집게가 벽 위에 걸렸다. R2(일관된 파지 위치): "
+          "(1) 여유 두고 잡기: 고정 집게를 벽 바깥 9mm에 두고 내려가, 집게가 벽을 사이에 둘 수 있는 범위(바깥 0~17mm)의 "
+          "가운데로 접근한다. 초기 설계(1.5mm)는 안쪽으로 3mm만 어긋나도 집게가 벽 위에 걸렸다. (2) 늘 같은 곳 잡기: "
           "물체가 돌아가 있어도 늘 같은 부위를 잡는다. 로봇과 가장 가까운 벽을 잡으면 통이 약 8° 넘게 돌았을 때 잡는 "
-          "벽이 바뀌어, 카메라에는 거의 같은 장면인데 시연 동작이 두 갈래가 된다. R3(물러나기): 2층에 놓은 뒤 그리퍼를 "
+          "벽이 바뀌어, 카메라에는 거의 같은 장면인데 시연 동작이 두 갈래가 된다. (3) 놓고 물러나기: 2층에 놓은 뒤 그리퍼를 "
           "벌리고 벽 바깥으로 5mm 물러났다가 올라간다. 곧장 올라가면 2mm 벽 위의 통을 끌어 올려 기울게 하였다. 세 "
-          "규칙은 모두 시연만 바꾸며 학습 설정은 그대로 둔다."))
+          "규칙은 모두 시연만 바꾸며 학습 설정은 그대로 둔다. 이하 세 규칙을 모두 적용한 시연을 '규칙 시연', 사람처럼 "
+          "그때그때 가까운 곳을 잡는 시연을 '사람식 시연'이라 한다."))
     add(h2("3.2 학습 전 시연 점검"))
-    add(P("R2 위반은 학습 전에 찾을 수 있다. 각 시연에서 그리퍼가 닫히는 순간의 손목 회전각을 모아 정렬하고, 이웃한 값 "
+    add(P("'늘 같은 곳 잡기'를 어긴 시연은 학습 전에 찾을 수 있다. 각 시연에서 그리퍼가 닫히는 순간의 손목 회전각을 모아 정렬하고, 이웃한 값 "
           "사이의 가장 넓은 빈 구간을 잰다. 잡는 방식이 하나면 각도가 물체 방향을 따라 연속으로 퍼지지만, 두 방식이 섞이면 "
           "두 무리 사이에 수십 도의 빈 구간이 생긴다(그림 3). 시연만으로 계산되므로, 빈 구간이 큰 시연 집합은 학습에 "
-          "시간을 쓰기 전에 R2에 맞게 다시 만든다."))
-    fig3 = ROOT / "results" / "demo_audit_general.png"
+          "시간을 쓰기 전에 늘 같은 곳을 잡도록 다시 만든다."))
+    fig3 = FIG / "fig3_audit.png"  # paper/fig_audit.py (one row per object, readable at column width)
     if fig3.exists():
-        add(fig(media, fig3, "그림 3. 잡는 순간의 손목 회전각 (1층 시연): 사람식(주황)은 두 무리로 갈리고 R2(파랑)는 "
-                             "연속으로 퍼진다"))
+        add(fig(media, fig3, "그림 3. 그리퍼가 닫히는 순간의 손목 회전각 (1층 시연 100회, 선 하나가 시연 하나): 사람식 "
+                             "시연은 두 무리로 갈려 큰 빈 구간이 생기고, 규칙 시연은 한 무리로 이어진다"))
     add(h2("3.3 무게 확인 재시도"))
     add(P("단계를 실행한 뒤 저울 무게를 다시 읽어, 통이 저울에 남아 있으면(60g 이상) 같은 단계를 다시 실행한다(최대 "
           "3회). 시뮬레이션에서는 저울 판에 걸리는 수직 접촉력을 무게로 환산하였다(가득 찬 통 123.0g, 빈 저울 0g). "
@@ -236,16 +238,19 @@ def body(media, b) -> str:
 
     add(h2("4.2 Q1: 시연 수가 아니라 시연 설계가 연속 성공률을 결정한다"))
     rows = [["시연 설계 (단계별 시연 수)", "1층", "옆", "2층", "연속 (95% CI)"]]
-    for name, label in (("v1_n100", "① 초기 설계 (100)"), ("n100", "② +R1 파지 여유 (100)"),
-                        ("n200", "② (200)"), ("v4_n100", "③ +R2 같은 위치 (100)"), ("v5_n100", "④ +R3 물러나기 (100)"),
-                        ("v5_n1000", "④ (1000)"), ("v6_n1000", "④+무작위화 (1000)")):
+    for name, label in (("v1_n100", "초기 설계 (100)"), ("n100", "+ 여유 두고 잡기 (100)"),
+                        ("n200", "+ 여유 두고 잡기 (200)"), ("v4_n100", "+ 늘 같은 곳 잡기 (100)"),
+                        ("v5_n100", "+ 놓고 물러나기 (100)"), ("v5_n1000", "규칙 시연 (1000)"),
+                        ("v6_n1000", "규칙 시연+외관 무작위 (1000)")):
         rows.append([label, pct(name, 1), pct(name, 2), pct(name, 3), chain_ci(name)])
-    add(table("표 2. 시연 설계별 적재 성공률 (%, 각 50회)", [1900, 470, 470, 470, 1190], rows))
+    add(table("표 2. 시연 설계별 적재 성공률 (%, 각 50회). 위에서부터 규칙을 하나씩 더하였고, 세 규칙을 모두 적용한 "
+              "시연이 규칙 시연이다", [1900, 470, 470, 470, 1190], rows))
     add(P(f"규칙을 하나씩 더하면 연속 성공률이 {chain('v1_n100', 2)}%에서 {chain('n100', 2)}%, {chain('v4_n100', 2)}%, "
-          f"{chain('v5_n100', 2)}%로 올랐다(표 2). R1은 집게가 벽 위에 걸리는 실패를 없앴고, R1만 적용한 시연에서 남은 "
-          f"실패 {ws('fail_total')}건 중 {ws('band_fails')}건은 전문가가 잡는 벽을 바꾸는 회전 구간에서 일어났으며 R2가 "
-          f"이를 없앴다. ④는 장면 200개에서 {big_txt('c')}였고, 단계별 평균 위치 오차는 {xy_mean()}mm였다. 반면 시연 수를 늘리는 것은 "
-          f"답이 아니었다. 갈림이 있는 ②를 200회로 늘리면 오히려 {chain('n200', 2)}%로 낮아졌고, ④를 1000회로 늘리거나 "
+          f"{chain('v5_n100', 2)}%로 올랐다(표 2). 여유 두고 잡기는 집게가 벽 위에 걸리는 실패를 없앴고, 이것만 적용한 시연에서 남은 "
+          f"실패 {ws('fail_total')}건 중 {ws('band_fails')}건은 전문가가 잡는 벽을 바꾸는 회전 구간에서 일어났으며 늘 같은 "
+          f"곳 잡기가 이를 없앴다. 규칙 시연은 장면 200개에서 {big_txt('c')}였고, 단계별 평균 위치 오차는 {xy_mean()}mm였다. 반면 시연 수를 늘리는 것은 "
+          f"답이 아니었다. 잡는 곳이 갈리는 시연(여유 두고 잡기만 적용)을 200회로 늘리면 오히려 {chain('n200', 2)}%로 "
+          f"낮아졌고, 규칙 시연을 1000회로 늘리거나 "
           f"DART{cite('dart')} 잡음을 넣어도 {chain('v5_n1000', 2)}%, {chain('v5_dart1000', 2)}%로 나아지지 않았다. 남은 "
           f"실패는 통을 집지 못해 저울에 남은 경우였고, 무게 확인 재시도로 첫 시도 {wretry('cumulative_first_attempt')}에서 "
           f"{wretry()}이 되었다. 즉 연속 성공률은 시연 수보다 시연 설계로 결정되었다."))
@@ -257,45 +262,51 @@ def body(media, b) -> str:
     g_bin = [x for x in (_audit(f"stage{k}:② 여유 9mm (벽 전환 있음)") for k in (1, 2, 3)) if x is not None]
     g_bin_r = [x for x in (_audit("stage1:③ 같은 벽"), _audit("stage2:③ 같은 벽"), _audit("stage3:④ 같은 벽 + 물러나기"))
                if x is not None]
-    rows = [["물체 (잡을 곳이 애매한 이유)", "빈 구간(°) 사람식→R2", "연속(%) 사람식→R2"],
+    rows = [["물체 (잡을 곳이 애매한 이유)", "빈 구간(°) 사람식→규칙", "연속(%) 사람식→규칙"],
             ["정사각형 통 (네 벽이 같음)", f"{max(g_bin):.0f} → {max(g_bin_r):.0f}" if g_bin and g_bin_r else MISSING,
              f"{chain('n100', 2)} → {chain('v5_n100', 2)}"],
             ["손잡이 컵 (손잡이 좌·우)", f"{gen_gap('cup', 'cupnaive')} → {gen_gap('cup', 'cuprule')}",
              f"{gen_chain('cup', 'cupnaive')} → {gen_chain('cup', 'cuprule')}"],
             ["직사각형 상자 (긴·짧은 벽)", f"{gen_gap('box', 'v2b')} → {gen_gap('box', 'v5')}",
              f"{gen_chain('box', 'v2b')} → {gen_chain('box', 'v5')}"],
-            ["손잡이 컵 R2, 시연 300·관절 잡음", "-", f"→ {eval_chain('g_cup_orig_cuprule300')}"]]
+            ["손잡이 컵 규칙 시연 300·관절 잡음", "-", f"→ {eval_chain('g_cup_orig_cuprule300')}"]]
     add(table("표 3. 물체별 시연 점검과 연속 성공률 (시연 100회, 각 50회)", [1900, 1300, 1300], rows))
     add(P("규칙이 통에만 맞춘 것이 아님을 확인하기 위해, 다른 이유로 잡을 곳이 애매한 두 물체를 더 시험하였다(그림 2(d)(e)). "
           "손잡이가 로봇 쪽(±30°)을 향하는 손잡이 컵(육각, 지름 70mm)은 사람처럼 잡으면 손잡이의 왼쪽·오른쪽 중 가까운 "
           "쪽으로 갈리고, 직사각형 상자(90×60mm)는 로봇 쪽 벽을 잡으면 긴 벽과 짧은 벽이 바뀌어 놓인 방향까지 달라진다. "
-          "R2로는 늘 손잡이 오른쪽 면, 늘 같은 짧은 벽을 잡으며 R1·R3은 같다. 표 3과 같이 사람식 시연은 세 물체 모두 "
-          f"손목 각도에 큰 빈 구간을 보였고, R2 시연은 빈 구간이 거의 없었으며 연속 성공률은 통 {chain('n100', 2)}→"
+          "규칙 시연은 늘 손잡이 오른쪽 면, 늘 같은 짧은 벽을 잡으며 나머지 두 규칙은 통과 같다. 표 3과 같이 사람식 시연은 세 물체 모두 "
+          f"손목 각도에 큰 빈 구간을 보였고, 규칙 시연은 빈 구간이 거의 없었으며 연속 성공률은 통 {chain('n100', 2)}→"
           f"{chain('v5_n100', 2)}%, 컵 {gen_chain('cup', 'cupnaive')}→{gen_chain('cup', 'cuprule')}%, 상자 "
           f"{gen_chain('box', 'v2b')}→{gen_chain('box', 'v5')}%였다. "
           + ("학습 전에 계산한 빈 구간이 학습 뒤 성공률의 차이를 미리 보여 준 것이다. " if all(rule_ok) else
              "빈 구간은 학습 전에 시연의 갈림을 드러냈으나, 성공률 차이는 물체에 따라 달랐다. " if None not in rule_ok
              else "")
-          + (f"컵의 R2 실패는 대부분 놓는 위치 오차였으며, R2 시연을 300회로 늘리고 관절값 입력에 잡음을 더하면 "
+          + (f"컵 규칙 시연의 실패는 대부분 놓는 위치 오차였으며, 규칙 시연을 300회로 늘리고 관절값 입력에 잡음을 더하면 "
              f"{eval_chain('g_cup_orig_cuprule300')}%가 되었다." if eval_chain('g_cup_orig_cuprule300') != MISSING else "")))
 
     it = f"{INT_TAG}_bin_orig"
     v9f, facf, intf = clut("v9_n1000", "factory"), clut(FAC_TAG, "factory"), clut(it, "factory")
+    vd = (_json("results/clutter/v11_n1500/vis_diag.json") or {}).get("factory_vis", {}).get("by_look")
+    v11v, facv = clut("v11_n1500", "factory_vis"), clut(FAC_TAG, "factory_vis")
+    vis_s = (f"외관까지 바꾼 공장형의 실패는 무늬 있는 작업대에 몰려 있었으므로(공장형 시연 500회일 때 무늬 없음 "
+             f"{vd['plain']['success']:.0f}%, 무늬 {vd['patterned']['success']:.0f}%), 그 장면을 담은 시연 300회를 더해 "
+             f"{v11v}%에서 {facv}%로 높였다. ") if FAC_TAG == "v12_n1800" and vd and _better(v11v, facv) else ""
     t44 = ("4.4 Q4: 공장형 환경은 그 환경을 담은 시연으로 대응한다" if _better(v9f, facf)
            else "4.4 Q4: 환경 변화와 공장형 잡동사니")
     add(h2(t44))
-    rows = [["환경", "④", "+무작위", "+잡동", "+공장", "통합"]]
+    rows = [["환경", "규칙", "+무작위", "+잡동", "+공장", "통합"]]
     for cond, label in (("none", "변화 없음"), ("all", "잡동사니 전부"), ("tight", "잡동사니 팔 경로 5mm"),
                         ("factory", "공장형"), ("factory_vis", "공장형+외관 무작위"), ("factory_max", "공장형 최대(16개, 5mm)")):
         rows.append([label] + [clut(t, cond) for t in ("v5_n100", "v6_n1000", "v9_n1000", FAC_TAG)]
                     + ["-" if cond == "tight" else clut(it, cond)])
-    add(table("표 4. 환경별 연속 성공률 (%, 통, 각 50회). ④: 규칙 시연 100회, +무작위: 외관 무작위화, +잡동: "
+    add(table("표 4. 환경별 연속 성공률 (%, 통, 각 50회). 규칙: 규칙 시연 100회, +무작위: 외관 무작위화, +잡동: "
               "잡동사니 시연, +공장: 공장형 시연, 통합: 세 물체 정책", [1100, 680, 680, 680, 680, 680], rows))
     add(P("조명·작업대·카메라 위치 등 15가지 변화를 한 가지씩 주는 정도는 외관 무작위화로 충분하였다(단계 평균 "
           f"{rob_avg('v6_n1000')}%, 무작위화 없이 {rob_avg('v5_n1000')}%). 그러나 실제로 놓인 잡동사니는 달랐다. "
-          f"표 4와 같이 잡동사니 전부에서 무작위화 없는 ④는 {clut('v5_n100', 'all')}%, 무작위화만 한 정책은 "
+          f"표 4와 같이 잡동사니 전부에서 무작위화 없는 규칙 시연은 {clut('v5_n100', 'all')}%, 무작위화만 한 정책은 "
           f"{clut('v6_n1000', 'all')}%였다. 잡동사니를 넣은 시연(1000회)은 {clut('v9_n1000', 'all')}%로 회복했지만 공장형 "
-          f"구조물 앞에서는 {v9f}%였고, 공장형 장면의 시연을 단계당 {FAC_DEMOS}회 더하자(+공장) {facf}%가 되었다. 세 "
+          f"구조물 앞에서는 {v9f}%였고, 공장형 장면의 시연을 단계당 {FAC_DEMOS}회{FAC_VIS} 더하자(+공장) {facf}%가 되었다. "
+          f"{vis_s}세 "
           f"물체·두 배치·공장형 장면을 섞은 시연 1800회로 단계별 정책 하나를 {INT_STEPS // 1000}k 스텝 학습한 통합 "
           f"정책은 공장형 환경에서 6가지 조합 평균 {int_res('factory')}%(최저 {int_res('factory', 'min')}%), 외관까지 "
           f"무작위화하면 {int_res('factory_vis')}%였다. 실패는 대부분 물건에 부딪힌 것이 아니라 통을 놓는 위치가 어긋난 "

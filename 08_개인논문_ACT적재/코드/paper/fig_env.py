@@ -22,19 +22,38 @@ pw = (W - 2 * gap) // 3
 ph = int(pw * 0.78)
 row = Image.new("RGB", (W, ph), "white")
 x = 0
-try:
-    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 26)
-except OSError:
-    font = ImageFont.load_default()
+# panel names in the picture itself (10-11: the bare (a)-(f) letters were too small to read at column width)
+FONT = ImageFont.truetype("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc", 30)
+SMALL = ImageFont.truetype("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc", 27)
+
+
+def tag(d: ImageDraw.ImageDraw, xy, text: str, font=FONT) -> None:
+    x0, y0 = xy
+    l, t, r, b = d.textbbox((x0 + 9, y0 + 3), text, font=font)
+    d.rounded_rectangle((x0, y0, r + 9, b + 7), radius=6, fill="white", outline=(60, 60, 60), width=2)
+    d.text((x0 + 9, y0 + 3), text, fill=(20, 20, 20), font=font)
+
+
+def callout(d: ImageDraw.ImageDraw, xy, to, text: str) -> None:
+    d.line((xy[0] + 40, xy[1] + 4, *to), fill="white", width=6)
+    d.line((xy[0] + 40, xy[1] + 4, *to), fill=(20, 20, 20), width=3)
+    d.ellipse((to[0] - 6, to[1] - 6, to[0] + 6, to[1] + 6), fill=(20, 20, 20), outline="white", width=2)
+    tag(d, xy, text, SMALL)
+
+
 for k, p in enumerate(panels):
     p = p.resize((pw, ph))
-    d = ImageDraw.Draw(p)
-    d.rectangle((6, 6, 58, 40), fill="white")
-    d.text((12, 8), f"({'def'[k]})", fill="black", font=font)
+    tag(ImageDraw.Draw(p), (4, 4), f"({'def'[k]}) {['손잡이 컵', '직사각형 상자', '공장형 환경'][k]}")
     row.paste(p, (x, 0))
     x += pw + gap
 out = Image.new("RGB", (W, top.height + gap + ph), "white")
 out.paste(top, (0, 0))
 out.paste(row, (0, top.height + gap))
+d = ImageDraw.Draw(out)
+tag(d, (4, 4), "(a) 시뮬레이션 셀")  # covers the old letter boxes of fig2_sim.png
+tag(d, (652, 4), "(b) 손목 카메라")
+tag(d, (652, 244), "(c) 상단 카메라")
+callout(d, (20, 400), (185, 280), "저울 (집는 곳)")
+callout(d, (330, 415), (440, 360), "팔레트 (쌓는 곳)")
 out.save(ROOT / "paper/fig2_env.png")
 print(out.size)

@@ -1,0 +1,3 @@
+slot 5: kept 10/10 (1384s)
+slot 5: kept 20/21 (2583s)
+{"slot": 5, "layer": 1, "row": 0, "col": 1, "kept": 25, "tried": 27, "expert_success_rate": 0.9259259259259259, "seconds": 2970.255790233612, "layout": {"rows": 2, "cols": 2, "layers": 2, "x0": 0.2, "y0": 0.017}}

@@ -1,0 +1,36 @@
+%%{init: {"theme": "base", "themeCSS": ".edgeLabel rect, .edgeLabel .background, .labelBkg { opacity: 1 !important; fill: #ffffff !important; background-color: #ffffff !important; }", "markdownAutoWrap": false, "themeVariables": {"fontFamily": "Noto Sans CJK KR, Malgun Gothic, Apple SD Gothic Neo, sans-serif", "fontSize": "18px", "primaryColor": "#ffffff", "primaryBorderColor": "#455a64", "lineColor": "#37474f", "clusterBkg": "#f7f9fb", "clusterBorder": "#90a4ae", "edgeLabelBackground": "#ffffff"}, "flowchart": {"htmlLabels": false, "wrappingWidth": 600, "nodeSpacing": 30, "rankSpacing": 42, "padding": 10, "curve": "basis"}}}%%
+flowchart TB
+  subgraph SORT["① 선별"]
+    direction LR
+    CONV["`**색상 분류 컨베이어**
+TCS34725 RGB 센서
+빨강·초록 → 불량함`"]
+    SCALE["`**디지털 저울 + 통**
+7-segment 표시부
+USB 카메라 640×480`"]
+    CONV -- "파랑 큐브" --> SCALE
+  end
+  JET["`**② 무게 인식: Jetson Orin Nano**
+YOLOv8n · ONNX Runtime
+2단계 디지털 줌 → 숫자 조합 → 무게(g)
+단계 후 재확인: 60g 이상이면 재실행`"]
+  subgraph STACK["③ 순차 적재 (ACT 모방학습)"]
+    direction LR
+    ROBOT["`**SO-101 + 단계별 ACT**
+입력: 손목·상단 카메라, 관절
+출력: 관절 목표 100스텝`"]
+    PAL["`**팔레트**
+1층 → 첫 통 옆
+→ 첫 통 위 (2층)`"]
+    ROBOT -- "통 적재" --> PAL
+  end
+  SORT == "표시부 영상" ==> JET
+  JET == "118g 이상 → TCP 트리거 'run'" ==> STACK
+  classDef sort fill:#e8f1fb,stroke:#4a6fa5,stroke-width:1.5px,color:#102a43
+  classDef jet fill:#fdf3e1,stroke:#c78a1e,stroke-width:1.5px,color:#3d2a06
+  classDef act fill:#e7f4ea,stroke:#3f8a52,stroke-width:1.5px,color:#123d1f
+  classDef pal fill:#f1f1f1,stroke:#616161,stroke-width:1.5px,color:#212121
+  class CONV,SCALE sort
+  class JET jet
+  class ROBOT act
+  class PAL pal

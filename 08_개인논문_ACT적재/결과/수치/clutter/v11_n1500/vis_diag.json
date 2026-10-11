@@ -1,0 +1,746 @@
+{
+ "factory_vis": {
+  "by_look": {
+   "plain": {
+    "n": 26,
+    "success": 69.2
+   },
+   "patterned": {
+    "n": 24,
+    "success": 45.8
+   },
+   "dark (key light < 0.8)": {
+    "n": 11,
+    "success": 54.5
+   },
+   "tinted": {
+    "n": 29,
+    "success": 55.2
+   }
+  },
+  "trials": [
+   {
+    "trial": 0,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.2546967397834563,
+    "tinted": true
+   },
+   {
+    "trial": 1,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.9354868395974605,
+    "tinted": false
+   },
+   {
+    "trial": 2,
+    "ok": false,
+    "table": "checker",
+    "key_light": 0.7889915308749564,
+    "tinted": true
+   },
+   {
+    "trial": 3,
+    "ok": false,
+    "table": "stripes",
+    "key_light": 2.048136392789819,
+    "tinted": false
+   },
+   {
+    "trial": 4,
+    "ok": false,
+    "table": "stripes",
+    "key_light": 1.2342444130860897,
+    "tinted": true
+   },
+   {
+    "trial": 5,
+    "ok": true,
+    "table": "wood",
+    "key_light": 0.6525257446413887,
+    "tinted": true
+   },
+   {
+    "trial": 6,
+    "ok": true,
+    "table": "blotches",
+    "key_light": 1.4575782541803062,
+    "tinted": false
+   },
+   {
+    "trial": 7,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.907780562852605,
+    "tinted": false
+   },
+   {
+    "trial": 8,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.8002340130921932,
+    "tinted": false
+   },
+   {
+    "trial": 9,
+    "ok": false,
+    "table": "blotches",
+    "key_light": 1.5653165665616908,
+    "tinted": true
+   },
+   {
+    "trial": 10,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.7897018771772042,
+    "tinted": false
+   },
+   {
+    "trial": 11,
+    "ok": false,
+    "table": "plain",
+    "key_light": 0.5883996277244385,
+    "tinted": true
+   },
+   {
+    "trial": 12,
+    "ok": false,
+    "table": "plain",
+    "key_light": 0.8239880158409585,
+    "tinted": false
+   },
+   {
+    "trial": 13,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.3188789393356812,
+    "tinted": true
+   },
+   {
+    "trial": 14,
+    "ok": false,
+    "table": "stripes",
+    "key_light": 0.6628717571117275,
+    "tinted": true
+   },
+   {
+    "trial": 15,
+    "ok": true,
+    "table": "wood",
+    "key_light": 1.8418656010886236,
+    "tinted": true
+   },
+   {
+    "trial": 16,
+    "ok": false,
+    "table": "stripes",
+    "key_light": 1.817284694325651,
+    "tinted": true
+   },
+   {
+    "trial": 17,
+    "ok": true,
+    "table": "plain",
+    "key_light": 0.389632443497018,
+    "tinted": true
+   },
+   {
+    "trial": 18,
+    "ok": false,
+    "table": "plain",
+    "key_light": 1.8107417466686424,
+    "tinted": true
+   },
+   {
+    "trial": 19,
+    "ok": true,
+    "table": "plain",
+    "key_light": 2.335381913058035,
+    "tinted": false
+   },
+   {
+    "trial": 20,
+    "ok": true,
+    "table": "checker",
+    "key_light": 0.4013460076349745,
+    "tinted": false
+   },
+   {
+    "trial": 21,
+    "ok": true,
+    "table": "stripes",
+    "key_light": 0.9256463013415248,
+    "tinted": true
+   },
+   {
+    "trial": 22,
+    "ok": true,
+    "table": "plain",
+    "key_light": 2.2346761838298064,
+    "tinted": false
+   },
+   {
+    "trial": 23,
+    "ok": false,
+    "table": "blotches",
+    "key_light": 1.7436712253926987,
+    "tinted": false
+   },
+   {
+    "trial": 24,
+    "ok": false,
+    "table": "stripes",
+    "key_light": 1.8593315415218958,
+    "tinted": false
+   },
+   {
+    "trial": 25,
+    "ok": false,
+    "table": "plain",
+    "key_light": 2.049399865053359,
+    "tinted": false
+   },
+   {
+    "trial": 26,
+    "ok": true,
+    "table": "checker",
+    "key_light": 2.0334289757787247,
+    "tinted": true
+   },
+   {
+    "trial": 27,
+    "ok": false,
+    "table": "checker",
+    "key_light": 2.383664601989793,
+    "tinted": true
+   },
+   {
+    "trial": 28,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.206142217307046,
+    "tinted": true
+   },
+   {
+    "trial": 29,
+    "ok": true,
+    "table": "blotches",
+    "key_light": 0.47739368192115006,
+    "tinted": true
+   },
+   {
+    "trial": 30,
+    "ok": false,
+    "table": "checker",
+    "key_light": 1.3836872275604541,
+    "tinted": true
+   },
+   {
+    "trial": 31,
+    "ok": false,
+    "table": "plain",
+    "key_light": 0.8615015835847698,
+    "tinted": true
+   },
+   {
+    "trial": 32,
+    "ok": true,
+    "table": "plain",
+    "key_light": 2.1322848239625465,
+    "tinted": true
+   },
+   {
+    "trial": 33,
+    "ok": false,
+    "table": "plain",
+    "key_light": 1.3064143382724558,
+    "tinted": true
+   },
+   {
+    "trial": 34,
+    "ok": false,
+    "table": "plain",
+    "key_light": 1.7534279984282608,
+    "tinted": true
+   },
+   {
+    "trial": 35,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.9691695949867845,
+    "tinted": false
+   },
+   {
+    "trial": 36,
+    "ok": true,
+    "table": "blotches",
+    "key_light": 1.7590133487594315,
+    "tinted": false
+   },
+   {
+    "trial": 37,
+    "ok": true,
+    "table": "blotches",
+    "key_light": 1.0765222602310494,
+    "tinted": true
+   },
+   {
+    "trial": 38,
+    "ok": true,
+    "table": "plain",
+    "key_light": 2.0596221004039803,
+    "tinted": true
+   },
+   {
+    "trial": 39,
+    "ok": true,
+    "table": "checker",
+    "key_light": 1.5434225846075131,
+    "tinted": false
+   },
+   {
+    "trial": 40,
+    "ok": true,
+    "table": "plain",
+    "key_light": 2.1886092317642536,
+    "tinted": true
+   },
+   {
+    "trial": 41,
+    "ok": true,
+    "table": "stripes",
+    "key_light": 1.4509273077023335,
+    "tinted": true
+   },
+   {
+    "trial": 42,
+    "ok": true,
+    "table": "stripes",
+    "key_light": 0.869509284991662,
+    "tinted": false
+   },
+   {
+    "trial": 43,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.1048675263680339,
+    "tinted": false
+   },
+   {
+    "trial": 44,
+    "ok": true,
+    "table": "blotches",
+    "key_light": 0.4335042394640764,
+    "tinted": true
+   },
+   {
+    "trial": 45,
+    "ok": false,
+    "table": "blotches",
+    "key_light": 0.46618534095234526,
+    "tinted": false
+   },
+   {
+    "trial": 46,
+    "ok": true,
+    "table": "plain",
+    "key_light": 0.30388381937507847,
+    "tinted": true
+   },
+   {
+    "trial": 47,
+    "ok": false,
+    "table": "checker",
+    "key_light": 0.4854603670073825,
+    "tinted": false
+   },
+   {
+    "trial": 48,
+    "ok": false,
+    "table": "wood",
+    "key_light": 1.827783698225002,
+    "tinted": true
+   },
+   {
+    "trial": 49,
+    "ok": false,
+    "table": "blotches",
+    "key_light": 1.3384490855540432,
+    "tinted": false
+   }
+  ]
+ },
+ "factory_max": {
+  "by_look": {
+   "plain": {
+    "n": 26,
+    "success": 57.7
+   },
+   "patterned": {
+    "n": 24,
+    "success": 33.3
+   },
+   "dark (key light < 0.8)": {
+    "n": 11,
+    "success": 36.4
+   },
+   "tinted": {
+    "n": 29,
+    "success": 44.8
+   }
+  },
+  "trials": [
+   {
+    "trial": 0,
+    "ok": false,
+    "table": "plain",
+    "key_light": 1.2546967397834563,
+    "tinted": true
+   },
+   {
+    "trial": 1,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.9354868395974605,
+    "tinted": false
+   },
+   {
+    "trial": 2,
+    "ok": true,
+    "table": "checker",
+    "key_light": 0.7889915308749564,
+    "tinted": true
+   },
+   {
+    "trial": 3,
+    "ok": false,
+    "table": "stripes",
+    "key_light": 2.048136392789819,
+    "tinted": false
+   },
+   {
+    "trial": 4,
+    "ok": false,
+    "table": "stripes",
+    "key_light": 1.2342444130860897,
+    "tinted": true
+   },
+   {
+    "trial": 5,
+    "ok": true,
+    "table": "wood",
+    "key_light": 0.6525257446413887,
+    "tinted": true
+   },
+   {
+    "trial": 6,
+    "ok": true,
+    "table": "blotches",
+    "key_light": 1.4575782541803062,
+    "tinted": false
+   },
+   {
+    "trial": 7,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.907780562852605,
+    "tinted": false
+   },
+   {
+    "trial": 8,
+    "ok": false,
+    "table": "plain",
+    "key_light": 1.8002340130921932,
+    "tinted": false
+   },
+   {
+    "trial": 9,
+    "ok": true,
+    "table": "blotches",
+    "key_light": 1.5653165665616908,
+    "tinted": true
+   },
+   {
+    "trial": 10,
+    "ok": false,
+    "table": "plain",
+    "key_light": 1.7897018771772042,
+    "tinted": false
+   },
+   {
+    "trial": 11,
+    "ok": true,
+    "table": "plain",
+    "key_light": 0.5883996277244385,
+    "tinted": true
+   },
+   {
+    "trial": 12,
+    "ok": false,
+    "table": "plain",
+    "key_light": 0.8239880158409585,
+    "tinted": false
+   },
+   {
+    "trial": 13,
+    "ok": false,
+    "table": "plain",
+    "key_light": 1.3188789393356812,
+    "tinted": true
+   },
+   {
+    "trial": 14,
+    "ok": false,
+    "table": "stripes",
+    "key_light": 0.6628717571117275,
+    "tinted": true
+   },
+   {
+    "trial": 15,
+    "ok": false,
+    "table": "wood",
+    "key_light": 1.8418656010886236,
+    "tinted": true
+   },
+   {
+    "trial": 16,
+    "ok": false,
+    "table": "stripes",
+    "key_light": 1.817284694325651,
+    "tinted": true
+   },
+   {
+    "trial": 17,
+    "ok": false,
+    "table": "plain",
+    "key_light": 0.389632443497018,
+    "tinted": true
+   },
+   {
+    "trial": 18,
+    "ok": false,
+    "table": "plain",
+    "key_light": 1.8107417466686424,
+    "tinted": true
+   },
+   {
+    "trial": 19,
+    "ok": true,
+    "table": "plain",
+    "key_light": 2.335381913058035,
+    "tinted": false
+   },
+   {
+    "trial": 20,
+    "ok": false,
+    "table": "checker",
+    "key_light": 0.4013460076349745,
+    "tinted": false
+   },
+   {
+    "trial": 21,
+    "ok": false,
+    "table": "stripes",
+    "key_light": 0.9256463013415248,
+    "tinted": true
+   },
+   {
+    "trial": 22,
+    "ok": true,
+    "table": "plain",
+    "key_light": 2.2346761838298064,
+    "tinted": false
+   },
+   {
+    "trial": 23,
+    "ok": false,
+    "table": "blotches",
+    "key_light": 1.7436712253926987,
+    "tinted": false
+   },
+   {
+    "trial": 24,
+    "ok": true,
+    "table": "stripes",
+    "key_light": 1.8593315415218958,
+    "tinted": false
+   },
+   {
+    "trial": 25,
+    "ok": false,
+    "table": "plain",
+    "key_light": 2.049399865053359,
+    "tinted": false
+   },
+   {
+    "trial": 26,
+    "ok": true,
+    "table": "checker",
+    "key_light": 2.0334289757787247,
+    "tinted": true
+   },
+   {
+    "trial": 27,
+    "ok": false,
+    "table": "checker",
+    "key_light": 2.383664601989793,
+    "tinted": true
+   },
+   {
+    "trial": 28,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.206142217307046,
+    "tinted": true
+   },
+   {
+    "trial": 29,
+    "ok": false,
+    "table": "blotches",
+    "key_light": 0.47739368192115006,
+    "tinted": true
+   },
+   {
+    "trial": 30,
+    "ok": false,
+    "table": "checker",
+    "key_light": 1.3836872275604541,
+    "tinted": true
+   },
+   {
+    "trial": 31,
+    "ok": true,
+    "table": "plain",
+    "key_light": 0.8615015835847698,
+    "tinted": true
+   },
+   {
+    "trial": 32,
+    "ok": true,
+    "table": "plain",
+    "key_light": 2.1322848239625465,
+    "tinted": true
+   },
+   {
+    "trial": 33,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.3064143382724558,
+    "tinted": true
+   },
+   {
+    "trial": 34,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.7534279984282608,
+    "tinted": true
+   },
+   {
+    "trial": 35,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.9691695949867845,
+    "tinted": false
+   },
+   {
+    "trial": 36,
+    "ok": true,
+    "table": "blotches",
+    "key_light": 1.7590133487594315,
+    "tinted": false
+   },
+   {
+    "trial": 37,
+    "ok": true,
+    "table": "blotches",
+    "key_light": 1.0765222602310494,
+    "tinted": true
+   },
+   {
+    "trial": 38,
+    "ok": false,
+    "table": "plain",
+    "key_light": 2.0596221004039803,
+    "tinted": true
+   },
+   {
+    "trial": 39,
+    "ok": false,
+    "table": "checker",
+    "key_light": 1.5434225846075131,
+    "tinted": false
+   },
+   {
+    "trial": 40,
+    "ok": true,
+    "table": "plain",
+    "key_light": 2.1886092317642536,
+    "tinted": true
+   },
+   {
+    "trial": 41,
+    "ok": false,
+    "table": "stripes",
+    "key_light": 1.4509273077023335,
+    "tinted": true
+   },
+   {
+    "trial": 42,
+    "ok": true,
+    "table": "stripes",
+    "key_light": 0.869509284991662,
+    "tinted": false
+   },
+   {
+    "trial": 43,
+    "ok": true,
+    "table": "plain",
+    "key_light": 1.1048675263680339,
+    "tinted": false
+   },
+   {
+    "trial": 44,
+    "ok": false,
+    "table": "blotches",
+    "key_light": 0.4335042394640764,
+    "tinted": true
+   },
+   {
+    "trial": 45,
+    "ok": false,
+    "table": "blotches",
+    "key_light": 0.46618534095234526,
+    "tinted": false
+   },
+   {
+    "trial": 46,
+    "ok": true,
+    "table": "plain",
+    "key_light": 0.30388381937507847,
+    "tinted": true
+   },
+   {
+    "trial": 47,
+    "ok": false,
+    "table": "checker",
+    "key_light": 0.4854603670073825,
+    "tinted": false
+   },
+   {
+    "trial": 48,
+    "ok": false,
+    "table": "wood",
+    "key_light": 1.827783698225002,
+    "tinted": true
+   },
+   {
+    "trial": 49,
+    "ok": false,
+    "table": "blotches",
+    "key_light": 1.3384490855540432,
+    "tinted": false
+   }
+  ]
+ }
+}

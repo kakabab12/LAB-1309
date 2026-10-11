@@ -226,7 +226,7 @@ def body_xml(media: Media, cite: Cites) -> str:
              + cite("onnx") + ", 2단계 디지털 줌). 통이 118g 이상이면 로봇 실행기에 TCP 트리거 신호를 보내고, 실행기는 해당 "
              "단계의 ACT 정책(손목·상단 카메라와 관절값 → 100스텝 관절 목표)을 실행한 뒤 홈 자세로 돌아온다. 표 1은 "
              "Jetson에서 조건별 20회 반복 실측한 인식부 성능이다."))
-    add(figure(media, C.FIG / "fig1_system_en.png", "그림 1. 시스템 구성", "Fig. 1. System overview"))
+    add(figure(media, C.FIG / "fig1_system_en_mermaid.png", "그림 1. 시스템 구성", "Fig. 1. System overview"))  # fig1_system_en.mmd
     ym = C.ym
     add(table("표 1. 무게 인식부 실측 성능", "Table 1. Measured performance of the weight recognition (Jetson Orin Nano)",
               [2350, 2150],
@@ -248,9 +248,11 @@ def body_xml(media: Media, cite: Cites) -> str:
                "그림 2. 시뮬레이션 셀 (a) 전체 (b) 손목 카메라 (c) 상단 카메라 (d) 컵 (e) 상자 (f) 공장형 환경",
                "Fig. 2. Simulated cell (a) overview (b) wrist camera (c) top camera (d) cup (e) box (f) factory cell"))
     add(section("2. 시연 설계 규칙과 시연 점검"))
-    add(body("실패 장면을 재생해 세 규칙을 얻었다. R1: 고정 집게를 벽 바깥 9mm(파지 허용 범위 0~17mm의 가운데)로 접근한다. "
-             "R2: 물체 방향과 무관하게 늘 같은 부위를 잡는다(가장 가까운 벽을 잡으면 약 8° 회전에서 잡는 벽이 바뀌어 시연이 "
-             "두 갈래가 된다). R3: 놓은 뒤 벽 바깥으로 5mm 물러났다가 올라간다. R2 위반은 학습 전에 찾을 수 있다. 그리퍼가 "
+    add(body("실패 장면을 재생해 세 규칙을 얻었다. (1) 여유 두고 잡기: 고정 집게를 벽 바깥 9mm(파지 허용 범위 0~17mm의 가운데)로 접근한다. "
+             "(2) 늘 같은 곳 잡기: 물체 방향과 무관하게 늘 같은 부위를 잡는다(가장 가까운 벽을 잡으면 약 8° 회전에서 잡는 벽이 바뀌어 시연이 "
+             "두 갈래가 된다). (3) 놓고 물러나기: 놓은 뒤 벽 바깥으로 5mm 물러났다가 올라간다. 세 규칙을 모두 적용한 시연을 "
+             "'규칙 시연', 그때그때 가까운 곳을 잡는 시연을 '사람식 시연'이라 한다. 늘 같은 곳 잡기를 어긴 시연은 학습 "
+             "전에 찾을 수 있다. 그리퍼가 "
              "닫히는 순간의 손목 회전각을 정렬해 가장 넓은 빈 구간을 재면, 잡는 방식이 둘로 갈린 시연은 수십 도의 빈 구간을 "
              "보인다."))
     add(section("3. 무게 확인 재시도와 공장형 환경"))
@@ -264,22 +266,22 @@ def body_xml(media: Media, cite: Cites) -> str:
     add(chapter("Ⅳ. 실험 결과"))
     add(section("1. 시연 설계 규칙"))
     rows = [["Demonstration design (demos)", "Floor 1", "Beside", "Floor 2", "Sequence (95% CI)"]]
-    for name, label in (("v1_n100", "Initial (100)"), ("n100", "+R1 clearance (100)"),
-                        ("v4_n100", "+R2 same wall (100)"), ("v5_n100", "+R3 back-off (100)"),
-                        ("v5_n1000", "R1-R3 (1000)"), ("v6_n1000", "R1-R3 + DR (1000)")):
+    for name, label in (("v1_n100", "Initial (100)"), ("n100", "+ grasp clearance (100)"),
+                        ("v4_n100", "+ same grasp spot (100)"), ("v5_n100", "+ back off (100)"),
+                        ("v5_n1000", "All rules (1000)"), ("v6_n1000", "All rules + DR (1000)")):
         rows.append([label, C.pct(name, 1), C.pct(name, 2), C.pct(name, 3), C.chain_ci(name)])
     add(table("표 2. 시연 설계별 적재 성공률 (%, 각 50회)", "Table 2. Stacking success by demonstration design (%, 50 trials each)",
               [1700, 560, 560, 560, 1150], rows))
     g2, g3 = C._audit("stage1:② 여유 9mm (벽 전환 있음)"), C._audit("stage1:③ 같은 벽")
     add(body(f"표 2와 같이 초기 시연은 단계별 {C.pct('v1_n100', 1)}, {C.pct('v1_n100', 2)}, {C.pct('v1_n100', 3)}%였으나 "
-             f"연속 {C.chain('v1_n100', 2)}%에 그쳤다. R1로 {C.chain('n100', 2)}%가 되었고 남은 실패 {ws('fail_total')}건 중 "
+             f"연속 {C.chain('v1_n100', 2)}%에 그쳤다. 여유 두고 잡기로 {C.chain('n100', 2)}%가 되었고 남은 실패 {ws('fail_total')}건 중 "
              f"{ws('band_fails')}건이 잡는 벽이 바뀌는 회전 구간에서 일어났다. 이 시연의 손목 각도 빈 구간은 "
-             f"{g2 if g2 is not None else C.MISSING}°였고 R2 적용 후 {g3 if g3 is not None else C.MISSING}°로 사라져 "
-             f"{C.chain('v4_n100', 2)}%, R3까지 {C.chain('v5_n100', 2)}%(장면 200개 {C.big_txt('c')})가 되었다. 시연을 "
+             f"{g2 if g2 is not None else C.MISSING}°였고 늘 같은 곳 잡기 적용 후 {g3 if g3 is not None else C.MISSING}°로 사라져 "
+             f"{C.chain('v4_n100', 2)}%, 놓고 물러나기까지 {C.chain('v5_n100', 2)}%(장면 200개 {C.big_txt('c')})가 되었다. 시연을 "
              f"1000회로 늘려도 {C.chain('v5_n1000', 2)}%로 차이가 없어" + cite("scaling") + " 시연 수보다 설계가 중요했다. "
              f"무게 확인 재시도로는 {C.wretry()}이었다."))
     add(section("2. 다른 물체와 공장형 환경"))
-    rows = [["Setting", "Naive", "Rule (R2)"],
+    rows = [["Setting", "Human-like", "Rule-based"],
             ["Audit gap, bin / cup / box (°)",
              f"{max([C._audit(f'stage{k}:② 여유 9mm (벽 전환 있음)') or 0 for k in (1, 2, 3)]):.0f} / {C.gen_gap('cup', 'cupnaive')} / {C.gen_gap('box', 'v2b')}",
              f"{max([C._audit('stage1:③ 같은 벽') or 0, C._audit('stage2:③ 같은 벽') or 0]):.0f} / {C.gen_gap('cup', 'cuprule')} / {C.gen_gap('box', 'v5')}"],
@@ -289,13 +291,13 @@ def body_xml(media: Media, cite: Cites) -> str:
     add(table("표 3. 물체별 시연 점검과 연속 성공률", "Table 3. Demonstration audit and sequence success per object",
               [1900, 1300, 1300], rows))
     it = f"{C.INT_TAG}_bin_orig"
-    rows = [["Environment (sequence %)", "R1-R3", "+DR", "+clutter", "+factory", "Integrated"]]
+    rows = [["Environment (sequence %)", "Rules", "+DR", "+clutter", "+factory", "Integrated"]]
     for cond, label in (("none", "No clutter"), ("all", "Table clutter (all)"), ("factory", "Factory cell"),
                         ("factory_vis", "Factory + random looks")):
         rows.append([label] + [C.clut(t, cond) for t in ("v5_n100", "v6_n1000", "v9_n1000", C.FAC_TAG)] + [C.clut(it, cond)])
     add(table("표 4. 잡동사니·공장형 환경의 연속 성공률 (%, 통)", "Table 4. Sequence success in cluttered and factory cells (%, bin)",
               [1500, 600, 600, 600, 600, 600], rows))
-    add(body("손잡이 컵과 직사각형 상자에서도 사람식 시연은 큰 빈 구간을 보였고 R2로 고치면 연속 성공률이 올랐다(표 3). "
+    add(body("손잡이 컵과 직사각형 상자에서도 사람식 시연은 큰 빈 구간을 보였고 규칙 시연으로 고치면 연속 성공률이 올랐다(표 3). "
              f"잡동사니가 있으면 무작위화 없는 정책은 {C.clut('v5_n100', 'all')}%로 떨어졌으나, 세 물체·두 배치·공장형 환경을 "
              f"섞은 시연 1800회로 학습한 통합 정책은 공장형 환경에서 여섯 조합 평균 {C.int_res('factory')}%"
              f"(최저 {C.int_res('factory', 'min')}%)를 보였다(표 4)."))

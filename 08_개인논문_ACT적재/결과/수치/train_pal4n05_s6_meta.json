@@ -1,0 +1,31 @@
+{
+ "stage": 6,
+ "episodes": 300,
+ "frames": 90000,
+ "image_bytes": 888580771,
+ "data": [
+  "data/pallet2_s6.jpk.npz",
+  "data/pallet3_s6_x.jpk.npz",
+  "data/pallet4_s6_x.jpk.npz"
+ ],
+ "steps": 20000,
+ "batch": 8,
+ "lr": 1e-05,
+ "params": 51597238,
+ "img_hw": [
+  120,
+  160
+ ],
+ "chunk_size": 100,
+ "kl_weight": 10.0,
+ "device": "NVIDIA GeForce GTX 1080 Ti",
+ "preprocess": null,
+ "cams": [
+  "front",
+  "top"
+ ],
+ "state_noise": 0.05,
+ "init": "runs/pal3n05_s6/ckpt_050000",
+ "step0": 50000,
+ "seed": 2
+}
