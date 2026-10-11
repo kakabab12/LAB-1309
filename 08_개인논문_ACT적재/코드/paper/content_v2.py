@@ -114,7 +114,7 @@ ABSTRACT = (
     f"({gen_chain('cup', 'cupnaive')}% to {gen_chain('cup', 'cuprule')}%, {eval_chain('g_cup_orig_cuprule300')}% with "
     f"300 rule demonstrations) and a rectangular box ({gen_chain('box', 'v2b')}% to {gen_chain('box', 'v5')}%), and "
     f"the same diagnosis extended stacking to a 2×2×2 pallet ({P_LAST}% for all eight bins in a row). In a randomized "
-    f"factory cell with conveyors, racks and cables the bin policy fell to {clut('v9_n1000', 'factory')}% until "
+    f"factory cell the bin policy fell to {clut('v9_n1000', 'factory')}% until "
     f"factory scenes were added to its demonstrations ({clut(FAC_TAG, 'factory')}%). Checking how demonstrations are "
     "made, before training, is a cheap and effective step for imitation-learned factory cells."
 )
@@ -170,7 +170,7 @@ def body(media, b) -> str:
           "보낸다. 표 1과 같이 조건별 20회 실측에서 기준값 분류 정분류율은 91.7%였고, 오분류 5건은 주로 조명이 고르지 "
           "않을 때 '8'을 '1'로 읽은 경우였다."))
     add(fig(media, FIG / "fig1_system_mermaid.png", "그림 1. 시스템 구성: 컨베이어가 고른 파랑 큐브가 저울 위 통에 모이고, Jetson이 "
-                                                          "표시부 무게를 읽어 118g 이상이면 SO-101이 통을 팔레트에 순차 적재한다"))  # paper/fig1_system.mmd (old drawing: fig1_system.png)
+                                                          "표시부 무게를 읽어 118g 이상이면 SO-101이 통을 팔레트에 순차 적재한다", 0.9))  # paper/fig1_system.mmd (old drawing: fig1_system.png)
     add(table("표 1. 무게 인식부 실측 성능 (Jetson Orin Nano)", [2150, 2350],
               [["항목", "결과"],
                ["숫자 탐지 YOLOv8n (13 클래스)",
@@ -221,8 +221,8 @@ def body(media, b) -> str:
           "선별에 쓰는 저울이 적재의 성공 판정까지 맡아 두 부분이 하나의 공정으로 이어진다."))
     add(h2("3.4 공장형 환경의 시연"))
     add(P(f"현장의 조명·작업대·카메라 장착 위치 변화에 대비해 이를 무작위화하고{cite('dr')}, 실제 공장처럼 움직이는 "
-          "컨베이어, 다른 색 통이 놓인 선반, 기둥, 제어함, 상단 카메라 앞을 지나는 천장 케이블, 경고 테이프, 부품 16종"
-          "(8~16개), 닮은 빈 통, 지나가는 물체, 깜빡이는 조명을 매번 다르게 둔 장면에서 시연을 만들었다(그림 2(f)). "
+          "컨베이어, 다른 색 통이 놓인 선반, 기둥, 상단 카메라 앞을 지나는 천장 케이블, 부품 8~16개, 닮은 빈 통, 지나가는 "
+          "물체, 깜빡이는 조명을 매번 다르게 둔 장면에서 시연을 만들었다(그림 2(f)). "
           "물건은 전문가 시연 120회에서 팔과 통이 지나간 높이를 기록한 지도로 팔과 부딪히지 않는 곳에만 두었고, 통의 "
           "색은 공정의 판정 기준이므로 바꾸지 않았다."))
 
@@ -257,7 +257,7 @@ def body(media, b) -> str:
     fig4 = FIG / "fig4_rollout_big.png"  # paper/fig_rollout.py + fig_rollout_labels.py (rule demos x 100, eval seed)
     if fig4.exists():
         add(fig(media, fig4, "그림 4. 규칙 시연 100회로 학습한 단계별 정책이 평가 장면에서 1층·옆·2층을 이어서 적재하는 "
-                             "모습 (시뮬레이션)", 0.9))
+                             "모습 (시뮬레이션)", 0.8))
 
     rule_ok = [_better(gen_chain(o, a), gen_chain(o, r)) for o, a, r in (("cup", "cupnaive", "cuprule"), ("box", "v2b", "v5"))]
     t43 = ("4.3 Q2·Q3: 점검 지표가 실패할 시연을 가려내고, 규칙은 다른 물체에도 통한다" if all(rule_ok)
@@ -309,8 +309,7 @@ def body(media, b) -> str:
                     + ["-" if cond == "tight" else clut(it, cond)])
     add(table("표 4. 환경별 연속 성공률 (%, 통, 각 50회). 규칙: 규칙 시연 100회, +무작위: 외관 무작위화, +잡동: "
               "잡동사니 시연, +공장: 공장형 시연, 통합: 세 물체 정책", [1100, 680, 680, 680, 680, 680], rows))
-    add(P(f"조명·카메라 위치 등 15가지 외관 변화는 외관 무작위화로 충분했으나(단계 평균 {rob_avg('v6_n1000')}%), 실제로 "
-          f"놓인 잡동사니는 달랐다. 표 4와 같이 잡동사니 전부에서 무작위화 없는 규칙 시연은 {clut('v5_n100', 'all')}%, 무작위화만 한 정책은 "
+    add(P(f"표 4와 같이 잡동사니 전부에서 무작위화 없는 규칙 시연은 {clut('v5_n100', 'all')}%, 무작위화만 한 정책은 "
           f"{clut('v6_n1000', 'all')}%였다. 잡동사니를 넣은 시연(1000회)은 {clut('v9_n1000', 'all')}%로 회복했지만 공장형 "
           f"구조물 앞에서는 {v9f}%였고, 공장형 장면의 시연을 단계당 {FAC_DEMOS}회{FAC_VIS} 더하자(+공장) {facf}%가 되었다. "
           f"{vis_s}세 "

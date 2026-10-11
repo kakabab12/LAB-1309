@@ -139,10 +139,10 @@ def figure(media: Media, path: Path, caption: str, width_frac: float = 0.97) -> 
         f'</wp:inline></w:drawing></w:r>'
     )
     return (para(drawing, jc="center", before=80, line=240, keep_next=True)
-            + para(rich(caption, 17), jc="center", after=80, line=264))
+            + para(rich(caption, 18), jc="center", after=80, line=288))  # 9 pt as the template's captions
 
 
-def table(caption: str, widths: list[int], rows: list[list[str]], header_rows: int = 1, sz: int = 15) -> str:
+def table(caption: str, widths: list[int], rows: list[list[str]], header_rows: int = 1, sz: int = 16) -> str:
     total = sum(widths)
     grid = "".join(f'<w:gridCol w:w="{x}"/>' for x in widths)
     border = '<w:{0} w:val="single" w:sz="4" w:space="0" w:color="000000"/>'
@@ -167,14 +167,14 @@ def table(caption: str, widths: list[int], rows: list[list[str]], header_rows: i
            f'<w:tblBorders>{borders}</w:tblBorders><w:tblLayout w:type="fixed"/>'
            f'<w:tblCellMar><w:left w:w="30" w:type="dxa"/><w:right w:w="30" w:type="dxa"/></w:tblCellMar>'
            f'</w:tblPr><w:tblGrid>{grid}</w:tblGrid>{"".join(trs)}</w:tbl>')
-    cap = para(rich(caption, 17), jc="center", before=80, after=40, line=264, keep_next=True)
+    cap = para(rich(caption, 18), jc="center", before=80, after=40, line=288, keep_next=True)
     return cap + tbl + para(run("", 10), jc="left", line=200)
 
 
 def references(refs: list[str]) -> str:
     out = blank() + para(run("참고문헌", 24), jc="center", keep_next=True) + blank()
     for i, r in enumerate(refs, 1):
-        out += para(run(f"[{i}] {r}", 16), jc="both", style="11", hanging=300, line=264)
+        out += para(run(f"[{i}] {r}", 16), jc="both", style="11", hanging=300, line=264)  # 8 pt (template sample: 9 pt, no stated rule)
     return out
 
 
