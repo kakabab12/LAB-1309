@@ -1,2 +1,6 @@
 slot 7: kept 10/10 (3600s)
 slot 7: kept 20/20 (7527s)
+slot 7: kept 30/30 (10629s)
+slot 7: kept 40/40 (12300s)
+slot 7: kept 50/53 (13829s)
+{"slot": 7, "layer": 1, "row": 0, "col": 0, "kept": 50, "tried": 53, "expert_success_rate": 0.9433962264150944, "seconds": 13828.515049219131, "layout": {"rows": 2, "cols": 2, "layers": 2, "x0": 0.2, "y0": 0.017}}

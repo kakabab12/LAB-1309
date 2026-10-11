@@ -198,7 +198,7 @@ def summary_ko() -> str:
             "로봇 파손 이후 같은 로봇·카메라·제어 주기의 MuJoCo 셀에서 적재를 정량 평가하였다. 연속 적재 실패의 원인이 "
             "시연 설계에 있음을 밝혀 세 가지 시연 설계 규칙(파지 여유, 일관된 파지 위치, 놓은 뒤 물러나기)과 잡는 순간 "
             "손목 각도의 빈 구간으로 잡는 방식의 갈림을 학습 전에 찾는 점검 지표를 제안하였다. 시연 100회의 연속 성공률이 "
-            f"{C.chain('v1_n100', 2)}%에서 {C.seq200()}%로 높아졌고, 저울 무게로 실패를 확인해 재실행하면 {C.wretry()}였다. "
+            f"{C.chain('v1_n100', 2)}%에서 {C.seq200()}%로 높아졌고, 저울 무게로 실패를 확인해 재실행하면 {C.wretry()}이었다. "
             f"규칙은 손잡이 컵({C.gen_chain('cup', 'cupnaive')}→{C.gen_chain('cup', 'cuprule')}%)과 직사각형 상자"
             f"({C.gen_chain('box', 'v2b')}→{C.gen_chain('box', 'v5')}%)에도 통했으며, 공장형 잡동사니 환경에서 단계별 정책 "
             f"하나로 세 물체·두 배치를 평균 {C.int_res('factory')}% 적재하였다.")
@@ -277,7 +277,7 @@ def body_xml(media: Media, cite: Cites) -> str:
              f"{g2 if g2 is not None else C.MISSING}°였고 R2 적용 후 {g3 if g3 is not None else C.MISSING}°로 사라져 "
              f"{C.chain('v4_n100', 2)}%, R3까지 {C.chain('v5_n100', 2)}%(장면 200개 {C.big_txt('c')})가 되었다. 시연을 "
              f"1000회로 늘려도 {C.chain('v5_n1000', 2)}%로 차이가 없어" + cite("scaling") + " 시연 수보다 설계가 중요했다. "
-             f"무게 확인 재시도로는 {C.wretry()}였다."))
+             f"무게 확인 재시도로는 {C.wretry()}이었다."))
     add(section("2. 다른 물체와 공장형 환경"))
     rows = [["Setting", "Naive", "Rule (R2)"],
             ["Audit gap, bin / cup / box (°)",

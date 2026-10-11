@@ -1,0 +1,7 @@
+init from runs/pal2n05_s8/ckpt_030000
+{"stage": 8, "episodes": 200, "frames": 60000, "image_bytes": 609332414, "data": ["data/pallet2_s8.jpk.npz", "data/pallet3_s8_x.jpk.npz"], "steps": 20000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"], "state_noise": 0.05, "init": "runs/pal2n05_s8/ckpt_030000", "step0": 30000, "seed": 1}
+{"step": 32000, "loss": 0.07149600630626082, "l1_loss": 0.06635854134336114, "kld_loss": 0.0005137464962899685, "elapsed_s": 487.7547426223755}
+{"step": 34000, "loss": 0.06628694949671626, "l1_loss": 0.061744354721158745, "kld_loss": 0.0004542594775557518, "elapsed_s": 697.9679584503174}
+{"step": 36000, "loss": 0.06318333990871906, "l1_loss": 0.05895312950015068, "kld_loss": 0.00042302103713154793, "elapsed_s": 901.8876848220825}
+{"step": 38000, "loss": 0.05982912539504468, "l1_loss": 0.05602485450915992, "kld_loss": 0.00038042709231376646, "elapsed_s": 1104.32301902771}
+{"step": 40000, "loss": 0.05915280234999955, "l1_loss": 0.05580336944200098, "kld_loss": 0.0003349432907998562, "elapsed_s": 1283.079395532608}

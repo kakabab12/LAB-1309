@@ -10,3 +10,11 @@ WARNING:root:No accelerated backend detected. Using default cpu, this will be sl
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
 WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
 WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+int120_n1800_bin_mirror none chained: 90% -> 78% -> 68%
+int120_n1800_bin_mirror all chained: 90% -> 86% -> 72%
+int120_n1800_bin_mirror factory chained: 76% -> 60% -> 54%
+int120_n1800_bin_mirror factory_vis chained: 90% -> 64% -> 56%
+int120_n1800_bin_mirror factory_max chained: 82% -> 64% -> 56%

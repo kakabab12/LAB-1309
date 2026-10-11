@@ -2,3 +2,5 @@ slot 5: kept 10/11 (2218s)
 slot 5: kept 20/22 (4310s)
 slot 5: kept 30/32 (6848s)
 slot 5: kept 40/42 (8567s)
+slot 5: kept 50/53 (10488s)
+{"slot": 5, "layer": 1, "row": 0, "col": 1, "kept": 50, "tried": 53, "expert_success_rate": 0.9433962264150944, "seconds": 10487.744894742966, "layout": {"rows": 2, "cols": 2, "layers": 2, "x0": 0.2, "y0": 0.017}}

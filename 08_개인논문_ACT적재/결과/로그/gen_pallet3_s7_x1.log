@@ -2,3 +2,5 @@ slot 6: kept 10/10 (2656s)
 slot 6: kept 20/20 (5425s)
 slot 6: kept 30/30 (8112s)
 slot 6: kept 40/40 (10406s)
+slot 6: kept 50/50 (11877s)
+{"slot": 6, "layer": 1, "row": 1, "col": 0, "kept": 50, "tried": 50, "expert_success_rate": 1.0, "seconds": 11876.94851899147, "layout": {"rows": 2, "cols": 2, "layers": 2, "x0": 0.2, "y0": 0.017}}
