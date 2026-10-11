@@ -518,3 +518,4 @@
 [10-11 15:57:04] start train pal4n05_s2 (from pal2n05_s2/ckpt_030000, 200 demos)
 [10-11 15:58:04] start train pal4n05_s6 (from pal3n05_s6/ckpt_050000, 300 demos)
 [10-11 16:17:15] v12 (v11 + 300 factory demos with wide looks per stage): demos, +20k from v11, then clutter/factory eval
+[10-11 16:59:02] pallet more2: trained -> full 2x2x2 eval

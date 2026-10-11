@@ -10,12 +10,12 @@ FIG = Path(__file__).resolve().parent
 
 TITLE_KO = ("Jetson Orin Nano 기반 YOLOv8 무게 인식과 ACT",
             "모방학습을 이용한 스마트 팩토리 순차 적재와 시연 설계 분석")
-AUTHORS_KO = "*이지용, 김한민, 정철훈, 장민기, 고병철"
+AUTHORS_KO = "*이지용, 고병철"
 AFFIL_KO = "계명대학교 컴퓨터공학전공"
 EMAIL = "e-mail : yeez0612@naver.com"
 TITLE_EN = ("Smart Factory Sequential Stacking with YOLOv8 Weight Recognition",
             "and ACT Imitation Learning: Demonstration Design Analysis")
-AUTHORS_EN = "Jiyong Lee, Hanmin Kim, Cheolhun Jeong, Mingi Jang, and Byoung Chul Ko"
+AUTHORS_EN = "Jiyong Lee and Byoung Chul Ko"
 AFFIL_EN = "Dept. of Computer Engineering, Keimyung University"
 
 MISSING = "[  ]"
@@ -394,6 +394,15 @@ ABSTRACT = (
 )
 
 
+def _pallet_full(tag: str) -> str:
+    """Full 2x2x2 sequences (8 slots) over the two halves of the evaluation, % or MISSING (as content_v2.pallet_full)."""
+    rs = [_json(f"results/eval/{tag}_p{p}/results.json") for p in (0, 1)]
+    if not all(rs):
+        return MISSING
+    k = sum(r["cumulative_success"][-1] * r["n"] for r in rs)
+    return f"{100 * k / sum(r['n'] for r in rs):.1f}".rstrip("0").rstrip(".")
+
+
 def _audit(key: str):
     return (_json("results/demo_audit.json") or {}).get(key, {}).get("widest_gap_deg")
 
@@ -516,12 +525,15 @@ def body(media, b) -> str:
           f"이 시연은 3.3절의 점검에서 손목 각도에 {g2 if g2 is not None else MISSING}°의 빈 구간을 보였고, 시연을 200회로 "
           f"늘리면 오히려 연속 {chain('n200', 2)}%로 낮아졌다. 늘 같은 곳 잡기를 적용하자 빈 구간이 {g3 if g3 is not None else MISSING}°로 "
           f"사라지고 집기 실패가 없어졌으며(연속 {chain('v4_n100', 2)}%), 놓고 물러나기까지 적용한 규칙 시연은 연속 {chain('v5_n100', 2)}%, "
-          f"장면 200개에서 {big_txt('c')}(평균 위치 오차 {xy_mean()}mm)였다. 규칙 시연을 1000회로 늘리거나 DART[8] 잡음을 "
+          f"장면 200개에서 {big_txt('c')}(평균 위치 오차 {xy_mean()}mm, 그림 4)였다. 규칙 시연을 1000회로 늘리거나 DART[8] 잡음을 "
           f"넣어도 {chain('v5_n1000', 2)}%, {chain('v5_dart1000', 2)}%로 나아지지 않아, 시연 수가 시연 설계를 대신하지 "
           f"못했다[15]. 남은 실패는 통을 집지 못해 저울에 남은 경우였으며, 무게 확인 재시도로 첫 시도 "
-          f"{wretry('cumulative_first_attempt')}에서 {wretry()}이 되었다. 영상을 가리면 0/10으로 정책은 영상에서 통을 찾아 "
-          f"움직였고, 카메라를 하나만 쓰면 상단만 {chain('v5t_n200', 2)}%, 손목만 {chain('v5w_n200', 2)}%로 상단 카메라가 "
+          f"{wretry('cumulative_first_attempt')}에서 {wretry()}이 되었다. 카메라를 하나만 쓰면 상단만 {chain('v5t_n200', 2)}%, 손목만 {chain('v5w_n200', 2)}%로 상단 카메라가 "
           "핵심이었다."))
+    fig4 = FIG / "fig4_rollout_big.png"  # paper/fig_rollout.py + fig_rollout_labels.py
+    if fig4.exists():
+        add(fig(media, fig4, "그림 4. 규칙 시연 100회로 학습한 단계별 정책이 평가 장면에서 1층·옆·2층을 이어서 적재하는 "
+                             "모습 (시뮬레이션)", 0.85))
 
     add(h2("4.3 다른 물체로의 일반화"))
     add(P("규칙이 통에만 맞춘 것이 아님을 확인하기 위해 잡을 곳이 다른 이유로 애매한 두 물체를 더 시험하였다(그림 2(d)(e)). "
@@ -564,13 +576,22 @@ def body(media, b) -> str:
           f"환경에서 6가지 물체·배치 조합 평균 {int_res('factory')}%"
           f"(최저 {int_res('factory', 'min')}%), 외관까지 무작위화하면 {int_res('factory_vis')}%였다."))
 
+    p_fix = _pallet_full("pallet4_k25")
+    p_last = next((v for v in (_pallet_full("pallet6_k25"), _pallet_full("pallet5_k25")) if v != MISSING), MISSING)
+    if MISSING not in (p_fix, p_last):
+        add(h2("4.5 2×2×2 팔레트 적재로의 확장"))
+        add(P("통 8개를 2×2×2로 쌓는 팔레트 적재에 칸별 정책 8개를 같은 방식으로 학습하여 8칸을 이어서 실행하였다(40회). "
+              "가장 먼 2층 칸의 전문가 시연이 평균 6.2mm 치우친 것을 찾아 고치자 8칸 연속 "
+              f"{p_fix}%가 되었고, 성공률이 낮은 칸의 시연을 늘리자 {p_last}%가 되었다."))
+
     # ------------------------------------------------------------ V
     add(h1("Ⅴ. 결론"))
-    add(P("본 논문은 Jetson Orin Nano에서 YOLOv8 기반 7-segment 무게 인식과 TCP 트리거로 호출되는 단계별 ACT 정책을 "
-          "결합한 스마트 팩토리 적재 셀을 구현하고, 시뮬레이션으로 적재를 정량 평가하였다. 연속 적재 실패의 원인이 시연 "
+    add(P("본 논문은 YOLOv8 무게 인식과 단계별 ACT 정책을 결합한 스마트 팩토리 적재 셀을 구현하고, 시뮬레이션으로 "
+          "적재를 정량 평가하였다. 연속 적재 실패의 원인이 시연 "
           "설계에 있음을 밝혀 세 가지 시연 설계 규칙과 학습 전 시연 점검 지표를 제안하였고, 시연 100회의 연속 성공률을 "
           f"{chain('v1_n100', 2)}%에서 {seq200()}%로, 무게 확인 재시도로 {wretry()}으로 높였다. 규칙은 손잡이 컵과 직사각형 "
-          "상자에도 통했으며, 공장형 잡동사니 환경에서도 단계별 정책 하나로 세 물체·두 배치를 적재하였다. 결과는 스크립트 "
+          f"상자에도 통했으며, 공장형 환경은 그 장면을 담은 시연으로 대응할 수 있었다(통 {clut('v9_n1000', 'factory')}→"
+          f"{clut(FAC_TAG, 'factory')}%). 세 물체를 정책 하나로 다룰 때의 간섭은 남은 과제이다. 결과는 스크립트 "
           "시연과 단순화된 접촉 모델에 기반하므로, 향후 로봇을 복구하여 같은 규칙으로 실측 검증할 예정이다."))
 
     refs = [

@@ -98,6 +98,7 @@ def _better(a: str, b: str) -> bool | None:
 
 
 # ---------------------------------------------------------------- abstract
+P_LAST = next((v for v in (pallet_full("pallet6_k25"), pallet_full("pallet5_k25")) if v != MISSING), MISSING)  # last round
 ABSTRACT = (
     "Low-cost robot arms that learn from demonstrations are attractive for small smart-factory cells, but in "
     "sequential stacking every stage starts where the previous one ended, so small errors and inconsistent "
@@ -105,17 +106,17 @@ ABSTRACT = (
     "display of a scale (91.7% correct sorting at 118 g) and triggers stage-wise ACT policies that make an SO-101 arm "
     "stack a bin on the floor, beside the first bin and on top of it, and evaluated stacking in a MuJoCo replica of "
     "the cell. Replaying the failures showed that they came from how the demonstrations were made, not from the "
-    "policy. Three demonstration design rules (grasp clearance, one consistent grasp feature, backing off before "
-    "lifting) and a pre-training audit that detects mixed grasp strategies as an empty band in the wrist angle "
-    f"raised three-stage success from {chain('v1_n100', 2)}% to {seq200()}% over 200 sequences, whereas ten times "
-    f"more demonstrations or noise injection did not; re-running a stage while the scale still reads the bin gave "
-    f"{wretry()}. The rules carried over to a cup with a handle ({gen_chain('cup', 'cupnaive')}% to "
-    f"{gen_chain('cup', 'cuprule')}%, {eval_chain('g_cup_orig_cuprule300')}% with 300 rule demonstrations) and a "
-    f"rectangular box ({gen_chain('box', 'v2b')}% to {gen_chain('box', 'v5')}%). In a randomized factory cell with "
-    f"conveyors, racks and cables the bin policy fell to {clut('v9_n1000', 'factory')}% until factory scenes were added "
-    f"to its demonstrations ({clut(FAC_TAG, 'factory')}%), and one policy per stage for three objects in two layouts "
-    f"reached {int_res('factory')}% on average. Checking how demonstrations are made, before training, is a cheap and "
-    "effective step for imitation-learned factory cells."
+    "policy. Three demonstration design rules (grasp clearance, always the same grasp spot, backing off before "
+    f"lifting) raised three-stage success from {chain('v1_n100', 2)}% to {seq200()}% over 200 sequences, whereas ten "
+    "times more demonstrations or noise injection did not, and a pre-training audit that measures the empty band in "
+    "the wrist angle at the grasp flagged the failing demonstration sets before any training. Re-running a stage while "
+    f"the scale still reads the bin gave {wretry()}. The rules carried over to a cup with a handle "
+    f"({gen_chain('cup', 'cupnaive')}% to {gen_chain('cup', 'cuprule')}%, {eval_chain('g_cup_orig_cuprule300')}% with "
+    f"300 rule demonstrations) and a rectangular box ({gen_chain('box', 'v2b')}% to {gen_chain('box', 'v5')}%), and "
+    f"the same diagnosis extended stacking to a 2×2×2 pallet ({P_LAST}% for all eight bins in a row). In a randomized "
+    f"factory cell with conveyors, racks and cables the bin policy fell to {clut('v9_n1000', 'factory')}% until "
+    f"factory scenes were added to its demonstrations ({clut(FAC_TAG, 'factory')}%). Checking how demonstrations are "
+    "made, before training, is a cheap and effective step for imitation-learned factory cells."
 )
 
 
@@ -231,7 +232,7 @@ def body(media, b) -> str:
     add(h2("4.1 실험 질문과 평가 방법"))
     add(P("실험은 다음 네 질문에 답한다. Q1: 시연 설계 규칙은 연속 성공률을 얼마나 높이며, 시연 수로 대신할 수 있는가? "
           "Q2: 점검 지표는 실패할 시연을 학습 전에 가려내는가? Q3: 규칙은 모양이 다른 물체에도 통하는가? Q4: 공장형 "
-          "잡동사니 환경에서도 유지되는가? 연속 평가는 실제 셀처럼 1층·옆·2층 정책을 같은 장면에서 이어서 실행하며(50회, "
+          "잡동사니 환경에서도 유지되는가? 끝으로 4.5절에서 2×2×2 팔레트 적재로 확장한다. 연속 평가는 실제 셀처럼 1층·옆·2층 정책을 같은 장면에서 이어서 실행하며(50회, "
           "시연에 쓰지 않은 시드), 통 중심이 목표에서 15mm, 높이가 8mm, 기울기가 10° 이내이고 먼저 쌓인 통이 10mm 이상 "
           "밀리지 않으면 성공이다. 잡동사니 환경에서는 주변 물건을 10mm 이상 밀거나 구조물에 닿아도 실패로 보았다. 모든 "
           "적재 결과는 시뮬레이션 결과이다."))
@@ -248,12 +249,16 @@ def body(media, b) -> str:
     add(P(f"규칙을 하나씩 더하면 연속 성공률이 {chain('v1_n100', 2)}%에서 {chain('n100', 2)}%, {chain('v4_n100', 2)}%, "
           f"{chain('v5_n100', 2)}%로 올랐다(표 2). 여유 두고 잡기는 집게가 벽 위에 걸리는 실패를 없앴고, 이것만 적용한 시연에서 남은 "
           f"실패 {ws('fail_total')}건 중 {ws('band_fails')}건은 전문가가 잡는 벽을 바꾸는 회전 구간에서 일어났으며 늘 같은 "
-          f"곳 잡기가 이를 없앴다. 규칙 시연은 장면 200개에서 {big_txt('c')}였고, 단계별 평균 위치 오차는 {xy_mean()}mm였다. 반면 시연 수를 늘리는 것은 "
+          f"곳 잡기가 이를 없앴다. 규칙 시연은 장면 200개에서 {big_txt('c')}였고(그림 4), 단계별 평균 위치 오차는 {xy_mean()}mm였다. 반면 시연 수를 늘리는 것은 "
           f"답이 아니었다. 잡는 곳이 갈리는 시연(여유 두고 잡기만 적용)을 200회로 늘리면 오히려 {chain('n200', 2)}%로 "
           f"낮아졌고, 규칙 시연을 1000회로 늘리거나 "
           f"DART{cite('dart')} 잡음을 넣어도 {chain('v5_n1000', 2)}%, {chain('v5_dart1000', 2)}%로 나아지지 않았다. 남은 "
           f"실패는 통을 집지 못해 저울에 남은 경우였고, 무게 확인 재시도로 첫 시도 {wretry('cumulative_first_attempt')}에서 "
           f"{wretry()}이 되었다. 즉 연속 성공률은 시연 수보다 시연 설계로 결정되었다."))
+    fig4 = FIG / "fig4_rollout_big.png"  # paper/fig_rollout.py + fig_rollout_labels.py (rule demos x 100, eval seed)
+    if fig4.exists():
+        add(fig(media, fig4, "그림 4. 규칙 시연 100회로 학습한 단계별 정책이 평가 장면에서 1층·옆·2층을 이어서 적재하는 "
+                             "모습 (시뮬레이션)", 0.9))
 
     rule_ok = [_better(gen_chain(o, a), gen_chain(o, r)) for o, a, r in (("cup", "cupnaive", "cuprule"), ("box", "v2b", "v5"))]
     t43 = ("4.3 Q2·Q3: 점검 지표가 실패할 시연을 가려내고, 규칙은 다른 물체에도 통한다" if all(rule_ok)
@@ -301,9 +306,8 @@ def body(media, b) -> str:
                     + ["-" if cond == "tight" else clut(it, cond)])
     add(table("표 4. 환경별 연속 성공률 (%, 통, 각 50회). 규칙: 규칙 시연 100회, +무작위: 외관 무작위화, +잡동: "
               "잡동사니 시연, +공장: 공장형 시연, 통합: 세 물체 정책", [1100, 680, 680, 680, 680, 680], rows))
-    add(P("조명·작업대·카메라 위치 등 15가지 변화를 한 가지씩 주는 정도는 외관 무작위화로 충분하였다(단계 평균 "
-          f"{rob_avg('v6_n1000')}%, 무작위화 없이 {rob_avg('v5_n1000')}%). 그러나 실제로 놓인 잡동사니는 달랐다. "
-          f"표 4와 같이 잡동사니 전부에서 무작위화 없는 규칙 시연은 {clut('v5_n100', 'all')}%, 무작위화만 한 정책은 "
+    add(P(f"조명·카메라 위치 등 15가지 외관 변화는 외관 무작위화로 충분했으나(단계 평균 {rob_avg('v6_n1000')}%), 실제로 "
+          f"놓인 잡동사니는 달랐다. 표 4와 같이 잡동사니 전부에서 무작위화 없는 규칙 시연은 {clut('v5_n100', 'all')}%, 무작위화만 한 정책은 "
           f"{clut('v6_n1000', 'all')}%였다. 잡동사니를 넣은 시연(1000회)은 {clut('v9_n1000', 'all')}%로 회복했지만 공장형 "
           f"구조물 앞에서는 {v9f}%였고, 공장형 장면의 시연을 단계당 {FAC_DEMOS}회{FAC_VIS} 더하자(+공장) {facf}%가 되었다. "
           f"{vis_s}세 "
@@ -314,21 +318,30 @@ def body(media, b) -> str:
                          "잡동사니는 시연에 담으면 회복되었으나 공장형 환경은 남은 과제이다." if _better(v9f, facf) is False
                          else "")))
 
+    # ------------------------------------------------------------ 4.5 extension: 2x2x2 pallet
+    p_before, p_fix = pallet_full("pallet3_k25"), pallet_full("pallet4_k25")
+    add(h2("4.5 확장: 2×2×2 팔레트 적재"))
+    add(P("같은 셀에서 통 8개를 2×2×2로 쌓는 팔레트 적재로 확장하였다(그림 5). 칸마다 정책을 하나씩(8개) 같은 방식으로 "
+          "학습하고 관절값 입력에 잡음을 더했으며, 25스텝마다 다시 예측하면서 8칸을 이어서 실행하였다(40회). "
+          + (f"이렇게 학습한 첫 정책은 8칸 연속 {p_before}%였다. " if p_before != MISSING else "")
+          + "칸별로 전문가 시연의 정확도를 확인하자 가장 먼 2층 칸의 시연만 평균 6.2mm 치우쳐 있었다(다른 칸 1.8mm, "
+          "팔이 닿는 한계에서 역기구학이 손목 각도를 우선한 탓). 위치를 우선하도록 시연을 고치자 그 칸의 성공이 "
+          f"{slot5('pal2n05_s5')}에서 {slot5('pal3n05_s5')}으로 올랐고"
+          + (f"(8칸 연속 {p_fix}%), 성공률이 낮은 칸의 시연을 100~200회 더하자 8칸 연속 {P_LAST}%가 되었다. "
+             if MISSING not in (p_fix, P_LAST) else ". ")
+          + "칸이 늘어도 실패를 시연에서 찾아 고치는 방식이 그대로 통하였다."))
+    fig5 = FIG / "fig5_pallet.png"  # paper/fig_pallet8.py (frames of a fully successful evaluation sequence)
+    if fig5.exists():
+        add(fig(media, fig5, "그림 5. 칸별 정책 8개가 2×2×2 팔레트를 연속으로 쌓는 모습 (시뮬레이션, 평가 장면)", 0.9))
+
     # ============================================================ Ⅴ. 결론: answers, limits, more evidence, future work
     add(h1("Ⅴ. 결론 및 향후 연구 방향"))
     add(P("본 논문은 YOLOv8 무게 인식과 단계별 ACT 정책을 결합한 스마트 팩토리 적재 셀을 구현하고, 연속 적재의 성패가 "
           "시연 설계에 달려 있음을 보였다. 세 가지 시연 설계 규칙으로 시연 100회의 연속 성공률을 "
           f"{chain('v1_n100', 2)}%에서 {seq200()}%로, 무게 확인 재시도로 {wretry()}으로 높였으며, 같은 효과를 시연 수로는 "
-          "얻지 못하였다. 학습 전 점검 지표는 세 물체에서 시연의 갈림을 학습 전에 드러냈고, 잡동사니는 그것을 담은 "
-          "시연으로 회복되었다" + ("(공장형 환경도 같음)." if _better(v9f, facf) else ".")))
-    p_before, p_fix = pallet_full("pallet3_k25"), pallet_full("pallet4_k25")
-    p_more = next((v for v in (pallet_full("pallet6_k25"), pallet_full("pallet5_k25")) if v != MISSING), MISSING)  # last round
-    add(P("같은 관점은 2×2×2 팔레트 적재로 확장할 때도 통하였다. 칸별로 전문가 시연의 정확도를 확인하자 가장 먼 2층 칸의 "
-          "시연만 평균 6.2mm 치우쳐 있었고(다른 칸 1.8mm, 팔이 닿는 한계에서 역기구학이 손목 각도를 우선한 탓), 이를 "
-          f"고치자 그 칸의 성공이 {slot5('pal2n05_s5')}에서 {slot5('pal3n05_s5')}으로 올랐다"
-          + (f"(8칸 연속 {p_before}% → {p_fix}%" if MISSING not in (p_before, p_fix) else "")
-          + (f", 약한 칸의 시연을 늘리면 {p_more}%). " if MISSING not in (p_before, p_fix, p_more) else
-             "). " if MISSING not in (p_before, p_fix) else ". ")
+          "얻지 못하였다. 학습 전 점검 지표는 세 물체에서 시연의 갈림을 학습 전에 드러냈고, 잡동사니와 공장형 환경은 그 "
+          "장면을 담은 시연으로 대응할 수 있었으며, 2×2×2 팔레트 적재로도 확장되었다"
+          + (f"(8칸 연속 {P_LAST}%). " if P_LAST != MISSING else ". ")
           + f"한편 세 물체를 단계별 정책 하나로 다루면 공장형 환경에서 평균 {int_res('factory')}%(최저 "
           f"{int_res('factory', 'min')}%, 컵)에 그쳐, 물체 사이의 간섭을 줄이는 것이 남은 과제이다. "
           + "본 결과는 스크립트 시연과 단순화된 접촉 모델의 시뮬레이션에 기반한다. 향후 로봇팔을 복구하여 같은 규칙과 "

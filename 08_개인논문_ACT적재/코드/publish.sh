@@ -8,6 +8,8 @@ PY=.venv/bin/python
 
 $PY analyze.py > results/analysis.md 2>&1 || true
 $PY paper/fig_scaling.py > /dev/null 2>&1 || true
+$PY clutter_chart.py > /dev/null 2>&1 || true      # journal chart (v12 replaces v11 once complete)
+$PY paper/fig_pallet8.py > /dev/null 2>&1 || true  # Fig. 5 from the last pallet round's GIF
 
 # rollout figure from the finished model set with the highest chained success (checkpoints from its results.json)
 BEST=$($PY - <<'EOF2'
