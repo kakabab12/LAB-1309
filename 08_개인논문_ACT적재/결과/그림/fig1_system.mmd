@@ -5,7 +5,7 @@ flowchart TB
     CONV["`**색상 분류 컨베이어**
 TCS34725 RGB 센서
 빨강·초록 → 불량함`"]
-    SCALE["`**디지털 저울 + 통**
+    SCALE["`**디지털 저울 + 파란 적재함**
 7-segment 표시부
 USB 카메라 640×480`"]
     CONV -- "파랑 큐브" --> SCALE
@@ -20,9 +20,9 @@ YOLOv8n · ONNX Runtime
 입력: 손목·상단 카메라, 관절
 출력: 관절 목표 100스텝`"]
     PAL["`**팔레트**
-1층 → 첫 통 옆
-→ 첫 통 위 (2층)`"]
-    ROBOT -- "통 적재" --> PAL
+1층 → 첫 적재함 옆
+→ 첫 적재함 위 (2층)`"]
+    ROBOT -- "적재" --> PAL
   end
   SORT == "표시부 영상" ==> JET
   JET == "118g 이상 → TCP 트리거 'run'" ==> STACK

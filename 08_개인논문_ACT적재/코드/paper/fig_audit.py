@@ -21,7 +21,7 @@ font_manager.fontManager.addfont("/usr/share/fonts/opentype/noto/NotoSansCJK-Reg
 font_manager.fontManager.addfont("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc")
 plt.rcParams.update({"font.family": "Noto Sans CJK JP", "font.size": 8.5, "axes.linewidth": 0.6})
 
-OBJ = [("bin", "정사각형 통"), ("box", "직사각형 상자"), ("cup", "손잡이 컵")]
+OBJ = [("bin", "정사각형 적재함"), ("box", "직사각형 상자"), ("cup", "손잡이 컵")]
 SETS = [(True, "사람식 시연", "#e8590c"), (False, "규칙 시연", "#1c64c8")]
 
 

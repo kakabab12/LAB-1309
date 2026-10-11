@@ -50,7 +50,7 @@ out = Image.new("RGB", (W, top.height + gap + ph), "white")
 out.paste(top, (0, 0))
 out.paste(row, (0, top.height + gap))
 d = ImageDraw.Draw(out)
-tag(d, (4, 4), "(a) 시뮬레이션 셀")  # covers the old letter boxes of fig2_sim.png
+tag(d, (4, 4), "(a) 시뮬레이션 환경")  # covers the old letter boxes of fig2_sim.png
 tag(d, (652, 4), "(b) 손목 카메라")
 tag(d, (652, 244), "(c) 상단 카메라")
 callout(d, (20, 400), (185, 280), "저울 (집는 곳)")
