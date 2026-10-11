@@ -519,3 +519,10 @@
 [10-11 15:58:04] start train pal4n05_s6 (from pal3n05_s6/ckpt_050000, 300 demos)
 [10-11 16:17:15] v12 (v11 + 300 factory demos with wide looks per stage): demos, +20k from v11, then clutter/factory eval
 [10-11 16:59:02] pallet more2: trained -> full 2x2x2 eval
+[10-11 17:14:02] v12: demos ready
+[10-11 17:14:02] start train s1_v12_n1800 (from s1_v11_n1500/ckpt_070000)
+[10-11 17:16:02] start train s2_v12_n1800 (from s2_v11_n1500/ckpt_070000)
+[10-11 17:18:02] start train s3_v12_n1800 (from s3_v11_n1500/ckpt_070000)
+[10-11 18:31:19] pallet more: done eval pallet5 ([pallet] full 8-stack 1.0 first attempt 1.0 [pallet] full 8-stack 0.9 first attempt 0.9 )
+[10-11 18:41:25] v12: trained
+[10-11 19:08:22] v12: done eval none 98; all 92; tight 88; factory 90; factory_vis 62; factory_max 66; 

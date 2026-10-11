@@ -223,9 +223,8 @@ def body(media, b) -> str:
     add(P(f"현장의 조명·작업대·카메라 장착 위치 변화에 대비해 이를 무작위화하고{cite('dr')}, 실제 공장처럼 움직이는 "
           "컨베이어, 다른 색 통이 놓인 선반, 기둥, 제어함, 상단 카메라 앞을 지나는 천장 케이블, 경고 테이프, 부품 16종"
           "(8~16개), 닮은 빈 통, 지나가는 물체, 깜빡이는 조명을 매번 다르게 둔 장면에서 시연을 만들었다(그림 2(f)). "
-          "물건이 팔과 부딪히지 않도록 전문가 시연 120회에서 팔과 통이 지나간 최저·최고 높이를 5mm 격자로 기록한 작업 "
-          "공간 지도를 만들고, 물건은 그 아래 15mm 이상(케이블은 위 40mm 이상)에 두었다. 통의 색은 공정의 판정 기준이므로 "
-          "바꾸지 않았다."))
+          "물건은 전문가 시연 120회에서 팔과 통이 지나간 높이를 기록한 지도로 팔과 부딪히지 않는 곳에만 두었고, 통의 "
+          "색은 공정의 판정 기준이므로 바꾸지 않았다."))
 
     # ============================================================ Ⅳ. 실험: questions answered in order
     add(h1("Ⅳ. 실험"))
@@ -293,9 +292,13 @@ def body(media, b) -> str:
     v9f, facf, intf = clut("v9_n1000", "factory"), clut(FAC_TAG, "factory"), clut(it, "factory")
     vd = (_json("results/clutter/v11_n1500/vis_diag.json") or {}).get("factory_vis", {}).get("by_look")
     v11v, facv = clut("v11_n1500", "factory_vis"), clut(FAC_TAG, "factory_vis")
-    vis_s = (f"외관까지 바꾼 공장형의 실패는 무늬 있는 작업대에 몰려 있었으므로(공장형 시연 500회일 때 무늬 없음 "
-             f"{vd['plain']['success']:.0f}%, 무늬 {vd['patterned']['success']:.0f}%), 그 장면을 담은 시연 300회를 더해 "
-             f"{v11v}%에서 {facv}%로 높였다. ") if FAC_TAG == "v12_n1800" and vd and _better(v11v, facv) else ""
+    vd12 = (_json("results/clutter/v12_n1800/vis_diag.json") or {}).get("factory_vis", {}).get("by_look")
+    v11m, facm = clut("v11_n1500", "factory_max"), clut(FAC_TAG, "factory_max")
+    vis_s = (f"외관까지 바꾸면 실패가 무늬 있는 작업대에 몰렸고(무늬 없음 {vd['plain']['success']:.0f}%, 무늬 "
+             f"{vd['patterned']['success']:.0f}%), 그 장면의 시연 300회를 더하자 무늬 작업대에서 "
+             f"{vd12['patterned']['success']:.0f}%, 공장형 최대는 {v11m}→{facm}%가 되었으나 공장형+외관 전체는 "
+             f"{v11v}→{facv}%로 차이가 작았다. "
+             ) if FAC_TAG == "v12_n1800" and vd and vd12 else ""
     t44 = ("4.4 Q4: 공장형 환경은 그 환경을 담은 시연으로 대응한다" if _better(v9f, facf)
            else "4.4 Q4: 환경 변화와 공장형 잡동사니")
     add(h2(t44))
@@ -312,9 +315,8 @@ def body(media, b) -> str:
           f"구조물 앞에서는 {v9f}%였고, 공장형 장면의 시연을 단계당 {FAC_DEMOS}회{FAC_VIS} 더하자(+공장) {facf}%가 되었다. "
           f"{vis_s}세 "
           f"물체·두 배치·공장형 장면을 섞은 시연 1800회로 단계별 정책 하나를 {INT_STEPS // 1000}k 스텝 학습한 통합 "
-          f"정책은 공장형 환경에서 6가지 조합 평균 {int_res('factory')}%(최저 {int_res('factory', 'min')}%), 외관까지 "
-          f"무작위화하면 {int_res('factory_vis')}%였다. 실패는 대부분 물건에 부딪힌 것이 아니라 통을 놓는 위치가 어긋난 "
-          "경우였다. " + ("환경의 변화 역시 시연에 담아야 정책이 따라갔다." if _better(v9f, facf) else
+          f"정책은 공장형 환경에서 6가지 조합 평균 {int_res('factory')}%(최저 {int_res('factory', 'min')}%)였다. "
+          + ("환경의 변화 역시 시연에 담아야 정책이 따라갔다." if _better(v9f, facf) else
                          "잡동사니는 시연에 담으면 회복되었으나 공장형 환경은 남은 과제이다." if _better(v9f, facf) is False
                          else "")))
 
@@ -329,10 +331,10 @@ def body(media, b) -> str:
           f"{slot5('pal2n05_s5')}에서 {slot5('pal3n05_s5')}으로 올랐고"
           + (f"(8칸 연속 {p_fix}%), 성공률이 낮은 칸의 시연을 100~200회 더하자 8칸 연속 {P_LAST}%가 되었다. "
              if MISSING not in (p_fix, P_LAST) else ". ")
-          + "칸이 늘어도 실패를 시연에서 찾아 고치는 방식이 그대로 통하였다."))
+          ))
     fig5 = FIG / "fig5_pallet.png"  # paper/fig_pallet8.py (frames of a fully successful evaluation sequence)
     if fig5.exists():
-        add(fig(media, fig5, "그림 5. 칸별 정책 8개가 2×2×2 팔레트를 연속으로 쌓는 모습 (시뮬레이션, 평가 장면)", 0.9))
+        add(fig(media, fig5, "그림 5. 칸별 정책 8개가 2×2×2 팔레트를 연속으로 쌓는 모습 (시뮬레이션, 평가 장면)", 0.8))
 
     # ============================================================ Ⅴ. 결론: answers, limits, more evidence, future work
     add(h1("Ⅴ. 결론 및 향후 연구 방향"))

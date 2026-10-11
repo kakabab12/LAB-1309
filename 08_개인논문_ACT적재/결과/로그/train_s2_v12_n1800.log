@@ -1,0 +1,13 @@
+init from runs/s2_v11_n1500/ckpt_070000
+{"stage": 2, "episodes": 1800, "frames": 486000, "image_bytes": 5706658981, "data": ["data/v9_stage2.jpk.npz", "data/i_bin_orig_s2_p0.jpk.npz", "data/i_bin_orig_s2_p1.jpk.npz", "data/i_bin_orig_s2_p2.jpk.npz", "data/i_bin_orig_s2_p3.jpk.npz", "data/i_bin_orig_s2_p4.jpk.npz", "data/i_bin_orig_s2_f0.jpk.npz", "data/i_bin_orig_s2_f1.jpk.npz", "data/i_bin_orig_s2_f2.jpk.npz"], "steps": 20000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"], "state_noise": 0.0, "init": "runs/s2_v11_n1500/ckpt_070000", "step0": 70000, "seed": 3}
+{"step": 72000, "loss": 0.07203289315104484, "l1_loss": 0.07063150998204946, "kld_loss": 0.00014013832435011864, "elapsed_s": 657.0323085784912}
+{"step": 74000, "loss": 0.06436863537877797, "l1_loss": 0.06306491632014513, "kld_loss": 0.00013037189841270448, "elapsed_s": 1181.3647599220276}
+{"step": 76000, "loss": 0.0667727242410183, "l1_loss": 0.06554548528045416, "kld_loss": 0.00012272389605641365, "elapsed_s": 1683.5632407665253}
+{"step": 78000, "loss": 0.0640462472755462, "l1_loss": 0.0628978484775871, "kld_loss": 0.00011483987793326378, "elapsed_s": 2178.620636701584}
+{"step": 80000, "loss": 0.06507004989311099, "l1_loss": 0.06393296895548702, "kld_loss": 0.00011370809748768806, "elapsed_s": 2662.356347799301}
+{"step": 82000, "loss": 0.06295197730883956, "l1_loss": 0.0618204540386796, "kld_loss": 0.00011315232142806054, "elapsed_s": 3141.825748205185}
+{"step": 84000, "loss": 0.05956208059564233, "l1_loss": 0.058513731388375165, "kld_loss": 0.00010483492165803909, "elapsed_s": 3622.884861946106}
+{"step": 86000, "loss": 0.06233218559995293, "l1_loss": 0.061225749030709264, "kld_loss": 0.0001106436550617218, "elapsed_s": 4109.101893186569}
+{"step": 88000, "loss": 0.06144744275137782, "l1_loss": 0.060376653112471104, "kld_loss": 0.00010707896202802658, "elapsed_s": 4593.02879691124}
+{"step": 90000, "loss": 0.06124819384887815, "l1_loss": 0.06022311730310321, "kld_loss": 0.00010250765830278396, "elapsed_s": 5000.791207313538}
+done 5001.072545289993

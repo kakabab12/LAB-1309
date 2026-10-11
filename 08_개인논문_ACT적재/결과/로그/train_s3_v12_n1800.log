@@ -1,0 +1,13 @@
+init from runs/s3_v11_n1500/ckpt_070000
+{"stage": 3, "episodes": 1800, "frames": 486000, "image_bytes": 5977723218, "data": ["data/v9_stage3.jpk.npz", "data/i_bin_orig_s3_p0.jpk.npz", "data/i_bin_orig_s3_p1.jpk.npz", "data/i_bin_orig_s3_p2.jpk.npz", "data/i_bin_orig_s3_p3.jpk.npz", "data/i_bin_orig_s3_p4.jpk.npz", "data/i_bin_orig_s3_f0.jpk.npz", "data/i_bin_orig_s3_f1.jpk.npz", "data/i_bin_orig_s3_f2.jpk.npz"], "steps": 20000, "batch": 8, "lr": 1e-05, "params": 51597238, "img_hw": [120, 160], "chunk_size": 100, "kl_weight": 10.0, "device": "NVIDIA GeForce GTX 1080 Ti", "preprocess": null, "cams": ["front", "top"], "state_noise": 0.0, "init": "runs/s3_v11_n1500/ckpt_070000", "step0": 70000, "seed": 3}
+{"step": 72000, "loss": 0.06663823746144772, "l1_loss": 0.06516413622535765, "kld_loss": 0.0001474101282656193, "elapsed_s": 703.08922123909}
+{"step": 74000, "loss": 0.06514228034764528, "l1_loss": 0.06378183396533131, "kld_loss": 0.00013604464009404183, "elapsed_s": 1249.5516939163208}
+{"step": 76000, "loss": 0.0648876199312508, "l1_loss": 0.06354539358057082, "kld_loss": 0.00013422263786196708, "elapsed_s": 1770.5479078292847}
+{"step": 78000, "loss": 0.060461735175922515, "l1_loss": 0.05915761237964034, "kld_loss": 0.0001304122805595398, "elapsed_s": 2293.947046279907}
+{"step": 80000, "loss": 0.06344208542257547, "l1_loss": 0.06228676242753863, "kld_loss": 0.0001155322976410389, "elapsed_s": 2804.9834921360016}
+{"step": 82000, "loss": 0.059582489291206, "l1_loss": 0.058480745712295175, "kld_loss": 0.00011017436161637307, "elapsed_s": 3300.1955280303955}
+{"step": 84000, "loss": 0.05864960539154709, "l1_loss": 0.057557589830830695, "kld_loss": 0.00010920155793428421, "elapsed_s": 3786.81014251709}
+{"step": 86000, "loss": 0.06017918331548572, "l1_loss": 0.059121944466605784, "kld_loss": 0.00010572388768196106, "elapsed_s": 4272.792160749435}
+{"step": 88000, "loss": 0.05750912921503186, "l1_loss": 0.056505150273442266, "kld_loss": 0.00010039789602160454, "elapsed_s": 4744.753123521805}
+{"step": 90000, "loss": 0.05814126604236662, "l1_loss": 0.057149712769314645, "kld_loss": 9.915532544255257e-05, "elapsed_s": 4977.567402839661}
+done 4977.82982301712
