@@ -310,7 +310,8 @@ def body(media, b) -> str:
           f"{chain('v1_n100', 2)}%에서 {seq200()}%로, 무게 확인 재시도로 {wretry()}으로 높였으며, 같은 효과를 시연 수로는 "
           "얻지 못하였다. 학습 전 점검 지표는 세 물체에서 시연의 갈림을 학습 전에 드러냈고, 잡동사니는 그것을 담은 "
           "시연으로 회복되었다" + ("(공장형 환경도 같음)." if _better(v9f, facf) else ".")))
-    p_before, p_fix, p_more = pallet_full("pallet3_k25"), pallet_full("pallet4_k25"), pallet_full("pallet5_k25")
+    p_before, p_fix = pallet_full("pallet3_k25"), pallet_full("pallet4_k25")
+    p_more = next((v for v in (pallet_full("pallet6_k25"), pallet_full("pallet5_k25")) if v != MISSING), MISSING)  # last round
     add(P("같은 관점은 2×2×2 팔레트 적재로 확장할 때도 통하였다. 칸별로 전문가 시연의 정확도를 확인하자 가장 먼 2층 칸의 "
           "시연만 평균 6.2mm 치우쳐 있었고(다른 칸 1.8mm, 팔이 닿는 한계에서 역기구학이 손목 각도를 우선한 탓), 이를 "
           f"고치자 그 칸의 성공이 {slot5('pal2n05_s5')}에서 {slot5('pal3n05_s5')}으로 올랐다"

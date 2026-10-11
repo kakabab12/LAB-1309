@@ -1,0 +1,40 @@
+WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
+WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
+WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
+WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
+WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+WARNING:root:No accelerated backend detected. Using default cpu, this will be slow.
+WARNING:root:Device 'cuda' is not available. Switching to 'cpu'.
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+Loading weights from local directory
+seq 20: oooooxoo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 21: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 22: oxoooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 23: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 24: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 25: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 26: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 27: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 28: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 29: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 30: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 31: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 32: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 33: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 34: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 35: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 36: ooooooxo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 37: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 38: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+seq 39: oooooooo attempts [1, 1, 1, 1, 1, 1, 1, 1]
+[pallet] full 8-stack 0.85 first attempt 0.85
