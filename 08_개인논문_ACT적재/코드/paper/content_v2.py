@@ -110,10 +110,12 @@ ABSTRACT = (
     f"raised three-stage success from {chain('v1_n100', 2)}% to {seq200()}% over 200 sequences, whereas ten times "
     f"more demonstrations or noise injection did not; re-running a stage while the scale still reads the bin gave "
     f"{wretry()}. The rules carried over to a cup with a handle ({gen_chain('cup', 'cupnaive')}% to "
-    f"{gen_chain('cup', 'cuprule')}%) and a rectangular box ({gen_chain('box', 'v2b')}% to {gen_chain('box', 'v5')}%), "
-    "and with demonstrations recorded in a randomized factory cell one policy per stage stacked three objects in two "
-    f"layouts with {int_res('factory')}% success among conveyors, racks and cables. Checking how demonstrations are "
-    "made, before training, is a cheap and effective step for imitation-learned factory cells."
+    f"{gen_chain('cup', 'cuprule')}%, {eval_chain('g_cup_orig_cuprule300')}% with 300 rule demonstrations) and a "
+    f"rectangular box ({gen_chain('box', 'v2b')}% to {gen_chain('box', 'v5')}%). In a randomized factory cell with "
+    f"conveyors, racks and cables the bin policy fell to {clut('v9_n1000', 'factory')}% until factory scenes were added "
+    f"to its demonstrations ({clut(FAC_TAG, 'factory')}%), and one policy per stage for three objects in two layouts "
+    f"reached {int_res('factory')}% on average. Checking how demonstrations are made, before training, is a cheap and "
+    "effective step for imitation-learned factory cells."
 )
 
 
@@ -154,8 +156,8 @@ def body(media, b) -> str:
           f"{seq200()}%(200회)로 높였고, 시연을 10배로 늘리거나 잡음을 넣어서는 이 차이가 메워지지 않음을 보였다."))
     add(P("② 학습 없이 시연만으로 계산하는 점검 지표(잡는 순간 손목 각도의 빈 구간)를 제안하고, 통·손잡이 컵·직사각형 "
           "상자에서 실패할 시연 집합을 학습 전에 가려냄을 보였다."))
-    add(P(f"③ 인식부의 저울을 적재 확인에도 써서 실패한 단계를 다시 실행하게 하여 {wretry()}을 얻었고, 공장형 잡동사니 "
-          "환경에서 세 물체·두 배치를 단계별 정책 하나로 적재하였다."))
+    add(P(f"③ 인식부의 저울을 적재 확인에도 써서 실패한 단계를 다시 실행하게 하여 {wretry()}을 얻었고, 공장형 환경에서도 "
+          f"그 장면을 시연에 담으면 성공률이 회복됨을 보였다(통 {clut('v9_n1000', 'factory')}→{clut(FAC_TAG, 'factory')}%)."))
 
     # ============================================================ Ⅱ. 시스템 구성 (recognition measured here, once)
     add(h1("Ⅱ. 시스템 구성"))
@@ -242,7 +244,7 @@ def body(media, b) -> str:
     add(P(f"규칙을 하나씩 더하면 연속 성공률이 {chain('v1_n100', 2)}%에서 {chain('n100', 2)}%, {chain('v4_n100', 2)}%, "
           f"{chain('v5_n100', 2)}%로 올랐다(표 2). R1은 집게가 벽 위에 걸리는 실패를 없앴고, R1만 적용한 시연에서 남은 "
           f"실패 {ws('fail_total')}건 중 {ws('band_fails')}건은 전문가가 잡는 벽을 바꾸는 회전 구간에서 일어났으며 R2가 "
-          f"이를 없앴다. ④는 장면 200개에서 {big_txt('c')}(평균 위치 오차 {xy_mean()}mm)였다. 반면 시연 수를 늘리는 것은 "
+          f"이를 없앴다. ④는 장면 200개에서 {big_txt('c')}였고, 단계별 평균 위치 오차는 {xy_mean()}mm였다. 반면 시연 수를 늘리는 것은 "
           f"답이 아니었다. 갈림이 있는 ②를 200회로 늘리면 오히려 {chain('n200', 2)}%로 낮아졌고, ④를 1000회로 늘리거나 "
           f"DART{cite('dart')} 잡음을 넣어도 {chain('v5_n1000', 2)}%, {chain('v5_dart1000', 2)}%로 나아지지 않았다. 남은 "
           f"실패는 통을 집지 못해 저울에 남은 경우였고, 무게 확인 재시도로 첫 시도 {wretry('cumulative_first_attempt')}에서 "
@@ -311,10 +313,12 @@ def body(media, b) -> str:
     p_before, p_fix, p_more = pallet_full("pallet3_k25"), pallet_full("pallet4_k25"), pallet_full("pallet5_k25")
     add(P("같은 관점은 2×2×2 팔레트 적재로 확장할 때도 통하였다. 칸별로 전문가 시연의 정확도를 확인하자 가장 먼 2층 칸의 "
           "시연만 평균 6.2mm 치우쳐 있었고(다른 칸 1.8mm, 팔이 닿는 한계에서 역기구학이 손목 각도를 우선한 탓), 이를 "
-          f"고치자 그 칸의 성공이 {slot5('pal2n05_s5')}에서 {slot5('pal3n05_s5')}로 올랐다"
+          f"고치자 그 칸의 성공이 {slot5('pal2n05_s5')}에서 {slot5('pal3n05_s5')}으로 올랐다"
           + (f"(8칸 연속 {p_before}% → {p_fix}%" if MISSING not in (p_before, p_fix) else "")
           + (f", 약한 칸의 시연을 늘리면 {p_more}%). " if MISSING not in (p_before, p_fix, p_more) else
              "). " if MISSING not in (p_before, p_fix) else ". ")
+          + f"한편 세 물체를 단계별 정책 하나로 다루면 공장형 환경에서 평균 {int_res('factory')}%(최저 "
+          f"{int_res('factory', 'min')}%, 컵)에 그쳐, 물체 사이의 간섭을 줄이는 것이 남은 과제이다. "
           + "본 결과는 스크립트 시연과 단순화된 접촉 모델의 시뮬레이션에 기반한다. 향후 로봇팔을 복구하여 같은 규칙과 "
           "점검을 실제 셀과 사람 원격조작 시연에 적용해 검증할 예정이다."))
 
