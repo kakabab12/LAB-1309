@@ -1,4 +1,5 @@
-"""Weekly report of 10-14, built on the lab's weekly report file (title slide + one content slide)."""
+"""Weekly report of 10-14, built on the lab's weekly report file (title slide + one content slide).
+Story: the capstone stacking system rebuilt in simulation and run in various environments (picture: fig_weekly_envs.py)."""
 import sys
 from pathlib import Path
 
@@ -10,16 +11,15 @@ SRC, OUT = Path(sys.argv[1]), HERE / "주간보고_10_14_이지용.pptx"
 DATE, NAME = "2026. 10. 14", "Jiyong Lee"
 
 PREVIOUS = [
-    (1, "IEIE 2026 Fall Conference paper (undergraduate paper competition)"),
-    (2, "I rebuilt the stacking experiments in MuJoCo because the robot arm was broken"),
-    (2, "I found three demonstration rules, and 3-stage success rose from 28% to 99.0% (198/200)"),
-    (3, "The rules were grasp clearance, the same grasp wall and a short retreat after release"),
-    (2, "I proposed a pre-training consistency check (gap of wrist angles at grasp)"),
-    (2, "I have revised both papers following your comments"),
+    (1, "Capstone project (smart factory stacking) in simulation"),
+    (2, "I rebuilt our capstone system in MuJoCo because the robot arm was broken"),
+    (3, "It used the same SO-101 arm, scale, blue bins and cameras as the capstone"),
+    (2, "I trained ACT, and the robot stacked three bins with 99.0% success"),
+    (2, "I ran it in various environments, including lighting changes (88–100%)"),
 ]
 NEXT = [
-    (1, "I will submit the proceedings and blind review papers by Oct. 19"),
-    (1, "I will submit the RISE support documents (registration fee, business trip)"),
+    (1, "I will submit the paper for the undergraduate paper competition by Oct. 19"),
+    (1, "I will submit the RISE support documents"),
 ]
 SIZE = {0: 20, 1: 15, 2: 13, 3: 11.5}
 
@@ -62,7 +62,7 @@ fill(nxt, "Next", NEXT)
 W = prs.slide_width
 prev.left, prev.top, prev.width, prev.height = Inches(0.25), Inches(0.85), W - Inches(0.45), Inches(2.3)
 pic_w = W - Inches(0.5)
-pic = s2.shapes.add_picture(str(HERE / "weekly_1014_strip.png"), Inches(0.75), Inches(3.3), width=pic_w - Inches(1.0))
+pic = s2.shapes.add_picture(str(HERE / "weekly_1014_envs.png"), Inches(2.1), Inches(2.75), width=Inches(5.8))
 nxt.left, nxt.top, nxt.width, nxt.height = Inches(0.25), pic.top + pic.height + Inches(0.02), W - Inches(0.45), Inches(1.0)
 prs.core_properties.author = ""
 prs.core_properties.last_modified_by = ""
