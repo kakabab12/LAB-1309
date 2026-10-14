@@ -145,6 +145,38 @@ class ProfDoc:
         """Professor's element as it is (title table, author table, section break), cleaned."""
         self.add(self._clean(copy.deepcopy(self.t[i])))
 
+    def keep_retitled(self, i: int, lines: dict) -> None:
+        """Like keep(i), but paragraphs whose text is a key of `lines` get the new text (first run keeps the format)."""
+        el = self._clean(copy.deepcopy(self.t[i]))
+        done = set()
+        for par in el.iter(W + "p"):
+            rs = [r for r in par.iter(W + "r") if r.find(W + "t") is not None]
+            old = "".join(t.text or "" for r in rs for t in r.iter(W + "t"))
+            if old in lines:
+                rs[0].find(W + "t").text = lines[old]
+                rs[0].find(W + "t").set(XML_SPACE, "preserve")
+                for r in rs[1:]:
+                    r.getparent().remove(r)
+                done.add(old)
+        missing = set(lines) - done
+        assert not missing, missing
+        self.add(el)
+
+    def set_font(self, text: str, font: str) -> None:
+        """Set the run font of the already added paragraph whose text is `text` (e.g. affiliation line as in the template)."""
+        n = 0
+        for el in self.out:
+            for par in el.iter(W + "p"):
+                if "".join(t.text or "" for t in par.iter(W + "t")) == text:
+                    for rf in par.iter(W + "rFonts"):
+                        for k in list(rf.attrib):
+                            del rf.attrib[k]
+                        for k in ("ascii", "eastAsia", "hAnsi"):
+                            rf.set(W + k, font)
+                        rf.set(W + "hint", "eastAsia")
+                    n += 1
+        assert n == 1, (text, n)
+
     def h1(self, text: str, blank_before: bool = True, blank_after: bool = True) -> None:
         """Chapter heading; without blank_after a small space after the heading replaces the empty line."""
         if blank_before:

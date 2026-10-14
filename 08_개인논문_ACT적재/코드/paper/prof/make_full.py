@@ -35,8 +35,17 @@ def prof(i: int, *edits: tuple[str, str]) -> str:
     return t
 
 
-for i in range(5):
-    d.keep(i)
+# Title revised by the professor on 10-14 (the same in all versions); the abstract and body of this draft are reworked
+# for the journal after the conference.
+d.keep(0)
+d.keep_retitled(1, {"Jetson Orin Nano 기반 YOLOv8 무게 인식과 ACT": "ACT 모방학습 기반 스마트 팩토리 순차 적재에서",
+                    "모방학습을 이용한 스마트 팩토리 순차 적재와 시연 설계 분석": "시연 일관성의 영향 분석"})
+d.keep(2)
+d.keep_retitled(3, {"Smart Factory Sequential Stacking with YOLOv8 Weight Recognition":
+                    "Analyzing the Effects of Demonstration Consistency on",
+                    "and ACT Imitation Learning: Demonstration Design Analysis":
+                    "ACT-Based Sequential Stacking for Smart Factories"})
+d.keep(4)
 
 d.blank()
 d.abstract_head()
