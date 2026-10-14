@@ -230,6 +230,12 @@ d.p("본 연구의 조작 결과에는 다음과 같은 한계가 있다. 첫째
 d.h1(prof(80))
 d.p(prof(82, ("초기 28%에서 별도 200회 평가의 99.0%로 높였고", "초기 28%에서 200개 장면 확대 평가의 99.0%로 높였고")))
 
+# Funding acknowledgement required by the RISE support programme (wording given by the programme, verbatim).
+ACK = ("본 과제(결과물)는 2026년도 교육부 및 대구광역시의 재원으로 RISE센터의 지원을 받아 수행된 "
+       "지역혁신중심 대학지원체계(RISE)의 결과입니다.(과제관리번호: 2026-RISE-03-002)")
+d.h1("감사의 글")
+d.p(ACK)
+
 d.h1("참고문헌")
 for i in range(86, 104):
     d.ref(prof(i))

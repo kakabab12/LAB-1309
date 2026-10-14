@@ -168,6 +168,21 @@ class ProfDoc:
     def p(self, content) -> None:
         self.add(self._para(T_BODY, content, 18))
 
+    def note(self, text: str, sz: int = 16) -> None:
+        """Small single-spaced note paragraph (funding acknowledgement): 8 pt, 6 pt above, no heading."""
+        p = self._para(T_BODY, text, sz)
+        ppr = p.find(W + "pPr")
+        sp = ppr.find(W + "spacing")
+        if sp is None:
+            sp = etree.Element(W + "spacing")
+            ind = ppr.find(W + "ind")
+            if ind is not None:
+                ind.addprevious(sp)
+            else:
+                ppr.append(sp)
+        sp.set(W + "before", "120"); sp.set(W + "line", "240"); sp.set(W + "lineRule", "auto")
+        self.add(p)
+
     def figcap(self, text: str) -> None:
         self.add(self._para(T_FIGCAP, text, 18))
 

@@ -140,6 +140,11 @@ d.p("본 논문은 YOLOv8 기반 무게 인식과 단계별 ACT 정책을 결합
     "상충하는 잡기 전략을 학습 전에 드러냈다. 다만 모든 조작 결과는 스크립트 시연을 사용한 시뮬레이션에 한정되므로, "
     "향후 실제 로봇과 사람 원격조작 시연에서 동일한 규칙과 진단 지표를 검증할 예정이다.")
 
+# Funding acknowledgement required by the RISE support programme (wording given by the programme, verbatim).
+ACK = ("본 과제(결과물)는 2026년도 교육부 및 대구광역시의 재원으로 RISE센터의 지원을 받아 수행된 "
+       "지역혁신중심 대학지원체계(RISE)의 결과입니다.(과제관리번호: 2026-RISE-03-002)")
+d.note("※ " + ACK)  # compact form: a heading with empty lines pushes the last reference to page 4
+
 d.h1("참고문헌", **H1)
 for r in [
     "[1] T. Z. Zhao, V. Kumar, S. Levine, and C. Finn, “Learning Fine-Grained Bimanual Manipulation with Low-Cost "
@@ -155,7 +160,7 @@ for r in [
     "[7] E. Todorov, T. Erez, and Y. Tassa, “MuJoCo: A Physics Engine for Model-Based Control,” Proc. IEEE/RSJ IROS, "
     "pp. 5026–5033, 2012.",
 ]:
-    d.ref(r, sz=18, line=288)  # 9 pt, as the references of the IEIE template sample
+    d.ref(r, sz=18, line=264)  # 9 pt as in the IEIE template sample; line 288 -> 264 leaves room for the funding note
 
 out = ROOT / "paper" / "out" / "conf3.docx"
 d.save(out)
