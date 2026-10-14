@@ -158,8 +158,12 @@ class ProfDoc:
     def tblcap(self, text: str) -> None:
         self.add(self._para(T_TBLCAP, text, 18))
 
-    def ref(self, text: str) -> None:
-        self.add(self._para(T_REF, text, 16))
+    def ref(self, text: str, sz: int = 16, line: int | None = None) -> None:
+        """Reference entry. The professor's file has 8 pt / line 228; the IEIE template sample has 9 pt / line 288."""
+        p = self._para(T_REF, text, sz)
+        if line is not None:
+            p.find(W + "pPr/" + W + "spacing").set(W + "line", str(line))
+        self.add(p)
 
     # ------------------------------------------------------------------ pictures
     def _set_extent(self, p: etree._Element, cx: int, cy: int) -> None:

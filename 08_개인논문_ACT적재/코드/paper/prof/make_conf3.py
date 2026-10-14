@@ -21,7 +21,7 @@ from profdoc import ProfDoc
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 d = ProfDoc(HERE / "prof_revised_1013.docx", ROOT / "paper" / "out" / "_conf3_work")
-H1 = dict(blank_after=False)  # one empty line before a chapter heading, a small space after it
+H1 = dict(blank_after=True)  # empty line before and after a chapter heading, as in the IEIE template sample
 
 for i in range(5):  # title, authors, section break (as the professor left them)
     d.keep(i)
@@ -155,7 +155,7 @@ for r in [
     "[7] E. Todorov, T. Erez, and Y. Tassa, “MuJoCo: A Physics Engine for Model-Based Control,” Proc. IEEE/RSJ IROS, "
     "pp. 5026–5033, 2012.",
 ]:
-    d.ref(r)
+    d.ref(r, sz=18, line=288)  # 9 pt, as the references of the IEIE template sample
 
 out = ROOT / "paper" / "out" / "conf3.docx"
 d.save(out)

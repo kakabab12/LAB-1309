@@ -106,10 +106,29 @@ def runs(text: str, sz: int | None = None) -> str:
             props = f'<w:vertAlign w:val="{va}"/>' + (f'<w:sz w:val="{sz}"/>' if sz else "")
             out.append(f'<w:r><w:rPr>{props}</w:rPr><w:t xml:space="preserve">{escape(text[i + 2:j])}</w:t></w:r>')
             i = j + 1
+        elif text[i] == "\t":
+            flush()
+            out.append("<w:r><w:tab/></w:r>")
+            i += 1
         else:
             buf += text[i]; i += 1
     flush()
     return "".join(out)
+
+
+def cap(text: str) -> str:
+    """Caption numbering as in the template sample: '그림<tab>1.<tab>제목', 'Fig.<tab>1.<tab>Title', '표<tab>1.  제목'."""
+    import re
+    text = re.sub(r"^(그림|Fig\.) (\d+)\. ", lambda m: f"{m.group(1)}\t{m.group(2)}.\t", text)
+    text = re.sub(r"^표 (\d+)\. ", lambda m: f"표\t{m.group(1)}.  ", text)
+    return re.sub(r"^Table (\d+)\. ", lambda m: f"Table {m.group(1)}.  ", text)
+
+
+def equation(text: str, n: int) -> str:
+    """Display equation with its number at the right end (template: 수식 맨 끝에 번호, style 수식번호)."""
+    tabs = "".join(f'<w:tab w:val="clear" w:pos="{x}"/>' for x in (408, 686, 756))
+    tabs += f'<w:tab w:val="center" w:pos="{COL_TWIPS // 2}"/><w:tab w:val="right" w:pos="{COL_TWIPS}"/>'
+    return f'<w:p><w:pPr><w:pStyle w:val="af6"/><w:tabs>{tabs}</w:tabs></w:pPr>{runs(chr(9) + text + chr(9) + f"({n})")}</w:p>'
 
 
 def P(style: str, text: str, jc: str | None = None, keep_next: bool = False, sz: int | None = None,
@@ -161,7 +180,7 @@ def figure(media: Media, path: Path, cap_ko: str, cap_en: str, frac: float = 0.9
         f'</wp:inline></w:drawing></w:r>')
     img = (f'<w:p><w:pPr><w:pStyle w:val="a3"/><w:keepNext/><w:spacing w:before="80" w:after="40" w:line="240" '
            f'w:lineRule="auto"/><w:jc w:val="center"/></w:pPr>{drawing}</w:p>')
-    return img + P("a8", cap_ko, keep_next=True) + P("a8", cap_en, after=100)
+    return img + P("a8", cap(cap_ko), keep_next=True) + P("a8", cap(cap_en), after=100)
 
 
 def table(cap_ko: str, cap_en: str, widths: list[int], rows: list[list[str]], sz: int = 14) -> str:
@@ -184,7 +203,7 @@ def table(cap_ko: str, cap_en: str, widths: list[int], rows: list[list[str]], sz
            f'<w:tblBorders>{borders}</w:tblBorders><w:tblLayout w:type="fixed"/>'
            f'<w:tblCellMar><w:left w:w="30" w:type="dxa"/><w:right w:w="30" w:type="dxa"/></w:tblCellMar>'
            f'</w:tblPr><w:tblGrid>{grid}</w:tblGrid>{"".join(trs)}</w:tbl>')
-    return (P("a8", cap_ko, keep_next=True, before=100) + P("a8", cap_en, keep_next=True, after=40) + tbl
+    return (P("a8", cap(cap_ko), keep_next=True, before=100) + P("a8", cap(cap_en), keep_next=True, after=40) + tbl
             + f'<w:p><w:pPr><w:pStyle w:val="a3"/><w:spacing w:before="0" w:after="0" w:line="160" w:lineRule="auto"/></w:pPr></w:p>')
 
 
@@ -270,9 +289,10 @@ def body_xml(media: Media, cite: Cites) -> str:
 
     add(section("4. 학습 전 시연 일관성 점검"))
     add(body("‘늘 같은 곳 잡기’의 위반은 그리퍼가 닫히는 순간의 손목 회전각 분포로 점검한다. N개 시연의 각도를 "
-             "θ_{(1)} ≤ ⋯ ≤ θ_{(N)}으로 정렬하고 최대 인접 간격 G = max_{i} [θ_{(i+1)} − θ_{(i)}]를 계산한다. 잡기 전략이 "
-             "하나면 각도가 연속적으로 분포하지만, 두 전략이 섞이면 군집 사이에 큰 간격이 나타난다(그림 3). G는 절대 "
-             "임계값이 아니라 같은 물체·조건에서 시연 집합의 일관성을 비교하는 진단 지표로 사용한다."))
+             "θ_{(1)} ≤ ⋯ ≤ θ_{(N)}으로 정렬하고 최대 인접 간격 G를 식 (1)로 계산한다."))
+    add(equation("G = max_{1≤i<N} [θ_{(i+1)} − θ_{(i)}]", 1))
+    add(body("잡기 전략이 하나면 각도가 연속적으로 분포하지만, 두 전략이 섞이면 군집 사이에 큰 간격이 나타난다(그림 3). "
+             "G는 절대 임계값이 아니라 같은 물체·조건에서 시연 집합의 일관성을 비교하는 진단 지표로 사용한다."))
     add(figure(media, C.FIG / "fig3_audit_en.png", "그림 3. 잡는 순간의 손목 회전각 (1층 시연 100회)",
                "Fig. 3. Wrist roll angle at grasp time", FIG3))
 
@@ -371,6 +391,7 @@ def build(out: Path) -> None:
     rroot = rels.getroot()
     for rel in list(rroot):
         if rel.get("Type").endswith("/image"):
+            (tmp / "word" / rel.get("Target")).unlink(missing_ok=True)  # the template's sample pictures
             rroot.remove(rel)
     (tmp / "word" / "media").mkdir(exist_ok=True)
     for rid, name, srcf in media.items:
