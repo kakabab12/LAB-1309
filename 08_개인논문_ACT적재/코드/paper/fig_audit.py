@@ -21,8 +21,12 @@ font_manager.fontManager.addfont("/usr/share/fonts/opentype/noto/NotoSansCJK-Reg
 font_manager.fontManager.addfont("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc")
 plt.rcParams.update({"font.family": "Noto Sans CJK JP", "font.size": 8.5, "axes.linewidth": 0.6})
 
-OBJ = [("bin", "정사각형 적재함"), ("box", "직사각형 상자"), ("cup", "손잡이 컵")]
-SETS = [(True, "사람식 시연", "#e8590c"), (False, "규칙 시연", "#1c64c8")]
+EN = "--en" in __import__("sys").argv  # English labels for the journal-format (blind review) version
+OBJ = ([("bin", "Square bin"), ("box", "Rectangular box"), ("cup", "Cup with a handle")] if EN else
+       [("bin", "정사각형 적재함"), ("box", "직사각형 상자"), ("cup", "손잡이 컵")])
+SETS = ([(True, "Human-like", "#e8590c"), (False, "Rule-based", "#1c64c8")] if EN else
+        [(True, "사람식 시연", "#e8590c"), (False, "규칙 시연", "#1c64c8")])
+GAP = "gap" if EN else "빈 구간"
 
 
 def gap_band(roll):
@@ -46,10 +50,10 @@ def main() -> None:
             lo, hi = gap_band(roll)
             if hi - lo >= 10:
                 ax.axvspan(lo, hi, ymin=(y + 0.5 - 0.42) / 2, ymax=(y + 0.5 + 0.42) / 2, color=col, alpha=0.12, lw=0)
-                ax.text((lo + hi) / 2, y, f"빈 구간\n{v['widest_gap_deg']:.0f}°", ha="center", va="center",
+                ax.text((lo + hi) / 2, y, f"{GAP}\n{v['widest_gap_deg']:.0f}°", ha="center", va="center",
                         fontsize=7.5, color=col, fontweight="bold", linespacing=0.95)
             else:
-                ax.text(roll.max() + 6, y, f"빈 구간 {v['widest_gap_deg']:.0f}°", ha="left", va="center",
+                ax.text(roll.max() + 6, y, f"{GAP} {v['widest_gap_deg']:.0f}°", ha="left", va="center",
                         fontsize=7.5, color=col, fontweight="bold")
         ax.set_ylim(-0.5, 1.5)
         ax.set_yticks([1, 0], [s[1] for s in SETS], fontsize=7.5)
@@ -62,9 +66,9 @@ def main() -> None:
             ax.spines[s].set_visible(False)
     axs[-1].set_xlim(-110, 125)
     axs[-1].set_xticks(range(-100, 125, 50))
-    axs[-1].set_xlabel("그리퍼가 닫히는 순간의 손목 회전각 (°)")
+    axs[-1].set_xlabel("Wrist roll angle when the gripper closes (°)" if EN else "그리퍼가 닫히는 순간의 손목 회전각 (°)")
     fig.tight_layout(h_pad=0.6)
-    out = ROOT / "paper" / "fig3_audit.png"
+    out = ROOT / "paper" / ("fig3_audit_en.png" if EN else "fig3_audit.png")
     fig.savefig(out)
     print(out)
 
