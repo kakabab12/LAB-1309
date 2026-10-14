@@ -191,6 +191,7 @@ def main():
     p.add_argument("--ttrtc", action="store_true", help="학습 때 지연 흉내내기 모델 (switch_experiment --ttrtc)")
     p.add_argument("--a2c2", default=None, help="A2C2 보정 네트워크 폴더")
     p.add_argument("--n-action-steps", type=int, default=10)
+    p.add_argument("--cuda-graph", action="store_true", help="모델 계산을 CUDA 그래프로 (fastinfer.py, 10/14, 출력 같음)")
     p.add_argument("--strategy", default="flush", help="전환 방식 (flush / keep)")
     p.add_argument("--resume", action="store_true",
                    help="전환 쌍에서 B 를 마친 뒤 원래 일로 돌아가는 구간을 바로잡는다 (DR 파일)")
@@ -209,6 +210,7 @@ def main():
         ra.max_steps = 300
         ra.latency_steps = a.latency_steps
         ra.ttrtc, ra.a2c2, ra.n_action_steps = a.ttrtc, a.a2c2, a.n_action_steps
+        ra.cuda_graph = getattr(a, "cuda_graph", False)
         runner = sx.Runner(ra)
         s0 = dict(stats)
         for i in ep_range(a.episodes):

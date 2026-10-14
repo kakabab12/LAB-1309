@@ -1325,6 +1325,23 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
             if err_off < 0.003:                       # 풀린 자세만 (3mm 안)
                 q_go = q_off
         pik.safe_servo_to_q(ep, q_go, -1.0, keep, record=record, tol=0.01)
+        if _is_blocks() and BLOCK_GRASP_STYLE == "align":
+            # 높은 곳에서 블록 바로 위로 옆걸음 (빗나간 출발이면 여기서 고친다) → 똑바로 내려가 3cm 위까지 → 천천히 바닥까지
+            if not se.servo(ep, g + [0, 0, above], gm, -1.0, tol=0.003, vmax=0.3, max_steps=40, record=record):
+                continue
+            se.servo(ep, g + [0, 0, 0.03], gm, -1.0, tol=0.004, vmax=float(se._rng.uniform(0.25, 0.4)),
+                     max_steps=40, record=record)
+            if not se.servo(ep, g, gm, -1.0, tol=0.004, vmax=float(se._rng.uniform(0.08, 0.14)), record=record):
+                se.servo(ep, g + [0, 0, above], gm, -1.0, tol=0.03, max_steps=30, record=record)
+                continue
+            se.hold(ep, -1.0, int(se._rng.integers(3, 7)), record)
+            se.hold(ep, 1.0, 12, record)
+            z0 = ep.obj_pos(obj)[2]
+            se.servo(ep, g + [0, 0, 0.10], gm, 1.0, tol=0.02, record=record)
+            if ep.obj_pos(obj)[2] > z0 + 0.04:
+                return True
+            se.hold(ep, -1.0, 8, record)
+            continue
         # 블록(10/4 밤): 내려가는 속도(0.15~0.4)와 바닥에서 멈추는 시간(0~4스텝)을 시범마다 다르게.
         #   늘 같은 속도로 내려가 같은 시간에 오므리면 학생은 높이 대신 '시간'으로 오므릴 때를 배운다 —
         #   b1 은 시범보다 40% 느리게 내려가며 같은 시간(45스텝째)에 96cm 에서 오므려 빈손이 됐다 (가설)
@@ -1417,6 +1434,11 @@ def block_grasp_candidates(ep, obj):
 
 PIPER_GRASP_DEEPER = 0.012
 BLOCK_APPROACH_OFFSET = 0.025   # 블록 집으러 내려가기 전 일부러 빗나가는 최대 거리 (10/5, 0 이면 끔)
+# 10/14: 블록 쥐는 방식. "diag" = 빗나간 위치에서 비스듬히 내려가며 맞춤 (10/5~), "align" = 블록 위 높은 곳에서 먼저
+#   맞춘 뒤 똑바로 내려가 마지막 3cm 는 천천히, 바닥에서 3~6스텝 멈췄다 쥔다 (ACT 적재 논문의 '여유 두고 잡기').
+#   학생 모델은 0.56초 늦게 고치므로, 내려가면서 맞추는 시범을 따라 하면 손가락이 블록 윗면에 먼저 닿았다 (10/7 진단)
+import os as _os  # noqa: E402
+BLOCK_GRASP_STYLE = _os.environ.get("PIPER_GRASP_STYLE", "diag")
 
 
 def grasp_bowl_safe(ep, obj="akita_black_bowl_1", off=None, record=None, above=0.08, prefer=None, keepout=(),

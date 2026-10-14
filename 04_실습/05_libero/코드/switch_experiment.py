@@ -186,6 +186,8 @@ def build_parser():
     p.add_argument("--num-steps", type=int, default=0,
                    help="동작을 만드는 반복 단계 수 (기본 0 = 모델 설정 10). 5 로 줄이면 1080 Ti 계산이 약 38% 빨라진다 "
                         "(10/3 bench_split: 752→468ms). 줄이면 --latency-steps 도 그에 맞게 줄여 평가할 것")
+    p.add_argument("--cuda-graph", action="store_true",
+                   help="모델 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py, 10/14). 결과 값은 같고 시간만 줄어든다")
     p.add_argument("--a2c2", default=None,
                    help="A2C2 보정 네트워크 폴더 (a2c2.py train 결과). 매 스텝 최신 사진으로 묶음 동작을 조금씩 고친다")
     p.add_argument("--a2c2-scale", type=float, default=1.0, help="보정 크기 배율 (진단용)")
@@ -911,6 +913,10 @@ class Runner:
         if getattr(args, "ttrtc", False):
             import ttrtc
             ttrtc.patch()
+        if getattr(args, "cuda_graph", False):
+            # 10/14: 같은 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py). 지연 스텝 수는 --latency-steps 로 따로 맞춘다
+            import fastinfer
+            fastinfer.install()
         self.corrector = None
         if getattr(args, "a2c2", None):
             import a2c2

@@ -66,6 +66,7 @@ def build(a):
     pre, _ = make_pre_post_processors(policy_cfg=pol.config, pretrained_path=a.policy,
                                       preprocessor_overrides={"device_processor": {"device": dev}})
     env_step = PolicyProcessorPipeline(steps=[LiberoProcessorStep()])
+    objfeat = (Path(a.policy) / "objfeat").exists()
     files = sorted(f for d in a.data for f in Path(d).glob("episodes/*.npz"))
     files = files[a.shard::a.nshard]
     t0, nfr, done = time.time(), 0, 0
@@ -86,7 +87,11 @@ def build(a):
                                    "gripper": {"qpos": d["grip"][ts]}}}
             b = preprocess_observation(obs)
             b["task"] = [str(d["task"])] * len(ts)
-            b = pre(env_step(b))
+            b = env_step(b)
+            if objfeat:     # 10/14: 위치 입력 모델은 상태 32칸 — 사진 특징과 무관하므로 0 으로 채워 정규화만 통과시킨다
+                st = b["observation.state"]
+                b["observation.state"] = torch.cat([st, torch.zeros(st.shape[0], 24, dtype=st.dtype, device=st.device)], -1)
+            b = pre(b)
             imgs, _ = pol.prepare_images(b)
             e = torch.stack([pol.model.vlm_with_expert.embed_image(im) for im in imgs], 1)
             mm[i:i + len(ts)] = e.half().cpu().numpy()
