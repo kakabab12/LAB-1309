@@ -87,10 +87,10 @@ for g in results/gifs_expert/*.gif; do
   out="$R/결과/gif/expert/$(basename "$g")"
   [ "$out" -nt "$g" ] || .venv/bin/python shrink_gif.py "$g" "$out" 480
 done
-[ -f paper/out/paper.docx ] && cp paper/out/paper.docx "$R/논문/"
-[ -f paper/out/paper.pdf ] && cp paper/out/paper.pdf "$R/논문/"
-[ -f paper/out/paper_v2.docx ] && cp paper/out/paper_v2.docx "$R/논문/"
-[ -f paper/out/paper_v2.pdf ] && cp paper/out/paper_v2.pdf "$R/논문/"
+[ -f paper/out/paper.docx ] && cp paper/out/paper.docx "$R/논문/이전_1011/"  # superseded by 논문/제출_1014 (10-14)
+[ -f paper/out/paper.pdf ] && cp paper/out/paper.pdf "$R/논문/이전_1011/"  # superseded by 논문/제출_1014 (10-14)
+[ -f paper/out/paper_v2.docx ] && cp paper/out/paper_v2.docx "$R/논문/이전_1011/"  # superseded by 논문/제출_1014 (10-14)
+[ -f paper/out/paper_v2.pdf ] && cp paper/out/paper_v2.pdf "$R/논문/이전_1011/"  # superseded by 논문/제출_1014 (10-14)
 
 # code
 cp stack_env.py expert.py gen_data.py train_act.py eval_act.py make_gif.py batch_expert.py sync_repo.sh analyze.py dataset_preview.py \

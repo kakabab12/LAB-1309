@@ -29,6 +29,22 @@ FONT = "HY신명조"
 COL_TWIPS = 4535  # one column of the template: (11906 - 2 * 1134 - 567) / 2
 EMU_PER_TWIP = 635
 
+# Wording asked for by the first author (10-11, again 10-14) for every version of the paper: 통 -> (파란) 적재함 and
+# 셀 -> 시스템 / 환경 are already in the professor's text; 정책 -> 모델 and 잡음 -> 노이즈 are applied here to every
+# paragraph and table cell (Korean particles follow the new final sound). "공식 SO-101 모델" is the robot's model
+# file, so it becomes "로봇 모델" to keep it apart from the learned model.
+TERMS = [("공식 SO-101 모델에", "공식 SO-101 로봇 모델에"),
+         ("정책으로", "모델로"), ("정책", "모델"),
+         ("잡음을", "노이즈를"), ("잡음이", "노이즈가"), ("잡음은", "노이즈는"), ("잡음과", "노이즈와"),
+         ("잡음으로", "노이즈로"), ("잡음", "노이즈")]
+
+
+def terms(text: str) -> str:
+    for old, new in TERMS:
+        text = text.replace(old, new)
+    return text
+
+
 # indices of the professor's body elements used as formatting templates
 T_BLANK, T_BLANK_SMALL = 11, 33
 T_ABS_HEAD, T_ABS = 6, 8
@@ -114,9 +130,9 @@ class ProfDoc:
         for part in ([content] if isinstance(content, str) else content):
             if isinstance(part, str):
                 if part:
-                    p.append(self.run(part, sz, bold))
+                    p.append(self.run(terms(part), sz, bold))
             else:
-                p.append(self.run(part[0], sz, bold, **part[1]))
+                p.append(self.run(terms(part[0]), sz, bold, **part[1]))
         return p
 
     def add(self, *els) -> None:
@@ -237,7 +253,7 @@ class ProfDoc:
                     ppr = p.find(W + "pPr")
                     if ppr.find(W + "keepNext") is None:
                         ppr.insert(1 if ppr.find(W + "pStyle") is not None else 0, etree.Element(W + "keepNext"))
-                p.append(self.run(text, sz, bold=(ri == 0)))
+                p.append(self.run(terms(text), sz, bold=(ri == 0)))
                 tr.append(tc)
         self.add(tbl)
         self.blank(small=True)

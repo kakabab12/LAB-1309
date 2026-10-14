@@ -42,11 +42,11 @@ d.blank()
 d.abstract_head()
 d.blank()
 d.abstract(
-    "Low-cost robot arms trained from demonstrations are attractive for small smart-factory cells, but in sequential "
+    "Low-cost robot arms trained from demonstrations are attractive for small smart-factory systems, but in sequential "
     "stacking each stage starts from the state left by the previous one, so distribution shift and inconsistent "
     "demonstrations compound across stages. We built a system in which a YOLOv8n model on a Jetson Orin Nano reads the "
-    "7-segment display of a scale (91.7% accuracy at the 118 g threshold) and triggers stage-wise ACT policies for an "
-    "SO-101 arm, and we evaluated stacking in a MuJoCo replica of the system. With the policy architecture and training "
+    "7-segment display of a scale (91.7% accuracy at the 118 g threshold) and triggers stage-wise ACT models for an "
+    "SO-101 arm, and we evaluated stacking in a MuJoCo replica of the system. With the model architecture and training "
     "configuration fixed, three demonstration design rules (grasp clearance, a consistent grasp region, and retreating "
     "before lifting) raised three-stage success from 28% to 99.0% (198/200), and a weight-based retry gave 200/200. A "
     "pre-training diagnostic, the maximum internal gap of the wrist angle at grasp time, distinguished inconsistent "
@@ -67,7 +67,7 @@ d.p(prof(18))
 # ------------------------------------------------------------------ Ⅱ
 d.h1("Ⅱ. 관련 연구")
 d.h2(prof(22))
-d.p(prof(23))
+d.p(prof(23, ("학습 시 보지 못한 상태로 정책이 이동할 때 오차가 누적되는", "학습 시 보지 못한 상태에 놓이면 오차가 누적되는")))
 d.h2(prof(24))
 d.p(prof(25))
 
