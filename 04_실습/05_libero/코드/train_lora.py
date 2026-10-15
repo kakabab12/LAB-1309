@@ -113,10 +113,19 @@ def augment(img, rng):
     return x
 
 
+def vis_offset(f, stride):
+    """에피소드 f 에서 쓰는 장: t = off, off+stride, ... (off 는 파일 이름으로 정함)."""
+    import zlib
+    return zlib.crc32(Path(f).stem.encode()) % stride if stride > 1 else 0
+
+
 class ChunkDataset(Dataset):
     """(에피소드, 시점) → 이미지 2장 + 로봇 상태 + 앞으로 chunk_size 스텝의 동작."""
 
     def __init__(self, files, chunk_size, aug=False, vis_cache=None, frame_stride=1, abs_pos=False, objfeat=False):
+        if vis_cache and (Path(vis_cache) / "stride.txt").exists():
+            cs = int((Path(vis_cache) / "stride.txt").read_text())
+            assert frame_stride % cs == 0, f"사진 특징을 {cs}장마다 계산해 두었는데 --frame-stride {frame_stride} — 빈 특징을 읽게 된다"
         self.aug = aug
         self.objfeat = objfeat
         self.chunk = chunk_size
@@ -140,7 +149,8 @@ class ChunkDataset(Dataset):
             ep["dagger"] = Path(f).name.startswith("D")      # DN/DS/DR: 학생 상태에서 선생이 바로잡은 시범
             self.eps.append(ep)
             n = len(ep["action"])
-            off = len(self.eps) % frame_stride if frame_stride > 1 else 0
+            # 10/14: 몇 번째 장부터 쓸지를 파일 이름으로 정한다 (vis_cache.py build --stride 가 같은 장만 미리 계산)
+            off = vis_offset(f, frame_stride)
             ts = list(range(off, n, frame_stride))
             if frame_stride > 1 and not vis_cache:   # 안 쓰는 프레임의 사진은 메모리에서 지운다
                 keep = set(ts)
@@ -164,9 +174,12 @@ class ChunkDataset(Dataset):
         if self.vis_cache:      # 미리 계산한 사진 특징 — 사진은 자리만 채운다
             feats = np.array(np.load(ep["feat_path"], mmap_mode="r")[t])
             dummy = np.zeros((8, 8, 3), dtype=np.uint8)
-            return {"img": dummy, "wrist": dummy, "feats": feats,
+            item = {"img": dummy, "wrist": dummy, "feats": feats,
                     "eef_pos": ep["eef_pos"][t], "eef_quat": ep["eef_quat"][t], "grip": ep["grip"][t],
                     "action": actions.astype(np.float32), "is_pad": is_pad, "task": ep["task"]}
+            if self.objfeat:        # 10/14: 미리 계산본을 쓸 때도 물체 위치 24개를 붙인다 (빠져서 상태 8칸으로 들어가 멈췄다)
+                item["objfeat"] = ep["objfeat"][t]
+            return item
         img, wrist = decode(ep["img"][t]), decode(ep["wrist"][t])
         if self.aug:
             rng = np.random.default_rng()

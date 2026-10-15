@@ -69,6 +69,12 @@ def build(a):
     objfeat = (Path(a.policy) / "objfeat").exists()
     files = sorted(f for d in a.data for f in Path(d).glob("episodes/*.npz"))
     files = files[a.shard::a.nshard]
+    Path(a.out).mkdir(parents=True, exist_ok=True)
+    sf = Path(a.out) / "stride.txt"
+    if sf.exists():
+        assert int(sf.read_text()) == a.stride, f"{a.out} 는 {sf.read_text()}장마다 계산본 — --stride 를 맞출 것"
+    else:
+        sf.write_text(str(a.stride))
     t0, nfr, done = time.time(), 0, 0
     for f in files:
         dst = cache_path(a.out, f)
@@ -79,8 +85,11 @@ def build(a):
         n = len(d["action"])
         tmp = dst.with_suffix(".tmp.npy")
         mm = np.lib.format.open_memmap(tmp, mode="w+", dtype=np.float16, shape=(n,) + SHAPE)
-        for i in range(0, n, a.batch):
-            ts = list(range(i, min(n, i + a.batch)))
+        import zlib
+        off = zlib.crc32(Path(f).stem.encode()) % a.stride if a.stride > 1 else 0   # train_lora.vis_offset 와 같다
+        frames = list(range(off, n, a.stride))
+        for i in range(0, len(frames), a.batch):
+            ts = frames[i:i + a.batch]
             obs = {"pixels": {"image": np.stack([decode(d["img"][t]) for t in ts]),
                               "image2": np.stack([decode(d["wrist"][t]) for t in ts])},
                    "robot_state": {"eef": {"pos": d["eef_pos"][ts], "quat": d["eef_quat"][ts]},
@@ -94,7 +103,7 @@ def build(a):
             b = pre(b)
             imgs, _ = pol.prepare_images(b)
             e = torch.stack([pol.model.vlm_with_expert.embed_image(im) for im in imgs], 1)
-            mm[i:i + len(ts)] = e.half().cpu().numpy()
+            mm[ts] = e.half().cpu().numpy()
         mm.flush()
         del mm
         tmp.rename(dst)
@@ -116,6 +125,7 @@ def main():
     b.add_argument("--batch", type=int, default=16)
     b.add_argument("--shard", type=int, default=0)
     b.add_argument("--nshard", type=int, default=1)
+    b.add_argument("--stride", type=int, default=1, help="이 장마다 하나만 계산 (학습 --frame-stride 와 같게, 10/14)")
     a = p.parse_args()
     build(a)
 

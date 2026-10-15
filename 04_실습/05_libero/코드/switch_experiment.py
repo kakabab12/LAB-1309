@@ -186,6 +186,9 @@ def build_parser():
     p.add_argument("--num-steps", type=int, default=0,
                    help="동작을 만드는 반복 단계 수 (기본 0 = 모델 설정 10). 5 로 줄이면 1080 Ti 계산이 약 38% 빨라진다 "
                         "(10/3 bench_split: 752→468ms). 줄이면 --latency-steps 도 그에 맞게 줄여 평가할 것")
+    p.add_argument("--grasp-assist", action="store_true",
+                   help="정렬 보조 (grasp_assist.py, 10/15): 손이 열린 채 지시문의 블록에 가까우면 정면 카메라로 잰 블록 위치에 "
+                        "앞뒤좌우를 맞추고, 많이 어긋나 있으면 마지막 3cm 를 내려가지 않고 오므리지 않는다. VLA 단독 성적과 따로 적는다")
     p.add_argument("--cuda-graph", action="store_true",
                    help="모델 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py, 10/14). 결과 값은 같고 시간만 줄어든다")
     p.add_argument("--a2c2", default=None,
@@ -739,7 +742,10 @@ class Episode:
         """success_fn/trigger_fn 이 True 가 되거나 max_steps 까지. (끝난 이유, 스텝 수) 반환."""
         loose = getattr(success_fn, "loose", None)
         for t in range(max_steps):
-            self.step(self.policy_action(instruction), phase)
+            act = self.policy_action(instruction)
+            if getattr(self.r, "assist", None) is not None:      # 10/15: 정렬 보조 (--grasp-assist)
+                act = self.r.assist(self, act, instruction)
+            self.step(act, phase)
             if watch_fn is not None:
                 watch_fn()
             # 10/5: '판 안' 기준 (블록 중심이 판 안 + 닿음 + 손에서 놓임) 을 함께 기록 — 3cm 기준과 둘 다 보고 (사용자 결정)
@@ -913,6 +919,10 @@ class Runner:
         if getattr(args, "ttrtc", False):
             import ttrtc
             ttrtc.patch()
+        self.assist = None
+        if getattr(args, "grasp_assist", False):
+            import grasp_assist
+            self.assist = grasp_assist.GraspAssist()
         if getattr(args, "cuda_graph", False):
             # 10/14: 같은 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py). 지연 스텝 수는 --latency-steps 로 따로 맞춘다
             import fastinfer

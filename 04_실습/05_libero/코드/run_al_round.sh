@@ -24,14 +24,14 @@ all28(){ local pol=$1 o=$2
   wait $P1 $P2 $P3 $P4; }
 
 until grep -q "al 검출 미리 계산 끝" outputs/piper/al_collect.log 2>/dev/null; do sleep 120; done
-until grep -q "교정 시범 끝" outputs/piper/al_dagger.log 2>/dev/null; do sleep 120; done
+until grep -q "교정 시범2 끝" outputs/piper/al_dagger2.log 2>/dev/null; do sleep 120; done
 log "[1] 사진 특징 미리 계산 (align 시범 $(ls data/piper_al_*_t/episodes/*.npz | wc -l)개)"
-until [ "$(ngpu)" -le 2 ]; do sleep 60; done
-( $PY vis_cache.py build --policy outputs/piper_bo1_model/merged --data $AL --out cache/vis --shard 0 --nshard 2 2>&1 | grep -E "끝|Error|Traceback" ) & Q1=$!
-( $PY vis_cache.py build --policy outputs/piper_bo1_model/merged --data $AL --out cache/vis --shard 1 --nshard 2 2>&1 | grep -E "끝|Error|Traceback" ) & Q2=$!
+until [ "$(ngpu)" -le 0 ]; do sleep 60; done
+( $PY vis_cache.py build --policy outputs/piper_bo1_model/merged --data $AL --out cache/vis --batch 8 --stride 3 --shard 0 --nshard 2 2>&1 | grep -E "끝|Error|Traceback" ) & Q1=$!
+( $PY vis_cache.py build --policy outputs/piper_bo1_model/merged --data $AL --out cache/vis --batch 8 --stride 3 --shard 1 --nshard 2 2>&1 | grep -E "끝|Error|Traceback" ) & Q2=$!
 wait $Q1 $Q2
-log "[2] al1 학습 (bo1 에서, align 시범만, 사진 특징 미리 계산본, 모든 프레임)"
-$PY train_lora.py --policy outputs/piper_bo1_model/merged --data $AL $TR --abs-pos --objfeat --vis-cache cache/vis --frame-stride 1 \
+log "[2] al1 학습 (bo1 에서, align 시범만, 사진 특징 미리 계산본, 3장에 1장)"
+$PY train_lora.py --policy outputs/piper_bo1_model/merged --data $AL $TR --abs-pos --objfeat --vis-cache cache/vis --frame-stride 3 \
   --dagger-frac 0.25 --batch-size 8 --grad-accum 2 --steps 15000 --lr 5e-5 --eval-every 2500 --save-every 5000 \
   --out outputs/piper_al1_model 2>&1 | grep --line-buffered -E '에피소드 학습|물체 위치|사진 특징|val_loss|모델 저장|Traceback|Error'
 B=outputs/piper_al1_model/merged
