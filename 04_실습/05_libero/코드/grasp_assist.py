@@ -15,6 +15,12 @@
   ① 앞뒤좌우 = 블록 가운데로 (위치 명령의 x, y 만 바꿈. 내려가기·손목·그리퍼는 VLA 그대로)
   ② 0.6cm 넘게 어긋나 있으면 쥐는 높이 3cm 아래에서는 조금씩 들어 올린다 (윗면에 걸린 손가락을 빼고 옆으로 맞추게)
   ③ 0.8cm 넘게 어긋나 있으면 오므리기를 미룬다 (맞춰지면 VLA 명령대로)
+
+놓기 보조 (10/16, place=True, 평가 --place-assist): 지시문의 블록을 쥐고 있을 때만
+  ④ 놓을 곳(판 가운데, 쌓기면 아래 블록 가운데)에서 옆으로 5cm 안이면 앞뒤좌우를 그 가운데로
+  ⑤ 놓을 곳에서 3cm 넘게 떨어져 있으면 손을 벌리지 않는다 (al1 실패의 20% 가 판 밖에 놓기 — 대부분 판까지 가기 전에 놓음)
+  일 바꾸기 때 쥐고 있던 다른 블록(새 지시의 대상이 아님)을 아무 데나 내려놓는 것은 막지 않는다.
+  어느 블록을 쥐었나: 오므려 무언가를 쥔 순간(손가락 0.005~0.028) 손에서 4cm 안의 가장 가까운 블록. 판은 장면 처음에 잰 값.
 """
 import json
 import re
@@ -36,9 +42,12 @@ def _feats(u, v):
 
 class GraspAssist:
     def __init__(self, calib=HERE / "piper_sim" / "front_calib.json", radius=0.04, height=0.10,
-                 stop_err=0.006, close_err=0.008, vmax=0.4):
+                 stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03):
         self.C = {k: np.array(v) for k, v in json.loads(Path(calib).read_text()).items()}
         self.radius, self.height, self.stop_err, self.close_err, self.vmax = radius, height, stop_err, close_err, vmax
+        self.place, self.place_radius, self.release_err = place, place_radius, release_err
+        self.n_place = 0
+        self.n_hold_release = 0
         self.ep = None
         self.n_used = 0
 
@@ -46,29 +55,41 @@ class GraspAssist:
         m = re.search(r"put the (red|green|blue|yellow) block", instruction.lower())
         return m.group(1) if m else None
 
+    def _dest(self, instruction):
+        """놓을 곳 색 (판이면 보라·회색·주황·흰색, 쌓기면 아래 블록 색)."""
+        m = re.search(r" on the (red|green|blue|yellow|purple|gray|orange|white) (square|block)", instruction.lower())
+        return m.group(1) if m else None
+
     def _update(self, ep):
         """손이 8cm 넘게 떨어진 블록만 위치를 새로 잰다 (가까우면 손에 가려 중심이 틀어질 수 있다)."""
         f = objdet.detect(np.asarray(ep.obs["pixels"]["image"]), np.asarray(ep.obs["pixels"]["image2"]))
         hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
-        for k, c in enumerate(objdet.BLOCKS):
-            if f[2 * k] < 0:
+        for k, c in enumerate(objdet.OBJECTS):
+            if f[2 * k] < 0 or c not in self.C:
                 continue
             xy = self.C[c] @ _feats(f[2 * k], f[2 * k + 1])
-            if np.linalg.norm(xy - hand[:2]) > 0.08 or c not in self.pos:
+            if c in objdet.PADS:                # 판은 움직이지 않는다 — 처음 값 (블록을 올리면 가려져 틀어진다)
+                self.pos.setdefault(c, xy)
+            elif np.linalg.norm(xy - hand[:2]) > 0.08 or c not in self.pos:
                 self.pos[c] = xy
 
     def __call__(self, ep, act, instruction):
         if ep is not self.ep:              # 새 장면
-            self.ep, self.pos = ep, {}
+            self.ep, self.pos, self.held = ep, {}, None
         self._update(ep)
+        q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
+        hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
+        if q > 0.028 or q < 0.005:         # 벌렸거나 빈손으로 끝까지 닫힘 → 쥔 것 없음
+            self.held = None
+        elif self.held is None:            # 방금 무언가를 쥠 → 손에 가장 가까운 블록
+            near = [(np.linalg.norm(self.pos[b] - hand[:2]), b) for b in objdet.BLOCKS if b in self.pos]
+            if near and min(near)[0] < 0.04:
+                self.held = min(near)[1]
         c = self._target(instruction)
         if c is None or c not in self.pos:
             return act
-        q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
-        is_open = q > 0.028
-        if not is_open:
-            return act
-        hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
+        if q <= 0.028:
+            return self._place(act, instruction, c, hand) if self.place else act
         e = self.pos[c] - hand[:2]
         d = float(np.linalg.norm(e))
         dz = hand[2] - (TABLE_Z + GRASP_H[c])           # 쥐는 높이 위로 얼마나
@@ -81,4 +102,19 @@ class GraspAssist:
         if d > self.close_err and act[6] > 0:
             act[6] = -1.0                                           # ③ 오므리기를 미룬다
         self.n_used += 1
+        return act
+
+    def _place(self, act, instruction, c, hand):
+        dst = self._dest(instruction)
+        if self.held != c or dst is None or dst not in self.pos:
+            return act                      # 지시문의 블록을 쥔 게 아니면 (일 바꾸기 때 내려놓기 등) 손대지 않는다
+        e = self.pos[dst] - hand[:2]
+        d = float(np.linalg.norm(e))
+        act = np.array(act, dtype=np.float32, copy=True)
+        if d < self.place_radius:
+            act[:2] = np.clip(e / 0.05, -self.vmax, self.vmax)        # ④ 놓을 곳 가운데로
+            self.n_place += 1
+        if d > self.release_err and act[6] < 0:
+            act[6] = 1.0                                              # ⑤ 놓을 곳에서 멀면 벌리지 않는다
+            self.n_hold_release += 1
         return act

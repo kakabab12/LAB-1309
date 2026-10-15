@@ -189,6 +189,8 @@ def build_parser():
     p.add_argument("--grasp-assist", action="store_true",
                    help="정렬 보조 (grasp_assist.py, 10/15): 손이 열린 채 지시문의 블록에 가까우면 정면 카메라로 잰 블록 위치에 "
                         "앞뒤좌우를 맞추고, 많이 어긋나 있으면 마지막 3cm 를 내려가지 않고 오므리지 않는다. VLA 단독 성적과 따로 적는다")
+    p.add_argument("--place-assist", action="store_true",
+                   help="정렬 보조 + 놓기 보조 (10/16): 지시문의 블록을 쥐고 놓을 곳 5cm 안이면 가운데로, 3cm 넘게 떨어져 있으면 벌리지 않음")
     p.add_argument("--cuda-graph", action="store_true",
                    help="모델 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py, 10/14). 결과 값은 같고 시간만 줄어든다")
     p.add_argument("--a2c2", default=None,
@@ -932,9 +934,9 @@ class Runner:
             import ttrtc
             ttrtc.patch()
         self.assist = None
-        if getattr(args, "grasp_assist", False):
+        if getattr(args, "grasp_assist", False) or getattr(args, "place_assist", False):
             import grasp_assist
-            self.assist = grasp_assist.GraspAssist()
+            self.assist = grasp_assist.GraspAssist(place=getattr(args, "place_assist", False))
         if getattr(args, "cuda_graph", False):
             # 10/14: 같은 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py). 지연 스텝 수는 --latency-steps 로 따로 맞춘다
             import fastinfer
