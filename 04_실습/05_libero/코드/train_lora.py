@@ -62,6 +62,8 @@ def parse_args():
     p.add_argument("--abs-pos", action="store_true",
                    help="10/5: 동작의 위치 3개를 '절대 목표 위치'로 (그때 손 위치 + 5cm×명령). 실행할 때 지금 손 위치와의 차이로 "
                         "명령을 만들어 묶음을 눈 감고 실행해도 오차가 쌓이지 않는다. --renorm-action 과 함께. 모델 폴더에 abs_pos 표시")
+    p.add_argument("--feat", default="objfeat", help="물체 입력 파일 (.objfeat.npy 화면 좌표 / .relfeat.npy 손 기준 m, 10/15)")
+    p.add_argument("--reset-feat", action="store_true", help="이어 학습할 때 물체 입력 뜻이 바뀌었으면 정규화 통계를 다시 재고 정면 16칸 열을 0 으로")
     p.add_argument("--objfeat", action="store_true",
                    help="10/6: 색·모양 검출(objdet.py)로 사진에서 계산한 물체 화면 위치 24개를 로봇 상태 뒤에 붙인다 "
                         "(에피소드 옆 *.objfeat.npy, objfeat_cache.py 로 미리 계산). 모델 폴더에 objfeat 표시")
@@ -94,6 +96,8 @@ def parse_args():
         for k, v in _json.loads(ov.read_text()).get(a.out, {}).items():
             print(f"설정 덮어쓰기 ({ov}): {k} {getattr(a, k, None)} → {v}", flush=True)
             setattr(a, k, v)
+    global FEAT
+    FEAT = a.feat
     return a
 
 
@@ -111,6 +115,9 @@ def augment(img, rng):
     dy, dx = rng.integers(-8, 9, size=2)
     x = np.pad(x, ((8, 8), (8, 8), (0, 0)), mode="edge")[8 + dy:8 + dy + img.shape[0], 8 + dx:8 + dx + img.shape[1]]
     return x
+
+
+FEAT = "objfeat"      # 10/15: --feat relfeat 이면 손 기준 물체 위치 (relfeat.py)
 
 
 def vis_offset(f, stride):
@@ -136,7 +143,7 @@ class ChunkDataset(Dataset):
             keys = ["eef_pos", "eef_quat", "grip", "action"] + ([] if vis_cache else ["img", "wrist"])
             ep = {k: d[k] for k in keys}
             if objfeat:     # 색·모양 검출 결과 (프레임 수, 24)
-                ep["objfeat"] = np.load(Path(f).with_suffix(".objfeat.npy")).astype(np.float32)
+                ep["objfeat"] = np.load(Path(f).with_suffix(f".{FEAT}.npy")).astype(np.float32)
             if abs_pos:     # 위치 명령 → 그 스텝의 절대 목표 위치 (robosuite OSC: 입력 [-1,1] → 5cm, 목표 = 지금 손 위치 + 변화)
                 act = ep["action"].astype(np.float32).copy()
                 act[:, :3] = ep["eef_pos"].astype(np.float32) + 0.05 * np.clip(act[:, :3], -1, 1)
@@ -271,7 +278,8 @@ class Trainer:
             if isinstance(st, _NormalizationMixin) and "observation.state" in (st.stats or {}):
                 ss = st.stats["observation.state"]
                 m0, s0 = np.asarray(ss["mean"], np.float32), np.asarray(ss["std"], np.float32)
-                if len(m0) == 8:
+                if len(m0) == 8 or getattr(self.a, "reset_feat", False):     # 10/15: 입력 뜻이 바뀌면 통계를 다시
+                    m0, s0 = m0[:8], s0[:8]
                     ss["mean"] = np.concatenate([m0, fm]).astype(np.float32)
                     ss["std"] = np.concatenate([s0, fs]).astype(np.float32)
                     for k in ("min", "max", "q01", "q99"):
@@ -286,6 +294,10 @@ class Trainer:
         if fresh:
             with torch.no_grad():
                 self.policy.model.state_proj.weight[:, 8:].zero_()
+        elif getattr(self.a, "reset_feat", False):
+            # 정면 카메라 16칸의 뜻이 '화면 좌표' → '손 기준 m' 로 바뀌었다. 그 열만 0 에서 다시 배운다 (손목 8칸은 그대로)
+            with torch.no_grad():
+                self.policy.model.state_proj.weight[:, 8:24].zero_()
         print(f"물체 위치 입력 24개 붙임 (처음={fresh}): 평균 {np.round(fm, 2).tolist()}", flush=True)
 
     def renorm_action(self, mean, std):
@@ -480,6 +492,10 @@ class Trainer:
                 (d / "abs_pos").write_text("위치 동작 = 절대 목표 위치 (train_lora --abs-pos)\n")
             if getattr(self.a, "objfeat", False):
                 (d / "objfeat").write_text("로봇 상태 뒤에 색·모양 검출 물체 위치 24개 (train_lora --objfeat, objdet.py)\n")
+                if FEAT == "relfeat":
+                    (d / "relfeat").write_text("물체 24개가 손 기준 위치 (relfeat.py, 10/15)\n")
+                elif (d / "relfeat").exists():
+                    (d / "relfeat").unlink()
             (out / "history.json").write_text(json.dumps(hist, ensure_ascii=False, indent=2))
             print(f"정책 저장: {d}", flush=True)
             return

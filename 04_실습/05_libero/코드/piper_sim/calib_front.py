@@ -17,7 +17,8 @@ import objdet  # noqa: E402
 import sim_only as so  # noqa: E402
 import switch_experiment as sx  # noqa: E402
 
-NAMES = {"red": "akita_black_bowl_1", "green": "cream_cheese_1", "blue": "blue_block_1", "yellow": "wine_bottle_1"}
+NAMES = {"red": "akita_black_bowl_1", "green": "cream_cheese_1", "blue": "blue_block_1", "yellow": "wine_bottle_1",
+         "purple": "plate_1", "gray": "gray_pad_1", "orange": "orange_pad_1", "white": "white_pad_1"}   # 10/15: 판도
 
 
 def feats(u, v):
@@ -37,7 +38,7 @@ def main():
         for i in range(lo, hi + 1):
             ep = sx.Episode(r, i)
             f = objdet.detect(np.asarray(ep.obs["pixels"]["image"]), np.asarray(ep.obs["pixels"]["image2"]))
-            for k, c in enumerate(objdet.BLOCKS):
+            for k, c in enumerate(objdet.OBJECTS):
                 if f[2 * k] < 0:
                     continue
                 X[c].append(feats(f[2 * k], f[2 * k + 1]))

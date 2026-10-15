@@ -267,6 +267,8 @@ class Episode:
         self.plan_norm = None  # 같은 동작의 정규화 값 (RTC guidance 에 필요)
         self.bon_active = False  # bon: 전환 이후에만 후보 선택
         self.pending = None  # 지연 모사: [동작, 정규화 동작, 남은 도착 스텝]
+        if getattr(self.r, "rf", None) is not None:
+            self.r.rf.reset()   # 10/15: 장면마다 물체 위치 기억을 비운다
         self.loose_hit = {}  # 단계별 '판 안' 성공 (10/5)
         self.hold_segs = []  # 10/7: 쥔 구간 [시작, 끝, 물체, 끝날 때 그리퍼 명령, 오므리는 방향 어긋남cm, 바닥 위 높이cm] — 실패 분류(못 집음/미끄러짐/엉뚱한 곳)
         self._hold_cur = None
@@ -896,6 +898,8 @@ class Runner:
         if getattr(self, "objfeat", False):
             import objdet
             f = objdet.detect(np.asarray(obs["pixels"]["image"]), np.asarray(obs["pixels"]["image2"]))
+            if getattr(self, "rf", None) is not None:      # 10/15: 손 기준 물체 위치 (relfeat.py)
+                f = self.rf.step(f, eef_pos(obs))
             st = b["observation.state"]
             b["observation.state"] = torch.cat([st, torch.as_tensor(f, dtype=st.dtype, device=st.device)[None]], -1)
         return self.pre(b)
@@ -909,6 +913,10 @@ class Runner:
         self.abs_pos = (Path(args.policy) / "abs_pos").exists()
         # 10/6: 로봇 상태 뒤에 색·모양 검출 물체 위치 24개를 붙이는 모델 (train_lora --objfeat 가 objfeat 를 남김)
         self.objfeat = (Path(args.policy) / "objfeat").exists()
+        self.rf = None
+        if (Path(args.policy) / "relfeat").exists():
+            import relfeat
+            self.rf = relfeat.RelFeat()
         if getattr(args, "strategy", None) in ("rtc", "flush_rtc", "rtc_all"):
             from lerobot.policies.rtc.configuration_rtc import RTCConfig
             self.policy.config.rtc_config = RTCConfig(enabled=True, execution_horizon=args.rtc_horizon,

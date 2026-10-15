@@ -1,4 +1,15 @@
-# 인계 메모 — 10/15 10시 절이 최신
+# 인계 메모 — 10/15 16시 절이 최신
+
+## 10/15 16시 — 다시 시작 (가장 최신, 이것부터)
+- 사용자: "다시 계속해줘 정확도 100 나오게 모든 기술 논문 적용해서 ... 내가 그만하라 할때까지"
+- al1 결과: 3cm 17.1% (혼자 26 / 바꾸기 16.7 / 돌아오기 3.3), 판 안 32.9%
+- 정렬 보조 시험 (al1, 8항목 160장면): 3cm 16% → 33%, 판 안 29% → 49%. `run_alr_assist.sh` 가 alr1 + 보조 28항목도 잰다 (log `alr_assist.log`)
+- 돌고 있는 것
+  1. `run_assist_now.sh` (log `assist_now.log`): 정렬 보조(`--grasp-assist`) al1, T0·T5·T8·T6 + A8→B5, A4→B9
+  2. `run_alr_round.sh` (log `alr_round.log`): 1 이 끝나면 alr1 학습 (al1 에서, 손 기준 물체 위치 `relfeat.py`, `--feat relfeat --reset-feat`) ‖ al1 교정 시범 2개 → alr1 28항목 → alr2 → 28항목
+- 새 것: `relfeat.py` (정면 카메라 2차 변환식으로 블록·판의 '손 기준 m' 16칸 + 손목 화면 8칸, 블록은 손이 10cm 넘게 떨어졌을 때만 새로 잼, 판은 처음 값),
+  `piper_sim/calib_front.py`·`front_calib.json` (판까지 8개, 평균 0.05~0.11cm), `grasp_assist.py`. 시범에서 쥐는 순간 손→목표 블록 거리 중앙 0.09cm
+- 모델 폴더 `relfeat` 표시가 있으면 평가(Runner.prep)가 장면마다 기억을 비우고 손 기준 입력을 만든다
 
 ## 10/15 10시 — 오늘은 여기까지 (가장 최신, 이것부터)
 - 사용자: "오늘은 여기까지하자". al1 28항목 평가(`run_al_round.sh`, log `al_round.log`)만 끝까지 두고, 끝나면 점수표 `outputs/piper/score_piper_al1h(.md, _loose.md)` 만 남는다
