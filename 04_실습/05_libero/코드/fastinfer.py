@@ -109,6 +109,9 @@ def embed_suffix_fast(self, noisy_actions, timestep):
     time_emb = ttrtc._time_emb(self, timestep, action_emb)
     x = torch.cat([action_emb, time_emb], dim=2)
     x = self.action_time_mlp_out(torch.nn.functional.silu(self.action_time_mlp_in(x)))
+    c = getattr(self, "_suf_cond", None)
+    if c is not None:                           # 10/15: 상태를 동작 쪽에 (ttrtc.enable_sufstate)
+        x = x + c.to(x.dtype)
     pad_masks = torch.ones(bsize, x.shape[1], dtype=torch.bool, device=dev)
     T = self.config.chunk_size
     att = _const(("suf", T, x.dtype, dev), lambda: torch.ones(T, dtype=x.dtype, device=dev))
@@ -127,6 +130,7 @@ def _body(self, images, img_masks, lang_tokens, lang_masks, state, noise, pa, d,
     dt = -1.0 / num_steps
     x_t = noise
     T = self.config.chunk_size
+    ttrtc.set_suffix_cond(self, state)
     for step in range(num_steps):
         time = 1.0 + step * dt
         if d > 0:

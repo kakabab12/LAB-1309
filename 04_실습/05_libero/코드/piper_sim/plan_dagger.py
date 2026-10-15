@@ -10,6 +10,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import scoreboard as sb  # noqa: E402
 
 
+# 10/15: 교정 시범 장면 수 배율 — outputs/piper/dagger_scale.txt 가 있으면 그 값 (돌고 있는 순서 스크립트를 고치지 않고 줄이려고)
+_sf = Path(__file__).resolve().parent.parent / "outputs" / "piper" / "dagger_scale.txt"
+SCALE = float(_sf.read_text()) if _sf.exists() else 1.0
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--base", required=True)
@@ -32,7 +37,8 @@ def main():
         for k, items in gs.items():
             sep = " " if kind == "T" else ","
             print(f'{kind}{k}="{sep.join(items)}"')
-            print(f'E{k}="{a.start}-{a.start + k - 1}"')
+            n = max(1, round(k * SCALE))
+            print(f'E{k}="{a.start}-{a.start + n - 1}"')
 
 
 if __name__ == "__main__":

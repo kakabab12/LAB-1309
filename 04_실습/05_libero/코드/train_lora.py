@@ -62,6 +62,7 @@ def parse_args():
     p.add_argument("--abs-pos", action="store_true",
                    help="10/5: 동작의 위치 3개를 '절대 목표 위치'로 (그때 손 위치 + 5cm×명령). 실행할 때 지금 손 위치와의 차이로 "
                         "명령을 만들어 묶음을 눈 감고 실행해도 오차가 쌓이지 않는다. --renorm-action 과 함께. 모델 폴더에 abs_pos 표시")
+    p.add_argument("--sufstate", action="store_true", help="상태(+물체 위치)를 동작 전문가 쪽 동작 토큰에도 더한다 (ttrtc.enable_sufstate, 10/15)")
     p.add_argument("--feat", default="objfeat", help="물체 입력 파일 (.objfeat.npy 화면 좌표 / .relfeat.npy 손 기준 m, 10/15)")
     p.add_argument("--reset-feat", action="store_true", help="이어 학습할 때 물체 입력 뜻이 바뀌었으면 정규화 통계를 다시 재고 정면 16칸 열을 0 으로")
     p.add_argument("--objfeat", action="store_true",
@@ -221,6 +222,11 @@ class Trainer:
     def __init__(self, args):
         self.a = args
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        if getattr(args, "sufstate", False) or (Path(args.policy) / "sufstate").exists():
+            import ttrtc     # 10/15: 상태를 동작 전문가 쪽에도 (모델 만들기 전에)
+            ttrtc.patch()
+            ttrtc.enable_sufstate()
+            print("상태를 동작 토큰에도 더함 (state_suffix_proj)", flush=True)
         self.policy = SmolVLAPolicy.from_pretrained(args.policy)
         self.policy.config.device = self.device
         self.policy.to(self.device)
@@ -247,6 +253,8 @@ class Trainer:
             mdl = self.policy.model
             mods = [mdl.vlm_with_expert.lm_expert, mdl.state_proj, mdl.action_in_proj, mdl.action_out_proj,
                     mdl.action_time_mlp_in, mdl.action_time_mlp_out]
+            if hasattr(mdl, "state_suffix_proj"):
+                mods.append(mdl.state_suffix_proj)
             for mod in mods:
                 for prm in mod.parameters():
                     prm.requires_grad_(True)
@@ -492,6 +500,8 @@ class Trainer:
                 (d / "abs_pos").write_text("위치 동작 = 절대 목표 위치 (train_lora --abs-pos)\n")
             if getattr(self.a, "objfeat", False):
                 (d / "objfeat").write_text("로봇 상태 뒤에 색·모양 검출 물체 위치 24개 (train_lora --objfeat, objdet.py)\n")
+                if hasattr(self.policy.model, "state_suffix_proj"):
+                    (d / "sufstate").write_text("상태를 동작 토큰에도 더함 (ttrtc.enable_sufstate, 10/15)\n")
                 if FEAT == "relfeat":
                     (d / "relfeat").write_text("물체 24개가 손 기준 위치 (relfeat.py, 10/15)\n")
                 elif (d / "relfeat").exists():

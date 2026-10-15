@@ -25,7 +25,32 @@ import torch.nn.functional as F
 
 import lerobot.policies.smolvla.modeling_smolvla as M
 
-STATE = {"max_delay": 0, "prefix": None, "patched": False}
+STATE = {"max_delay": 0, "prefix": None, "patched": False, "sufstate": False, "sufstate_patched": False}
+
+
+def enable_sufstate():
+    """10/15: 로봇 상태(+ 물체 위치 24칸, 정규화된 32칸)를 동작 전문가 쪽 동작 토큰마다 더한다 (π0 처럼 상태를 동작 쪽에).
+    SmolVLA 는 상태를 얼린 VLM 앞부분에 토큰 하나로만 넣어서, 손 기준 물체 위치를 2cm 바꿔도 동작이 0.1cm 도 안 바뀌었다 (alr1).
+    모델을 만들기 전에 불러야 한다 (새 선형층 state_suffix_proj 를 만들고 0 으로 — 처음엔 원래 모델과 같은 출력)."""
+    STATE["sufstate"] = True
+    if STATE["sufstate_patched"]:
+        return
+    orig = M.VLAFlowMatching.__init__
+
+    def init(self, *a, **k):
+        orig(self, *a, **k)
+        if STATE["sufstate"]:
+            self.state_suffix_proj = torch.nn.Linear(self.config.max_state_dim, self.vlm_with_expert.expert_hidden_size)
+            torch.nn.init.zeros_(self.state_suffix_proj.weight)
+            torch.nn.init.zeros_(self.state_suffix_proj.bias)
+    M.VLAFlowMatching.__init__ = init
+    STATE["sufstate_patched"] = True
+
+
+def set_suffix_cond(self, state):
+    """동작 토큰에 더할 상태 조건을 정해 둔다 (embed_suffix 가 읽음). 상태 연결이 없는 모델이면 None."""
+    proj = getattr(self, "state_suffix_proj", None)
+    self._suf_cond = None if proj is None else proj(state.to(proj.weight.dtype))[:, None, :]
 
 
 def _time_emb(self, timestep, like):
@@ -47,6 +72,9 @@ def embed_suffix(self, noisy_actions, timestep):
     time_emb = _time_emb(self, timestep, action_emb)
     x = torch.cat([action_emb, time_emb], dim=2)
     x = self.action_time_mlp_out(F.silu(self.action_time_mlp_in(x)))
+    c = getattr(self, "_suf_cond", None)
+    if c is not None:
+        x = x + c.to(x.dtype)
     pad_masks = torch.ones(bsize, x.shape[1], dtype=torch.bool, device=device)
     att_masks = torch.tensor([1] * self.config.chunk_size, dtype=x.dtype, device=device)
     att_masks = att_masks[None, :].expand(bsize, self.config.chunk_size)
@@ -69,6 +97,7 @@ def forward(self, images, img_masks, lang_tokens, lang_masks, state, actions, no
         tt = time[:, None].expand(B, T)
     x_t = tt[..., None] * noise + (1 - tt[..., None]) * actions
     u_t = noise - actions
+    set_suffix_cond(self, state)
     prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(
         images, img_masks, lang_tokens, lang_masks, state=state)
     suffix_embs, suffix_pad_masks, suffix_att_masks = self.embed_suffix(x_t, tt)
@@ -113,6 +142,7 @@ def sample_actions(self, images, img_masks, lang_tokens, lang_masks, state, nois
     dt = -1.0 / num_steps
     x_t = noise
     T = self.config.chunk_size
+    set_suffix_cond(self, state)
     for step in range(num_steps):
         time = 1.0 + step * dt
         if d > 0:

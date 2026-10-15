@@ -907,6 +907,10 @@ class Runner:
     def __init__(self, args):
         self.args = fill_defaults(args)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        if (Path(args.policy) / "sufstate").exists():
+            import ttrtc     # 10/15: 상태를 동작 전문가 쪽에도 더하는 모델 (모델 만들기 전에)
+            ttrtc.patch()
+            ttrtc.enable_sufstate()
         self.policy = SmolVLAPolicy.from_pretrained(args.policy)
         self.policy.config.device = self.device
         # 10/5: 위치 동작이 절대 목표 위치인 모델 (train_lora --abs-pos 가 모델 폴더에 abs_pos 를 남김)
