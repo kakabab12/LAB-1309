@@ -62,6 +62,8 @@ def parse_args():
     p.add_argument("--abs-pos", action="store_true",
                    help="10/5: 동작의 위치 3개를 '절대 목표 위치'로 (그때 손 위치 + 5cm×명령). 실행할 때 지금 손 위치와의 차이로 "
                         "명령을 만들어 묶음을 눈 감고 실행해도 오차가 쌓이지 않는다. --renorm-action 과 함께. 모델 폴더에 abs_pos 표시")
+    p.add_argument("--new-lr", type=float, default=0.0,
+                   help="새로 붙인 층(state_suffix_proj)만 이 학습률로 (0 이면 --lr). 10/16: 3e-5 로는 0 에서 거의 못 자람")
     p.add_argument("--cam-drop", type=float, default=0.0, help="학습 장면 중 이 비율만큼 정면 카메라를 가림 → 손 기준 위치 입력을 쓰게 (ttrtc, 10/16)")
     p.add_argument("--sufstate", action="store_true", help="상태(+물체 위치)를 동작 전문가 쪽 동작 토큰에도 더한다 (ttrtc.enable_sufstate, 10/15)")
     p.add_argument("--feat", default="objfeat", help="물체 입력 파일 (.objfeat.npy 화면 좌표 / .relfeat.npy 손 기준 m, 10/15)")
@@ -408,9 +410,16 @@ class Trainer:
                         collate_fn=collate, num_workers=a.workers, drop_last=True, persistent_workers=a.workers > 0)
         vdl = DataLoader(val_ds, batch_size=a.batch_size, shuffle=False, collate_fn=collate, num_workers=min(a.workers, 1))
 
-        opt = torch.optim.AdamW([p for p in self.policy.parameters() if p.requires_grad], lr=a.lr,
-                                weight_decay=1e-4)
-        sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=a.lr, total_steps=a.steps, pct_start=0.05)
+        new = list(self.policy.model.state_suffix_proj.parameters()) \
+            if getattr(a, "new_lr", 0) > 0 and hasattr(self.policy.model, "state_suffix_proj") else []
+        ids = {id(p) for p in new}
+        groups = [{"params": [p for p in self.policy.parameters() if p.requires_grad and id(p) not in ids], "lr": a.lr}]
+        lrs = [a.lr]
+        if new:     # 10/16: 0 에서 시작한 층은 3e-5 로 10,000스텝 돌아도 가중치가 0.003 수준 → 상태 입력이 동작에 거의 안 닿음
+            groups.append({"params": new, "lr": a.new_lr}); lrs.append(a.new_lr)
+            print(f"새 층 학습률: state_suffix_proj {a.new_lr:g} (나머지 {a.lr:g})", flush=True)
+        opt = torch.optim.AdamW(groups, lr=a.lr, weight_decay=1e-4)
+        sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lrs, total_steps=a.steps, pct_start=0.05)
         out = Path(a.out)
         out.mkdir(parents=True, exist_ok=True)
         hist = []
