@@ -6,6 +6,7 @@
 - 돌고 있는 것: alr1 28항목 평가 서브셸 4개 (본체 run_alr_round_b.sh 는 끔, log `alr_round.log`) → `run_als_round.sh` (log `als_round.log`): alr1 점수표 → al1 교정 시범 135개 정리 → als1 학습(GPU 혼자) → 민감도 → 28항목 → als 교정 시범(절반 규모, `outputs/piper/dagger_scale.txt`=0.5) → als2 → als3 → als4
 - 끈 것: alr1 교정 시범·alr2 (run_alr_round_b.sh 뒤 단계), alr1+보조 평가 (run_alr_assist.sh)
 - alr1 결과: 3cm 15.5%, 판 안 28.7% (al1 과 같음). als1 도 민감도 0.1cm (입력 무시) — 10/16 04시
+- als1 결과 (10/16 09시): 3cm 19.6% (혼자 29.0 / 바꾸기 17.9 / 돌아오기 7.5), 판 안 35.7% — VLA 단독 최고
 - 놓기 보조 `--place-assist` (grasp_assist.py place=True): `run_place_test.sh` 가 als1 평가 뒤 al1 + 정렬 + 놓기 보조 8항목을 잰다 (log `place_test.log`)
 
 ## 10/15 16시 — 다시 시작 (가장 최신, 이것부터)
