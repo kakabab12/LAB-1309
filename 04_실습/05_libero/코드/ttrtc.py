@@ -25,7 +25,7 @@ import torch.nn.functional as F
 
 import lerobot.policies.smolvla.modeling_smolvla as M
 
-STATE = {"max_delay": 0, "prefix": None, "patched": False, "sufstate": False, "sufstate_patched": False}
+STATE = {"max_delay": 0, "prefix": None, "patched": False, "sufstate": False, "sufstate_patched": False, "cam_drop": 0.0}
 
 
 def enable_sufstate():
@@ -97,6 +97,11 @@ def forward(self, images, img_masks, lang_tokens, lang_masks, state, actions, no
         tt = time[:, None].expand(B, T)
     x_t = tt[..., None] * noise + (1 - tt[..., None]) * actions
     u_t = noise - actions
+    if STATE["cam_drop"] > 0 and self.training:
+        # 10/16: 학습 장면 일부에서 정면 카메라를 가린다 (주의 마스크로 사진 토큰을 안 보게). 그 장면에서는 블록·판이 어디 있는지를
+        # 손 기준 위치 입력으로만 알 수 있어, 학생이 그 입력을 쓰게 된다는 가설. 평가 때는 두 카메라 모두 본다
+        keep = torch.rand(B, device=actions.device) >= STATE["cam_drop"]
+        img_masks = [img_masks[0] & keep] + list(img_masks[1:])
     set_suffix_cond(self, state)
     prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(
         images, img_masks, lang_tokens, lang_masks, state=state)

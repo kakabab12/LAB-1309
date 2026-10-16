@@ -62,6 +62,7 @@ def parse_args():
     p.add_argument("--abs-pos", action="store_true",
                    help="10/5: 동작의 위치 3개를 '절대 목표 위치'로 (그때 손 위치 + 5cm×명령). 실행할 때 지금 손 위치와의 차이로 "
                         "명령을 만들어 묶음을 눈 감고 실행해도 오차가 쌓이지 않는다. --renorm-action 과 함께. 모델 폴더에 abs_pos 표시")
+    p.add_argument("--cam-drop", type=float, default=0.0, help="학습 장면 중 이 비율만큼 정면 카메라를 가림 → 손 기준 위치 입력을 쓰게 (ttrtc, 10/16)")
     p.add_argument("--sufstate", action="store_true", help="상태(+물체 위치)를 동작 전문가 쪽 동작 토큰에도 더한다 (ttrtc.enable_sufstate, 10/15)")
     p.add_argument("--feat", default="objfeat", help="물체 입력 파일 (.objfeat.npy 화면 좌표 / .relfeat.npy 손 기준 m, 10/15)")
     p.add_argument("--reset-feat", action="store_true", help="이어 학습할 때 물체 입력 뜻이 바뀌었으면 정규화 통계를 다시 재고 정면 16칸 열을 0 으로")
@@ -241,6 +242,9 @@ class Trainer:
             ttrtc.patch()
             ttrtc.STATE["max_delay"] = args.rtc_max_delay
             print(f"학습 때 지연 흉내내기: 앞 0~{args.rtc_max_delay} 스텝 고정", flush=True)
+            if getattr(args, "cam_drop", 0) > 0:
+                ttrtc.STATE["cam_drop"] = args.cam_drop
+                print(f"정면 카메라 가리기: 학습 장면의 {args.cam_drop:.0%}", flush=True)
         self.apply_lora()
 
     def apply_lora(self):
