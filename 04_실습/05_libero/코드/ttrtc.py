@@ -25,7 +25,7 @@ import torch.nn.functional as F
 
 import lerobot.policies.smolvla.modeling_smolvla as M
 
-STATE = {"max_delay": 0, "prefix": None, "patched": False, "sufstate": False, "sufstate_patched": False, "cam_drop": 0.0}
+STATE = {"max_delay": 0, "prefix": None, "patched": False, "sufstate": False, "sufstate_patched": False, "cam_drop": 0.0, "cam_drop_both": 0.0}
 
 
 def enable_sufstate():
@@ -100,8 +100,12 @@ def forward(self, images, img_masks, lang_tokens, lang_masks, state, actions, no
     if STATE["cam_drop"] > 0 and self.training:
         # 10/16: 학습 장면 일부에서 정면 카메라를 가린다 (주의 마스크로 사진 토큰을 안 보게). 그 장면에서는 블록·판이 어디 있는지를
         # 손 기준 위치 입력으로만 알 수 있어, 학생이 그 입력을 쓰게 된다는 가설. 평가 때는 두 카메라 모두 본다
-        keep = torch.rand(B, device=actions.device) >= STATE["cam_drop"]
-        img_masks = [img_masks[0] & keep] + list(img_masks[1:])
+        r = torch.rand(B, device=actions.device)
+        img_masks = [img_masks[0] & (r >= STATE["cam_drop"])] + list(img_masks[1:])
+        if STATE["cam_drop_both"] > 0:
+            # 10/17: 정면만 가리면 손목 카메라에도 블록이 보여 위치 입력을 여전히 안 썼다 (alc1·alc2 민감도 0.2cm 안).
+            #   r 이 더 작은 일부 장면은 손목 카메라까지 가린다 (cam_drop_both ≤ cam_drop)
+            img_masks[1] = img_masks[1] & (r >= STATE["cam_drop_both"])
     set_suffix_cond(self, state)
     prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(
         images, img_masks, lang_tokens, lang_masks, state=state)
