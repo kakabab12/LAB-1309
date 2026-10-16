@@ -26,6 +26,16 @@
   ⑥ 손이 열린 채 지시문의 블록 위 1cm 안·높이 10cm 안에서 20스텝 동안 1cm 도 안 내려가면 (맴돌기, 9/18 policy idling)
      그 자리에서 똑바로 내려가 쥐고 5cm 들어 올린 뒤 VLA 에 돌려준다.
      일 바꾸기 뒤 B 블록 바로 위에서 300스텝 넘게 맴돌다 시간이 다 된 장면이 있었다 (al1 + 놓기 보조, A8→B5 장면 1003).
+
+내려가기 재촉 (10/17, descend=True, 평가 --descend-assist):
+  ⑦ 손이 열린 채 지시문의 블록 위 0.8cm 안으로 맞춰졌는데 20스텝 동안 1cm 도 안 내려가면, 쥐는 높이까지 내려가게 한다
+     (그동안 오므리지 않음). 바닥에서 10스텝을 기다려도 VLA 가 오므리지 않으면 오므린다. 들어 올리기·옮기기는 VLA.
+     als2 실패 나누기: '블록 위에서 못 쥠' 은 손이 블록 중심 4~7cm 위에서 멈춘다 (⑥ 쥐기 마무리는 1cm 위 조건이라 거의 안 켜졌고,
+     켜졌을 때는 들어 올린 뒤 VLA 가 옮기기를 시작하지 못했다).
+다가가기 (10/17, approach=True, 평가 --approach-assist):
+  ⑧ 빈손인데 ⓐ 지시문의 놓을 곳 6cm 안에 있거나 ⓑ 60스텝(3초) 동안 지시문의 블록에 1cm 도 다가가지 않으면 (그 블록에서 6cm 넘게),
+     높이 13cm 로 올라 그 블록 위로 가서 블록 위 8cm 에서 VLA 에 돌려준다. 돌아오기 실패의 대부분이 원래 블록을 집지 않고
+     빈손으로 놓을 판 위를 서성였다 (als1 + 보조, als2: 마지막 10초에 손이 70~110cm 움직임).
 """
 import json
 import re
@@ -48,7 +58,7 @@ def _feats(u, v):
 class GraspAssist:
     def __init__(self, calib=HERE / "piper_sim" / "front_calib.json", radius=0.04, height=0.10,
                  stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03,
-                 complete=False, idle_steps=20):
+                 complete=False, idle_steps=20, descend=False, approach=False):
         self.C = {k: np.array(v) for k, v in json.loads(Path(calib).read_text()).items()}
         self.radius, self.height, self.stop_err, self.close_err, self.vmax = radius, height, stop_err, close_err, vmax
         self.place, self.place_radius, self.release_err = place, place_radius, release_err
@@ -58,6 +68,12 @@ class GraspAssist:
         self.n_complete = 0
         self.ep = None
         self.n_used = 0
+        self.descend, self.approach = descend, approach
+        self.stat = {}
+
+    def stats(self):
+        """이번 장면에서 보조가 손댄 스텝 수 (평가 기록용)."""
+        return dict(self.stat)
 
     def _target(self, instruction):
         m = re.search(r"put the (red|green|blue|yellow) block", instruction.lower())
@@ -85,6 +101,8 @@ class GraspAssist:
         if ep is not self.ep:              # 새 장면
             self.ep, self.pos, self.held = ep, {}, None
             self.prim, self.zhist = None, []
+            self.dmode, self.dbottom, self.amode, self.dhist, self.dhist_a = False, 0, False, [], []
+            self.stat = {"align": 0, "place": 0, "descend": 0, "close": 0, "approach": 0}
         self._update(ep)
         q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
         hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
@@ -104,7 +122,12 @@ class GraspAssist:
         e = self.pos[c] - hand[:2]
         d = float(np.linalg.norm(e))
         dz = hand[2] - (TABLE_Z + GRASP_H[c])           # 쥐는 높이 위로 얼마나
+        if self.approach and self.held is None:
+            a2 = self._approach(act, instruction, c, hand, d)
+            if a2 is not None:
+                return a2
         if d > self.radius or dz > self.height or dz < -0.02:
+            self.dmode, self.dhist = False, []
             return act
         act = np.array(act, dtype=np.float32, copy=True)
         act[:2] = np.clip(e / 0.05, -self.vmax, self.vmax)          # ① 앞뒤좌우 = 블록 가운데
@@ -113,6 +136,9 @@ class GraspAssist:
         if d > self.close_err and act[6] > 0:
             act[6] = -1.0                                           # ③ 오므리기를 미룬다
         self.n_used += 1
+        self.stat["align"] = self.stat.get("align", 0) + 1
+        if self.descend:
+            act = self._descend(act, hand, d, dz)
         if self.complete:
             self.zhist.append(hand[2])
             if d < 0.01 and 0.005 < dz and len(self.zhist) >= self.idle_steps \
@@ -123,6 +149,53 @@ class GraspAssist:
                 self.zhist = []
                 return self._primitive(act, hand, q)
         return act
+
+    def _descend(self, act, hand, d, dz):
+        """⑦ 맞춰졌는데 내려가지 않으면 쥐는 높이까지 내려가게, 바닥에서 오래 안 쥐면 오므림."""
+        self.dhist.append(hand[2])
+        if not self.dmode and d < self.close_err and dz > 0.015 and len(self.dhist) >= self.idle_steps \
+                and self.dhist[-self.idle_steps] - hand[2] < 0.01:
+            self.dmode, self.dbottom = True, 0
+        if not self.dmode:
+            return act
+        if d > 0.015:                      # 많이 어긋나면 멈추고 VLA·정렬에 맡김
+            self.dmode = False
+            return act
+        if dz > 0.008:
+            act[2] = float(np.clip(-dz / 0.05, -0.3, -0.05))
+            act[6] = -1.0
+            self.stat["descend"] += 1
+            return act
+        self.dbottom += 1
+        if act[6] <= 0 and self.dbottom > 10:
+            act[6] = 1.0
+            self.stat["close"] += 1
+        if act[6] > 0:
+            self.dmode, self.dhist = False, []
+        return act
+
+    def _approach(self, act, instruction, c, hand, d):
+        """⑧ 빈손으로 놓을 곳 근처에 있거나 블록에 다가가지 않으면 블록 위로 데려간다. 안 하면 None."""
+        self.dhist_a.append(d)
+        dst = self._dest(instruction)
+        at_dst = dst is not None and dst in self.pos and np.linalg.norm(self.pos[dst] - hand[:2]) < 0.06
+        stuck = len(self.dhist_a) > 60 and self.dhist_a[-61] - d < 0.01
+        if not self.amode and d > 0.06 and (at_dst or stuck):
+            self.amode = True
+        if not self.amode:
+            return None
+        if d < 0.02:                       # 블록 위에 왔다 → VLA·정렬 보조에 돌려줌
+            self.amode, self.dhist_a = False, []
+            return None
+        z = TABLE_Z + (0.13 if d > 0.05 else GRASP_H[c] + 0.08)
+        tgt = np.array([self.pos[c][0], self.pos[c][1], z])
+        if hand[2] < TABLE_Z + 0.11 and d > 0.05:      # 낮으면 먼저 올라감 (쌓은 블록 9cm 위로)
+            tgt[:2] = hand[:2]
+        a = np.array(act, dtype=np.float32, copy=True)
+        a[:3] = np.clip((tgt - hand) / 0.05, -self.vmax, self.vmax)
+        a[6] = -1.0
+        self.stat["approach"] += 1
+        return a
 
     def _primitive(self, act, hand, q):
         """⑥ 쥐기 마무리: 똑바로 내려가기 → 오므리기 10스텝 → 5cm 들어 올리기 → VLA 로 돌려줌."""
@@ -157,6 +230,7 @@ class GraspAssist:
         if d < self.place_radius:
             act[:2] = np.clip(e / 0.05, -self.vmax, self.vmax)        # ④ 놓을 곳 가운데로
             self.n_place += 1
+            self.stat["place"] = self.stat.get("place", 0) + 1
         if d > self.release_err and act[6] < 0:
             act[6] = 1.0                                              # ⑤ 놓을 곳에서 멀면 벌리지 않는다
             self.n_hold_release += 1

@@ -189,8 +189,14 @@ def build_parser():
     p.add_argument("--grasp-assist", action="store_true",
                    help="정렬 보조 (grasp_assist.py, 10/15): 손이 열린 채 지시문의 블록에 가까우면 정면 카메라로 잰 블록 위치에 "
                         "앞뒤좌우를 맞추고, 많이 어긋나 있으면 마지막 3cm 를 내려가지 않고 오므리지 않는다. VLA 단독 성적과 따로 적는다")
+    p.add_argument("--descend-assist", action="store_true",
+                   help="내려가기 재촉 (grasp_assist ⑦, 10/17): 블록 위에 맞춰졌는데 안 내려가면 쥐는 높이까지. 정렬·놓기 보조 포함")
+    p.add_argument("--approach-assist", action="store_true",
+                   help="다가가기 (grasp_assist ⑧, 10/17): 빈손으로 놓을 곳을 서성이거나 블록에 안 다가가면 블록 위로. 정렬·놓기 보조 포함")
     p.add_argument("--place-assist", action="store_true",
                    help="정렬 보조 + 놓기 보조 (10/16): 지시문의 블록을 쥐고 놓을 곳 5cm 안이면 가운데로, 3cm 넘게 떨어져 있으면 벌리지 않음")
+    p.add_argument("--grasp-complete", action="store_true",
+                   help="정렬 + 놓기 보조 + 쥐기 마무리 (10/16): 지시문 블록 바로 위에서 20스텝 맴돌면 똑바로 내려가 쥐고 5cm 들어 VLA 에 돌려줌")
     p.add_argument("--cuda-graph", action="store_true",
                    help="모델 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py, 10/14). 결과 값은 같고 시간만 줄어든다")
     p.add_argument("--a2c2", default=None,
@@ -934,9 +940,13 @@ class Runner:
             import ttrtc
             ttrtc.patch()
         self.assist = None
-        if getattr(args, "grasp_assist", False) or getattr(args, "place_assist", False):
+        dsc, apr = getattr(args, "descend_assist", False), getattr(args, "approach_assist", False)
+        if getattr(args, "grasp_assist", False) or getattr(args, "place_assist", False) or getattr(args, "grasp_complete", False) \
+                or dsc or apr:
             import grasp_assist
-            self.assist = grasp_assist.GraspAssist(place=getattr(args, "place_assist", False))
+            self.assist = grasp_assist.GraspAssist(place=getattr(args, "place_assist", False) or getattr(args, "grasp_complete", False)
+                                                   or dsc or apr, descend=dsc, approach=apr,
+                                                   complete=getattr(args, "grasp_complete", False))
         if getattr(args, "cuda_graph", False):
             # 10/14: 같은 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py). 지연 스텝 수는 --latency-steps 로 따로 맞춘다
             import fastinfer
@@ -1132,6 +1142,8 @@ class Runner:
             rec["hold_segs"] = ep.hold_segs
             rec["objects_final"] = ep.object_layout()
             rec["eef_final"] = [round(float(x), 4) for x in eef_pos(ep.obs)]
+        if getattr(self, "assist", None) is not None and hasattr(self.assist, "stats"):
+            rec["assist_steps"] = self.assist.stats()       # 10/17: 보조가 손댄 스텝 수
         if self.args.latency_steps > 0:
             rec["latency_steps"] = self.args.latency_steps
             rec["hold_steps"] = ep.hold_steps
