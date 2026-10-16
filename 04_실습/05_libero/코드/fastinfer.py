@@ -27,6 +27,7 @@ import ttrtc
 
 _CONST = {}
 _GRAPHS = {}
+MAX_GRAPHS = 3          # 녹화해 두는 그래프 수 (보통 앞부분 길이 0 과 지연 길이 둘이면 충분)
 STATE = {"installed": False, "pool": None, "orig_sample": None}
 
 
@@ -202,6 +203,11 @@ def sample_actions(self, images, img_masks, lang_tokens, lang_masks, state, nois
            tuple(state.shape), tuple(noise.shape))
     g = _GRAPHS.get(key)
     if g is None:
+        if len(_GRAPHS) >= MAX_GRAPHS:
+            # 10/16: 드문 앞부분 길이마다 그래프를 새로 녹화하면 메모리가 쌓인다 (교정 시범 하나가 3.9GB 까지 커져
+            #   옆 프로세스 둘이 메모리 부족으로 죽음) → 정해진 개수를 넘으면 원래 계산으로 (값은 같다)
+            ttrtc.STATE["prefix"] = prefix
+            return STATE["orig_sample"](self, images, img_masks, lang_tokens, lang_masks, state, noise=noise, **kwargs)
         g = _GRAPHS[key] = _capture(self, ins, d, num_steps)
     _copy_in(g, ins)
     g.graph.replay()

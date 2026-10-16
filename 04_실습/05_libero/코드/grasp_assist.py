@@ -21,6 +21,11 @@
   ⑤ 놓을 곳에서 3cm 넘게 떨어져 있으면 손을 벌리지 않는다 (al1 실패의 20% 가 판 밖에 놓기 — 대부분 판까지 가기 전에 놓음)
   일 바꾸기 때 쥐고 있던 다른 블록(새 지시의 대상이 아님)을 아무 데나 내려놓는 것은 막지 않는다.
   어느 블록을 쥐었나: 오므려 무언가를 쥔 순간(손가락 0.005~0.028) 손에서 4cm 안의 가장 가까운 블록. 판은 장면 처음에 잰 값.
+
+쥐기 마무리 (10/16, complete=True, 평가 --grasp-complete):
+  ⑥ 손이 열린 채 지시문의 블록 위 1cm 안·높이 10cm 안에서 20스텝 동안 1cm 도 안 내려가면 (맴돌기, 9/18 policy idling)
+     그 자리에서 똑바로 내려가 쥐고 5cm 들어 올린 뒤 VLA 에 돌려준다.
+     일 바꾸기 뒤 B 블록 바로 위에서 300스텝 넘게 맴돌다 시간이 다 된 장면이 있었다 (al1 + 놓기 보조, A8→B5 장면 1003).
 """
 import json
 import re
@@ -42,12 +47,15 @@ def _feats(u, v):
 
 class GraspAssist:
     def __init__(self, calib=HERE / "piper_sim" / "front_calib.json", radius=0.04, height=0.10,
-                 stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03):
+                 stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03,
+                 complete=False, idle_steps=20):
         self.C = {k: np.array(v) for k, v in json.loads(Path(calib).read_text()).items()}
         self.radius, self.height, self.stop_err, self.close_err, self.vmax = radius, height, stop_err, close_err, vmax
         self.place, self.place_radius, self.release_err = place, place_radius, release_err
         self.n_place = 0
         self.n_hold_release = 0
+        self.complete, self.idle_steps = complete, idle_steps
+        self.n_complete = 0
         self.ep = None
         self.n_used = 0
 
@@ -76,6 +84,7 @@ class GraspAssist:
     def __call__(self, ep, act, instruction):
         if ep is not self.ep:              # 새 장면
             self.ep, self.pos, self.held = ep, {}, None
+            self.prim, self.zhist = None, []
         self._update(ep)
         q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
         hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
@@ -86,6 +95,8 @@ class GraspAssist:
             if near and min(near)[0] < 0.04:
                 self.held = min(near)[1]
         c = self._target(instruction)
+        if self.prim is not None:          # ⑥ 쥐기 마무리 중
+            return self._primitive(act, hand, q)
         if c is None or c not in self.pos:
             return act
         if q <= 0.028:
@@ -102,7 +113,39 @@ class GraspAssist:
         if d > self.close_err and act[6] > 0:
             act[6] = -1.0                                           # ③ 오므리기를 미룬다
         self.n_used += 1
+        if self.complete:
+            self.zhist.append(hand[2])
+            if d < 0.01 and 0.005 < dz and len(self.zhist) >= self.idle_steps \
+                    and self.zhist[-self.idle_steps] - hand[2] < 0.01:     # ⑥ 블록 위에서 내려가지 않고 맴돎
+                self.prim = {"c": c, "phase": "down", "n": 0, "xy": self.pos[c].copy(),
+                             "z": TABLE_Z + GRASP_H[c]}
+                self.n_complete += 1
+                self.zhist = []
+                return self._primitive(act, hand, q)
         return act
+
+    def _primitive(self, act, hand, q):
+        """⑥ 쥐기 마무리: 똑바로 내려가기 → 오므리기 10스텝 → 5cm 들어 올리기 → VLA 로 돌려줌."""
+        pr = self.prim
+        pr["n"] += 1
+        a = np.zeros(7, dtype=np.float32)
+        a[3:6] = act[3:6]                   # 손목 방향은 VLA 그대로
+        tgt = np.array([pr["xy"][0], pr["xy"][1], pr["z"]])
+        if pr["phase"] == "down":
+            a[:3] = np.clip((tgt - hand) / 0.05, -0.3, 0.3)
+            a[6] = -1.0
+            if abs(hand[2] - pr["z"]) < 0.004 or pr["n"] > 40:
+                pr["phase"], pr["n"] = "close", 0
+        elif pr["phase"] == "close":
+            a[6] = 1.0
+            if pr["n"] >= 10:
+                pr["phase"], pr["n"], pr["z_up"] = "lift", 0, hand[2] + 0.05
+        else:
+            a[:3] = np.clip((np.array([hand[0], hand[1], pr["z_up"]]) - hand) / 0.05, -0.3, 0.3)
+            a[6] = 1.0
+            if hand[2] > pr["z_up"] - 0.005 or pr["n"] > 20:
+                self.prim = None
+        return a
 
     def _place(self, act, instruction, c, hand):
         dst = self._dest(instruction)
