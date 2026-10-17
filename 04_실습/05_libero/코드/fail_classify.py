@@ -37,8 +37,8 @@ def classify(e, traj, ph, task, ok, loose, final):
         near = dxy < 0.03
         info = {"손-블록 최소 cm": round(100 * float(dxy.min()), 1),
                 "블록 위 3cm 안 스텝": int(near.sum())}
-        if near.any():      # 블록 위에 있을 때 손이 블록 중심보다 몇 cm 위까지 내려왔나 (쥐는 높이 ≈ 0)
-            info["가장 낮을 때 블록 중심 위 cm"] = round(100 * float((hand[near, 2] - o[2]).min()), 1)
+        if near.any():      # 블록 위에 있을 때 손이 블록 바닥(평가 기록의 물체 높이)보다 몇 cm 위까지 내려왔나 (쥐는 높이 ≈ 2.25)
+            info["가장 낮을 때 블록 바닥 위 cm"] = round(100 * float((hand[near, 2] - o[2]).min()), 1)
         return ("블록 위에서 못 쥠" if near.any() else "블록까지 못 감"), info
     s = segs[-1]
     info = {"쥔 횟수": len(segs)}
