@@ -193,6 +193,8 @@ def build_parser():
                    help="내려가기 재촉 (grasp_assist ⑦, 10/17): 블록 위에 맞춰졌는데 안 내려가면 쥐는 높이까지. 정렬·놓기 보조 포함")
     p.add_argument("--approach-assist", action="store_true",
                    help="다가가기 (grasp_assist ⑧, 10/17): 빈손으로 놓을 곳을 서성이거나 블록에 안 다가가면 블록 위로. 정렬·놓기 보조 포함")
+    p.add_argument("--subtask", action="store_true",
+                   help="단계 지시 (subtask.Sequencer, 10/17): 지시문을 pick up / put it on / put it down 으로 바꿔 모델에 줌. 모델 폴더에 subtask 표시가 있으면 자동")
     p.add_argument("--close-assist", action="store_true",
                    help="쥐기 확정 (grasp_assist ⑩, 10/17): 쥐는 높이에 오면 올리지 못하게 잡고 오므림. --descend-assist 와 같이")
     p.add_argument("--yaw-assist", action="store_true",
@@ -756,7 +758,8 @@ class Episode:
         """success_fn/trigger_fn 이 True 가 되거나 max_steps 까지. (끝난 이유, 스텝 수) 반환."""
         loose = getattr(success_fn, "loose", None)
         for t in range(max_steps):
-            act = self.policy_action(instruction)
+            seq = getattr(self.r, "seq", None)
+            act = self.policy_action(seq(self, instruction) if seq is not None else instruction)
             if getattr(self.r, "assist", None) is not None:      # 10/15: 정렬 보조 (--grasp-assist)
                 act = self.r.assist(self, act, instruction)
             self.step(act, phase)
@@ -933,6 +936,11 @@ class Runner:
         if (Path(args.policy) / "relfeat").exists():
             import relfeat
             self.rf = relfeat.RelFeat()
+        # 10/17: 단계 지시로 학습한 모델 (train_lora --subtask 가 subtask 를 남김) — 지시문을 지금 단계 지시로 바꿔 준다
+        self.seq = None
+        if (Path(args.policy) / "subtask").exists() or getattr(args, "subtask", False):
+            import subtask
+            self.seq = subtask.Sequencer()
         if getattr(args, "strategy", None) in ("rtc", "flush_rtc", "rtc_all"):
             from lerobot.policies.rtc.configuration_rtc import RTCConfig
             self.policy.config.rtc_config = RTCConfig(enabled=True, execution_horizon=args.rtc_horizon,
@@ -1151,6 +1159,9 @@ class Runner:
             rec["eef_final"] = [round(float(x), 4) for x in eef_pos(ep.obs)]
         if getattr(self, "assist", None) is not None and hasattr(self.assist, "stats"):
             rec["assist_steps"] = self.assist.stats()       # 10/17: 보조가 손댄 스텝 수
+        if getattr(self, "seq", None) is not None and self.seq.ep is ep:
+            rec["subtask_log"] = self.seq.log[-40:]         # 10/17: (스텝, 단계 지시) 바뀐 순간들
+            self.seq.log = []
         if self.args.latency_steps > 0:
             rec["latency_steps"] = self.args.latency_steps
             rec["hold_steps"] = ep.hold_steps
