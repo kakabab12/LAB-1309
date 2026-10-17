@@ -55,7 +55,10 @@ def run_policy_for(ep, runner, chk, k):
     """모델을 최대 k 스텝 돌린다. 그 사이 성공하면 True."""
     lang = chk.language
     for _ in range(k):
-        ep.step(ep.policy_action(lang), "B")
+        act = ep.policy_action(lang)
+        if getattr(runner, "assist", None) is not None:     # 10/17: 보조를 켠 채 학생을 돌린다 (배치될 때와 같은 상태에서 가르침)
+            act = runner.assist(ep, act, lang)
+        ep.step(act, "B")
         if chk(ep.env):
             return True
     return False
@@ -195,6 +198,10 @@ def main():
     p.add_argument("--strategy", default="flush", help="전환 방식 (flush / keep)")
     p.add_argument("--resume", action="store_true",
                    help="전환 쌍에서 B 를 마친 뒤 원래 일로 돌아가는 구간을 바로잡는다 (DR 파일)")
+    p.add_argument("--place-assist", action="store_true", help="10/17: 보조를 켠 채 학생을 돌림 (switch_experiment 와 같은 뜻)")
+    p.add_argument("--approach-assist", action="store_true")
+    p.add_argument("--descend-assist", action="store_true")
+    p.add_argument("--yaw-assist", action="store_true")
     p.add_argument("--out", required=True)
     a = p.parse_args()
     se.DART_SIGMA = a.dart
@@ -211,6 +218,8 @@ def main():
         ra.latency_steps = a.latency_steps
         ra.ttrtc, ra.a2c2, ra.n_action_steps = a.ttrtc, a.a2c2, a.n_action_steps
         ra.cuda_graph = getattr(a, "cuda_graph", False)
+        for k_ in ("place_assist", "approach_assist", "descend_assist", "yaw_assist"):
+            setattr(ra, k_, getattr(a, k_, False))
         runner = sx.Runner(ra)
         s0 = dict(stats)
         for i in ep_range(a.episodes):

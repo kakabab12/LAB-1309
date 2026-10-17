@@ -193,6 +193,8 @@ def build_parser():
                    help="내려가기 재촉 (grasp_assist ⑦, 10/17): 블록 위에 맞춰졌는데 안 내려가면 쥐는 높이까지. 정렬·놓기 보조 포함")
     p.add_argument("--approach-assist", action="store_true",
                    help="다가가기 (grasp_assist ⑧, 10/17): 빈손으로 놓을 곳을 서성이거나 블록에 안 다가가면 블록 위로. 정렬·놓기 보조 포함")
+    p.add_argument("--close-assist", action="store_true",
+                   help="쥐기 확정 (grasp_assist ⑩, 10/17): 쥐는 높이에 오면 올리지 못하게 잡고 오므림. --descend-assist 와 같이")
     p.add_argument("--yaw-assist", action="store_true",
                    help="손목 맞추기 (grasp_assist ⑨, 10/17): 손목 카메라의 블록 기울기로 손가락을 블록 면과 나란히. 정렬·놓기 보조 포함")
     p.add_argument("--place-assist", action="store_true",
@@ -944,11 +946,13 @@ class Runner:
         self.assist = None
         dsc, apr = getattr(args, "descend_assist", False), getattr(args, "approach_assist", False)
         yw = getattr(args, "yaw_assist", False)
+        cl = getattr(args, "close_assist", False)
+        dsc = dsc or cl
         if getattr(args, "grasp_assist", False) or getattr(args, "place_assist", False) or getattr(args, "grasp_complete", False) \
                 or dsc or apr or yw:
             import grasp_assist
             self.assist = grasp_assist.GraspAssist(place=getattr(args, "place_assist", False) or getattr(args, "grasp_complete", False)
-                                                   or dsc or apr or yw, descend=dsc, approach=apr, yaw=yw,
+                                                   or dsc or apr or yw, descend=dsc, approach=apr, yaw=yw, close=cl,
                                                    complete=getattr(args, "grasp_complete", False))
         if getattr(args, "cuda_graph", False):
             # 10/14: 같은 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py). 지연 스텝 수는 --latency-steps 로 따로 맞춘다

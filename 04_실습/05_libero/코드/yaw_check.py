@@ -29,11 +29,12 @@ def mis(a, b):
     d = np.degrees(a - b) % 90
     return min(d, 90 - d)
 F, S = [], []
+BASE = sys.argv[1] if len(sys.argv) > 1 else "piper_als2apr"
 for kind in ["forget", "switch"]:
-    for f in sorted(glob.glob(f"outputs/piper_als2apr_{kind}/*.json")):
+    for f in sorted(glob.glob(f"outputs/{BASE}_{kind}/*.json")):
         J = json.load(open(f)); ta, tb = J["args"]["task_a"], J["args"]["task_b"]; tag = os.path.basename(f)[:-5]
         for e in J["episodes"]:
-            tr = np.load(f"outputs/piper_als2apr_{kind}/traj/{tag}_ep{e['episode']}.npz", allow_pickle=True)
+            tr = np.load(f"outputs/{BASE}_{kind}/traj/{tag}_ep{e['episode']}.npz", allow_pickle=True)
             ph, t, objs = ("A", ta, e["objects_final"]) if tb is None else ("B", tb, e.get("objects_at_b_end"))
             if objs is None: continue
             obj = pb.TASKS[t][0]; idx = np.nonzero(tr["phase"] == ph)[0]

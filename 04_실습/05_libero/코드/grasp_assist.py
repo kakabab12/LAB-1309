@@ -43,6 +43,10 @@
      벌어짐)가 되게. 시뮬에서 맞춤: 손을 +δ 돌리면 사진 기울기가 −δ (1:1) → 사진에서 m 이면 손을 +m 돌린다.
      als2 + 보조 다 켬에서 '블록 위에서 못 쥠' (B 53, 돌아오기 42) 은 손가락-블록 면 어긋남 중앙 18° (쥔 장면 4°) —
      벌린 손가락이 블록 모서리에 얹혀 내려가지 못했다.
+쥐기 확정 (10/17, close=True, 평가 --close-assist, ⑦ 내려가기 재촉과 같이 켬):
+  ⑩ 쥐는 높이(0.8cm 안)에 맞춰 내려왔으면 VLA 가 손을 올리지 못하게 잡고, 3스텝 뒤 12스텝 동안 오므린다. 그 뒤는 VLA.
+     (평가 기록의 물체 높이는 블록 바닥 기준이다.) als2 + 보조 다 켬의 '블록 위에서 못 쥠' 장면을 다시 돌려 보니 손은 쥐는 높이까지
+     내려오고 아무것에도 닿지 않았는데, 바닥에서 VLA 가 그리퍼를 벌린 채 위로 +1.0 을 명령해 2.7 ↔ 3.9cm(바닥 위)를 오르내렸다.
 """
 import json
 import re
@@ -66,7 +70,7 @@ def _feats(u, v):
 class GraspAssist:
     def __init__(self, calib=HERE / "piper_sim" / "front_calib.json", radius=0.04, height=0.10,
                  stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03,
-                 complete=False, idle_steps=20, descend=False, approach=False, yaw=False):
+                 complete=False, idle_steps=20, descend=False, approach=False, yaw=False, close=False):
         self.C = {k: np.array(v) for k, v in json.loads(Path(calib).read_text()).items()}
         self.radius, self.height, self.stop_err, self.close_err, self.vmax = radius, height, stop_err, close_err, vmax
         self.place, self.place_radius, self.release_err = place, place_radius, release_err
@@ -76,7 +80,7 @@ class GraspAssist:
         self.n_complete = 0
         self.ep = None
         self.n_used = 0
-        self.descend, self.approach, self.yaw = descend, approach, yaw
+        self.descend, self.approach, self.yaw, self.close = descend, approach, yaw, close
         self.stat = {}
 
     def stats(self):
@@ -112,6 +116,7 @@ class GraspAssist:
             self.dmode, self.dbottom, self.amode, self.dhist, self.dhist_a = False, 0, False, [], []
             self.stat = {"align": 0, "place": 0, "descend": 0, "close": 0, "approach": 0, "yaw": 0}
             self.yaw_bad = False
+            self.nclose = 0
         self._update(ep)
         q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
         hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
@@ -215,6 +220,20 @@ class GraspAssist:
             act[2] = float(np.clip(-dz / 0.05, -0.3, -0.05))
             act[6] = -1.0
             self.stat["descend"] += 1
+            if self.close:
+                self.dbottom, self.nclose = 0, 0
+            return act
+        if self.close:                     # ⑩ 바닥: 올리지 못하게, 3스텝 뒤 12스텝 오므림, 그 뒤 VLA
+            self.dbottom += 1
+            act[2] = min(act[2], 0.0)
+            if self.dbottom > 3:
+                act[6] = 1.0
+                self.nclose += 1
+                self.stat["close"] += 1
+                if self.nclose >= 12:
+                    self.dmode, self.dhist, self.dbottom, self.nclose = False, [], 0, 0
+            else:
+                act[6] = -1.0
             return act
         self.dbottom += 1
         if act[6] <= 0 and self.dbottom > 10:
