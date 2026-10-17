@@ -36,12 +36,20 @@
   ⑧ 빈손인데 ⓐ 지시문의 놓을 곳 6cm 안에 있거나 ⓑ 60스텝(3초) 동안 지시문의 블록에 1cm 도 다가가지 않으면 (그 블록에서 6cm 넘게),
      높이 13cm 로 올라 그 블록 위로 가서 블록 위 8cm 에서 VLA 에 돌려준다. 돌아오기 실패의 대부분이 원래 블록을 집지 않고
      빈손으로 놓을 판 위를 서성였다 (als1 + 보조, als2: 마지막 10초에 손이 70~110cm 움직임).
+손목 맞추기 (10/17, yaw=True, 평가 --yaw-assist):
+  ⑨ 블록 위 2.5cm 안·높이 1~9cm 에서 손목 카메라 사진의 블록 덩어리 기울기(minAreaRect)를 재, 손가락이 블록 면과
+     나란해지도록 손을 세계 z 축으로 돌린다. 6° 넘게 어긋나 있으면 블록 윗면 근처(쥐는 높이 4.5cm 위)보다 내려가지 않고
+     오므리지 않는다. 4° 안으로 맞으면 놓아준다. 정육면체는 90° 대칭, 노란 막대는 긴 축이 사진 세로(손가락이 사진 가로로
+     벌어짐)가 되게. 시뮬에서 맞춤: 손을 +δ 돌리면 사진 기울기가 −δ (1:1) → 사진에서 m 이면 손을 +m 돌린다.
+     als2 + 보조 다 켬에서 '블록 위에서 못 쥠' (B 53, 돌아오기 42) 은 손가락-블록 면 어긋남 중앙 18° (쥔 장면 4°) —
+     벌린 손가락이 블록 모서리에 얹혀 내려가지 못했다.
 """
 import json
 import re
 from pathlib import Path
 
 import numpy as np
+from scipy import ndimage
 
 import objdet
 
@@ -58,7 +66,7 @@ def _feats(u, v):
 class GraspAssist:
     def __init__(self, calib=HERE / "piper_sim" / "front_calib.json", radius=0.04, height=0.10,
                  stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03,
-                 complete=False, idle_steps=20, descend=False, approach=False):
+                 complete=False, idle_steps=20, descend=False, approach=False, yaw=False):
         self.C = {k: np.array(v) for k, v in json.loads(Path(calib).read_text()).items()}
         self.radius, self.height, self.stop_err, self.close_err, self.vmax = radius, height, stop_err, close_err, vmax
         self.place, self.place_radius, self.release_err = place, place_radius, release_err
@@ -68,7 +76,7 @@ class GraspAssist:
         self.n_complete = 0
         self.ep = None
         self.n_used = 0
-        self.descend, self.approach = descend, approach
+        self.descend, self.approach, self.yaw = descend, approach, yaw
         self.stat = {}
 
     def stats(self):
@@ -102,7 +110,8 @@ class GraspAssist:
             self.ep, self.pos, self.held = ep, {}, None
             self.prim, self.zhist = None, []
             self.dmode, self.dbottom, self.amode, self.dhist, self.dhist_a = False, 0, False, [], []
-            self.stat = {"align": 0, "place": 0, "descend": 0, "close": 0, "approach": 0}
+            self.stat = {"align": 0, "place": 0, "descend": 0, "close": 0, "approach": 0, "yaw": 0}
+            self.yaw_bad = False
         self._update(ep)
         q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
         hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
@@ -137,7 +146,9 @@ class GraspAssist:
             act[6] = -1.0                                           # ③ 오므리기를 미룬다
         self.n_used += 1
         self.stat["align"] = self.stat.get("align", 0) + 1
-        if self.descend:
+        if self.yaw:
+            act = self._yaw(ep, act, c, d, dz)
+        if self.descend and not getattr(self, "yaw_bad", False):
             act = self._descend(act, hand, d, dz)
         if self.complete:
             self.zhist.append(hand[2])
@@ -148,6 +159,45 @@ class GraspAssist:
                 self.n_complete += 1
                 self.zhist = []
                 return self._primitive(act, hand, q)
+        return act
+
+    def _wrist_angle(self, img, c):
+        """손목 사진에서 색 c 덩어리의 어긋남 [도]. 손을 이만큼(세계 z, +) 돌리면 맞는다. 덩어리가 작으면 None."""
+        import cv2
+        m = objdet.masks(np.asarray(img))[c]
+        lab, n = ndimage.label(m)
+        if n == 0:
+            return None
+        sizes = ndimage.sum(m, lab, range(1, n + 1))
+        k = int(np.argmax(sizes)) + 1
+        if sizes[k - 1] < 1500:            # 일부만 보이면 기울기가 틀린다 (시뮬 맞춤에서 1,454픽셀일 때 43°)
+            return None
+        ys, xs = np.nonzero(lab == k)
+        (_, _), (w, h), ang = cv2.minAreaRect(np.column_stack([xs, ys]).astype(np.float32))
+        if c == "yellow":                  # 막대: 긴 축이 사진 세로(90°)가 되게
+            longang = ang if w >= h else ang + 90
+            return ((longang - 90 + 90) % 180) - 90
+        return ((ang + 45) % 90) - 45
+
+    def _yaw(self, ep, act, c, d, dz):
+        """⑨ 손가락을 블록 면과 나란히."""
+        if d > 0.025 or not (0.01 < dz < 0.09):
+            self.yaw_bad = False
+            return act
+        m = self._wrist_angle(ep.obs["pixels"]["image2"], c)
+        if m is None:
+            return act
+        if abs(m) > 6:
+            self.yaw_bad = True
+        elif abs(m) < 4:
+            self.yaw_bad = False
+        if not self.yaw_bad:
+            return act
+        act[5] = float(np.clip(np.radians(m) / 0.5, -0.4, 0.4))     # 세계 z 축 회전 (회전 1.0 = 0.5rad)
+        if dz < 0.045:
+            act[2] = max(act[2], 0.0)
+        act[6] = -1.0
+        self.stat["yaw"] += 1
         return act
 
     def _descend(self, act, hand, d, dz):
