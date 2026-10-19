@@ -106,11 +106,14 @@ class Sequencer:
 
     def _update(self, ep, hand):
         f = objdet.detect(np.asarray(ep.obs["pixels"]["image"]), np.asarray(ep.obs["pixels"]["image2"]))
+        self.fresh = {}
         for k, c in enumerate(objdet.OBJECTS):
             if f[2 * k] < 0 or c not in self.C:
                 continue
             u, v = f[2 * k], f[2 * k + 1]
             xy = self.C[c] @ np.array([u, v, 1.0, u * u, u * v, v * v])
+            if c in BLOCKS:
+                self.fresh[c] = xy
             if c in objdet.PADS:
                 self.pos.setdefault(c, xy)
             elif np.linalg.norm(xy - hand[:2]) > 0.08 or c not in self.pos:
@@ -125,7 +128,11 @@ class Sequencer:
         cmd = float(ep.acts[-1][6]) if len(ep.acts) else -1.0
         h = holding(self.qs, cmd, self.held is not None)
         if h and self.held is None:
-            near = [(np.linalg.norm(self.pos[b] - hand[:2]), b) for b in BLOCKS if b in self.pos]
+            # 10/20: 쥐는 순간은 지금 정면 사진으로 잰 위치를 쓴다 (기억한 위치는 손이 8cm 안이면 갱신되지 않아, 여러 번 쥐다
+            #   블록이 움직이면 틀렸다 — sub2 A8→B5 장면 1000 에서 빨강을 쥐었는데 초록으로 봄). 손에 가려 안 보이면 기억한 위치
+            cand = {b: self.pos[b] for b in BLOCKS if b in self.pos}
+            cand.update(self.fresh)
+            near = [(np.linalg.norm(xy - hand[:2]), b) for b, xy in cand.items()]
             self.held = min(near)[1] if near else "?"
         elif not h and self.held is not None:
             self.last, self.commanded, self.held = self.held, cmd < 0, None

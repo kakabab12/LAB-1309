@@ -1002,6 +1002,12 @@ class Runner:
             policy_cfg=self.policy.config, pretrained_path=args.policy,
             preprocessor_overrides={"device_processor": {"device": self.device}},
         )
+        if getattr(args, "cuda_graph", False) and getattr(self, "seq", None) is not None:
+            # 10/20: 단계 지시는 길이가 여러 가지라 CUDA 그래프를 길이마다 따로 녹화해 프로세스가 2.2 → 2.9GB 로 커졌다
+            #   (4개면 GPU 를 넘음). 지시문을 48토큰으로 채워 그래프 하나만 쓴다 (채운 토큰은 주의 마스크로 가려진다)
+            for st in getattr(self.pre, "steps", []):
+                if hasattr(st, "padding") and hasattr(st, "max_length"):
+                    st.padding = "max_length"
         self.env_step = PolicyProcessorPipeline(steps=[LiberoProcessorStep()])
         self.suite = benchmark.get_benchmark_dict()[SUITE]()
         self.manifold = {}
