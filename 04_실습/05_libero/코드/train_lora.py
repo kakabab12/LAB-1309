@@ -64,7 +64,7 @@ def parse_args():
                         "명령을 만들어 묶음을 눈 감고 실행해도 오차가 쌓이지 않는다. --renorm-action 과 함께. 모델 폴더에 abs_pos 표시")
     p.add_argument("--new-lr", type=float, default=0.0,
                    help="새로 붙인 층(state_suffix_proj)만 이 학습률로 (0 이면 --lr). 10/16: 3e-5 로는 0 에서 거의 못 자람")
-    p.add_argument("--subtask", action="store_true",
+    p.add_argument("--subtask", nargs="?", const="short", default=None, choices=["short", "tag"],
                    help="프레임마다 단계 지시 (subtask.py 가 만든 .subtask.npy: pick up / put it on / put it down, 10/17). 모델 폴더에 subtask 표시")
     p.add_argument("--cam-drop-both", type=float, default=0.0, help="이 비율은 손목 카메라까지 가림 (--cam-drop 보다 작게, 10/17)")
     p.add_argument("--cam-drop", type=float, default=0.0, help="학습 장면 중 이 비율만큼 정면 카메라를 가림 → 손 기준 위치 입력을 쓰게 (ttrtc, 10/16)")
@@ -105,7 +105,7 @@ def parse_args():
             setattr(a, k, v)
     global FEAT, SUBTASK
     FEAT = a.feat
-    SUBTASK = getattr(a, "subtask", False)
+    SUBTASK = getattr(a, "subtask", None) or False
     return a
 
 
@@ -162,7 +162,7 @@ class ChunkDataset(Dataset):
                 ep["feat_path"] = str(vc.cache_path(vis_cache, f))
             ep["task"] = str(d["task"])
             if SUBTASK:     # 균형 맞춤(--balance)은 원래 지시문으로, 모델에 주는 글은 단계 지시로
-                ep["sub"] = np.load(Path(f).with_suffix(".subtask.npy"))
+                ep["sub"] = np.load(Path(f).with_suffix(".subtask.npy" if SUBTASK == "short" else f".subtask_{SUBTASK}.npy"))
             ep["src"] = "normal" if (str(d["source"]) if "source" in d.files else "") == "normal" else "switch"
             ep["dagger"] = Path(f).name.startswith("D")      # DN/DS/DR: 학생 상태에서 선생이 바로잡은 시범
             self.eps.append(ep)
@@ -527,6 +527,7 @@ class Trainer:
                     (d / "relfeat").write_text("물체 24개가 손 기준 위치 (relfeat.py, 10/15)\n")
                 if SUBTASK:
                     (d / "subtask").write_text("단계 지시로 학습 (subtask.py, 10/17) — 평가는 --subtask\n")
+                    (d / "subtask_style").write_text(f"{SUBTASK}\n")
                 elif (d / "relfeat").exists():
                     (d / "relfeat").unlink()
             (out / "history.json").write_text(json.dumps(hist, ensure_ascii=False, indent=2))

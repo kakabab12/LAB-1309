@@ -940,7 +940,8 @@ class Runner:
         self.seq = None
         if (Path(args.policy) / "subtask").exists() or getattr(args, "subtask", False):
             import subtask
-            self.seq = subtask.Sequencer()
+            sty = Path(args.policy) / "subtask_style"
+            self.seq = subtask.Sequencer(style=sty.read_text().strip() if sty.exists() else "short")
         if getattr(args, "strategy", None) in ("rtc", "flush_rtc", "rtc_all"):
             from lerobot.policies.rtc.configuration_rtc import RTCConfig
             self.policy.config.rtc_config = RTCConfig(enabled=True, execution_horizon=args.rtc_horizon,

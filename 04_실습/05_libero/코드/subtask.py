@@ -15,8 +15,13 @@
   이 범위를 잠깐 지나가며 '놓기' 로 바뀌던 것을 막음). 무엇을 쥐었나 = 쥐기 시작한 순간 손에서 가장 가까운 블록 (정면 카메라 위치).
   학습 데이터는 relfeat(손 기준 블록 위치)로, 평가·실물은 정면 카메라 검출로 — 같은 규칙.
 
+sub1 (10/17, short) 은 48.2% 로 낮아졌다 — 'pick up the X block' 에 놓을 곳이 빠져, 놓을 곳에 따라 다른 쥐는 방향이 한 지시에 섞인다는 가설.
+sub2 (10/19, tag) 는 원래 지시문을 살린다:
+  pick up the X block to put it on the Y / put the X block you are holding on the Y /
+  put down the block you are holding, then put the X block on the Y
+
 쓰는 법
-  python subtask.py --data data/piper_al_normal_t ...      # 에피소드 옆에 .subtask.npy (프레임마다 단계 지시)
+  python subtask.py --data data/piper_al_normal_t ... [--style tag]   # 에피소드 옆에 .subtask.npy (tag 면 .subtask_tag.npy)
   학습: train_lora.py --subtask   평가: switch_experiment --subtask
 """
 import json
@@ -38,12 +43,25 @@ def parse(instruction):
     return (m.group(1), m.group(2)) if m else (None, None)
 
 
-def pick_text(c):
+STYLE = "short"     # short: 단계만 (10/17 sub1) / tag: 원래 지시문을 살린 단계 지시 (10/19 sub2)
+
+
+def pick_text(c, dest=None):
+    if STYLE == "tag":
+        return f"pick up the {c} block to put it on the {dest}"
     return f"pick up the {c} block"
 
 
-def place_text(dest):
+def place_text(dest, c=None):
+    if STYLE == "tag":
+        return f"put the {c} block you are holding on the {dest}"
     return f"put it on the {dest}"
+
+
+def down_text(c=None, dest=None):
+    if STYLE == "tag":
+        return f"put down the block you are holding, then put the {c} block on the {dest}"
+    return PUT_DOWN
 
 
 def holding(qs, cmd, was):
@@ -69,9 +87,9 @@ def relabel(task, grip, act, rel):
         elif not h and held is not None:
             last, commanded, held = held, float(act[t, 6]) < 0, None
         if held is not None:
-            out.append(place_text(dest) if held == c else PUT_DOWN)
+            out.append(place_text(dest, c) if held == c else down_text(c, dest))
         else:
-            out.append(place_text(dest) if (last == c and commanded) else pick_text(c))
+            out.append(place_text(dest, c) if (last == c and commanded) else pick_text(c, dest))
     return out
 
 
@@ -79,7 +97,9 @@ class Sequencer:
     """평가·실물: 지시문 + 그리퍼 + 정면 카메라로 지금 단계 지시를 고른다 (relabel 과 같은 규칙).
     X 를 놓았는데 놓을 곳에서 3cm 넘게 떨어져 있으면 다시 'pick up' (데이터의 '놓은 뒤' 구간은 제자리에 놓았을 때만)."""
 
-    def __init__(self, calib=HERE / "piper_sim" / "front_calib.json"):
+    def __init__(self, calib=HERE / "piper_sim" / "front_calib.json", style="short"):
+        global STYLE
+        STYLE = style
         self.C = {k: np.array(v) for k, v in json.loads(Path(calib).read_text()).items()}
         self.ep = None
         self.log = []
@@ -113,11 +133,11 @@ class Sequencer:
         if c is None:
             return instruction
         if self.held is not None:
-            out = place_text(dest) if self.held == c else PUT_DOWN
+            out = place_text(dest, c) if self.held == c else down_text(c, dest)
         elif self.last == c and self.commanded and self._placed(c, dest):
-            out = place_text(dest)
+            out = place_text(dest, c)
         else:
-            out = pick_text(c)
+            out = pick_text(c, dest)
         if not self.log or self.log[-1][1] != out:
             self.log.append((len(ep.acts), out))
         return out
@@ -135,7 +155,11 @@ def main():
     from collections import Counter
     p = argparse.ArgumentParser()
     p.add_argument("--data", nargs="+", required=True)
+    p.add_argument("--style", default="short", choices=["short", "tag"])
     a = p.parse_args()
+    global STYLE
+    STYLE = a.style
+    suffix = ".subtask.npy" if a.style == "short" else f".subtask_{a.style}.npy"
     t0, n, cnt = time.time(), 0, Counter()
     for d in a.data:
         for f in sorted(Path(d).glob("episodes/*.npz")):
@@ -144,8 +168,8 @@ def main():
                 continue
             z = np.load(f, allow_pickle=True)
             lab = relabel(z["task"], z["grip"][:, 0], z["action"], np.load(rp))
-            np.save(f.with_suffix(".subtask.npy"), np.array(lab))
-            cnt.update(s.split(" the ")[0] if s != PUT_DOWN else s for s in lab)
+            np.save(f.with_suffix(suffix), np.array(lab))
+            cnt.update(" ".join(s.split()[:2]) for s in lab)
             n += 1
     print(f"끝: {n} 에피소드, {time.time() - t0:.0f}초, 프레임 {dict(cnt)}", flush=True)
 
