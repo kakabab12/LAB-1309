@@ -1284,7 +1284,7 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
         radial = (g - base) * [1, 1, 0]
         axis = np.cross([0, 0, 1.0], radial / (np.linalg.norm(radial) + 1e-9))
         mats = []
-        for tilt in (0, 15, -15):
+        for tilt in ((0, 15, -15, 25, -25, 35, -35) if NOPED else (0, 15, -15)):
             Rt = Rotation.from_rotvec(axis * np.radians(tilt)).as_matrix()
             mats += [Rt @ gm, Rt @ gm @ _RZ180]
         # 블록(10/4): 기울기마다 따로 본다. 여유가 가장 큰 하나만 보면 그 방향이 옆 물체에 걸릴 때 걸리지 않는
@@ -1366,6 +1366,10 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
     return False
 
 
+# 10/20: 받침대 없음 (PIPER_NOPED=1). 처음 자세가 앞으로 45° 기울어 있어(손목 5번 관절 한계) 쥐는 방향 후보는 처음 자세 대신
+#   '똑바로 아래' 기준(받침대 배치의 처음 자세 방향)에서 만들고, 기울기를 ±35° 까지 넓혀 역기구학으로 닿는 것을 고른다
+NOPED = __import__("os").environ.get("PIPER_NOPED") == "1"
+DOWN_REF = np.array([[0.001, 0.9985, -0.0555], [1.0, -0.0009, 0.0006], [0.0005, -0.0555, -0.9985]])
 # 10/20: 교정 시범에서 넘겨받을 때 손이 이미 블록 바로 위 낮은 곳에 있어도 시범 프로그램은 늘 블록 위 8cm 로 먼저 올라갔다
 #   (빈손으로 블록 3cm·6cm 안에서 넘겨받은 75개 중 63개가 3cm 넘게 올라감). 학생은 '쥐는 높이에서 손을 올린다' 를 배워
 #   보조를 켜도 블록 위에서 오르내리며 못 쥐었다 (als2 + 보조의 가장 큰 실패). PIPER_NEAR_GRASP=1 이면 그 자리에서 맞춰 내려가 쥔다.
@@ -1462,12 +1466,13 @@ def block_grasp_candidates(ep, obj):
     o = ep.obj_pos(obj)
     a, b, h = block_size(obj)
     R = se.obj_rot(ep, obj)
-    g = o + R.apply([0, 0, min(0.025, h / 2)])
+    # 10/20 받침대 없음: 기울인 손으로 높이 4cm 막대를 2cm 에서 쥐면 아래쪽 손가락이 책상을 0.1~1cm 파고들어 후보가 모두 빠졌다 → 2.8cm
+    g = o + R.apply([0, 0, (0.028 if NOPED and h < 0.045 else min(0.025, h / 2))])
     cands = []
     # 0/90 에 180 을 더한 방향도 넣는다: 손가락이 대칭이라 같은 쥐기지만 손목 관절은 반 바퀴 다르다.
     #   막대(쥘 수 있는 방향이 하나)가 손목 한계 밖이라 시작도 못 했다 (T2·T7 2/5, 10/4)
     for yaw in (0, 90, 180, 270):
-        M = R.as_matrix() @ Rotation.from_euler("z", yaw, degrees=True).as_matrix() @ ep.home[1]
+        M = R.as_matrix() @ Rotation.from_euler("z", yaw, degrees=True).as_matrix() @ (DOWN_REF if NOPED else ep.home[1])
         # 손가락 방향의 블록 폭이 그리퍼(7cm)보다 좁을 때만
         width = a if abs(np.cos(np.radians(yaw))) < 0.5 else b
         if width < 0.065:

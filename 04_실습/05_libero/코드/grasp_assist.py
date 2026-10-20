@@ -61,6 +61,8 @@ HERE = Path(__file__).resolve().parent
 NAMES = {"red": "akita_black_bowl_1", "green": "cream_cheese_1", "blue": "blue_block_1", "yellow": "wine_bottle_1"}
 TABLE_Z = 0.90          # 책상 높이 (실물: 로봇 밑동 기준으로 한 번 잼)
 GRASP_H = {"red": 0.0225, "green": 0.0225, "blue": 0.0225, "yellow": 0.020}   # 쥐는 높이 = 블록 높이 절반 (시범과 같음)
+if __import__("os").environ.get("PIPER_NOPED") == "1":      # 10/20 받침대 없음: 막대는 2.8cm 에서 쥔다 (task_experts)
+    GRASP_H["yellow"] = 0.028
 
 
 def _feats(u, v):
