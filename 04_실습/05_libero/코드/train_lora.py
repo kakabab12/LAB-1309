@@ -64,6 +64,8 @@ def parse_args():
                         "명령을 만들어 묶음을 눈 감고 실행해도 오차가 쌓이지 않는다. --renorm-action 과 함께. 모델 폴더에 abs_pos 표시")
     p.add_argument("--new-lr", type=float, default=0.0,
                    help="새로 붙인 층(state_suffix_proj)만 이 학습률로 (0 이면 --lr). 10/16: 3e-5 로는 0 에서 거의 못 자람")
+    p.add_argument("--exclude", default=None,
+                   help="학습에서 뺄 에피소드 목록 파일 (줄마다 'data/' 뒤 경로, 10/20: 빈손으로 블록 바로 위에서 쥐지 않고 올라가는 시범)")
     p.add_argument("--subtask", nargs="?", const="short", default=None, choices=["short", "tag"],
                    help="프레임마다 단계 지시 (subtask.py 가 만든 .subtask.npy: pick up / put it on / put it down, 10/17). 모델 폴더에 subtask 표시")
     p.add_argument("--cam-drop-both", type=float, default=0.0, help="이 비율은 손목 카메라까지 가림 (--cam-drop 보다 작게, 10/17)")
@@ -362,6 +364,11 @@ class Trainer:
         torch.manual_seed(a.seed)
         random.seed(a.seed)
         files = sorted(f for d in a.data for f in Path(d).glob("episodes/*.npz"))
+        if getattr(a, "exclude", None):
+            ex = {x.strip() for x in Path(a.exclude).read_text().splitlines() if x.strip()}
+            n0 = len(files)
+            files = [f for f in files if str(f).split("data/", 1)[-1] not in ex]
+            print(f"빼는 에피소드: {n0 - len(files)} / {n0} ({a.exclude})", flush=True)
         if not files:
             raise SystemExit(f"{a.data}/episodes 에 데이터가 없습니다. collect_robust_data.py 를 먼저 돌리세요.")
         random.shuffle(files)

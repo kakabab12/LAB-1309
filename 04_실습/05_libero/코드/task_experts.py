@@ -1311,6 +1311,10 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
         for score, b in sorted(found, key=lambda x: -x[0]):
             plans.append((score < min_margin, b, g))
     plans.sort(key=lambda x: x[0])                 # 여유 충분한 후보 먼저, 그 안에서는 원래 순서
+    if _is_blocks() and NEAR_GRASP and plans:
+        r = _near_grasp(ep, obj, plans, record)
+        if r is not None:
+            return r
     for _, (mg, gm, q_above), g in plans[:3]:
         keep = list(keepout) + pik.scene_keepout(ep) + (block_keepout(ep, exclude=(obj,)) if _is_blocks() else [])
         q_go = q_above
@@ -1360,6 +1364,45 @@ def _grasp_bowl_piper(ep, obj, cands, record=None, above=0.08, min_margin=np.rad
             return True
         se.hold(ep, -1.0, 8, record)
     return False
+
+
+# 10/20: 교정 시범에서 넘겨받을 때 손이 이미 블록 바로 위 낮은 곳에 있어도 시범 프로그램은 늘 블록 위 8cm 로 먼저 올라갔다
+#   (빈손으로 블록 3cm·6cm 안에서 넘겨받은 75개 중 63개가 3cm 넘게 올라감). 학생은 '쥐는 높이에서 손을 올린다' 를 배워
+#   보조를 켜도 블록 위에서 오르내리며 못 쥐었다 (als2 + 보조의 가장 큰 실패). PIPER_NEAR_GRASP=1 이면 그 자리에서 맞춰 내려가 쥔다.
+NEAR_GRASP = __import__("os").environ.get("PIPER_NEAR_GRASP", "0") == "1"
+
+
+def _near_grasp(ep, obj, plans, record=None, xy_tol=0.015, z_max=0.08, ang_max=20.0):
+    """손이 빈손으로 블록 바로 위(옆 1.5cm, 쥐는 높이 위 8cm 안)이고 지금 손 방향과 20° 안의 쥐는 방향이 있으면:
+    그 높이에서 앞뒤좌우·방향을 맞추고 → 천천히 내려가 → 3~6스텝 멈춤 → 오므림 → 10cm 들어 올림. 아니면 None (원래 방식)."""
+    hand = sx.eef_pos(ep.obs)
+    if float(ep.obs["robot_state"]["gripper"]["qpos"][0]) < 0.028:
+        return None
+    cur = ep.obs["robot_state"]["eef"]["mat"]
+    best = None
+    for _, (mg, gm, q_above), g in plans:
+        if np.linalg.norm(hand[:2] - g[:2]) > xy_tol or not (-0.005 < hand[2] - g[2] < z_max):
+            continue
+        for gmx in (gm, gm @ _RZ180):          # 손가락이 대칭이라 접근 축으로 180° 돌린 것은 같은 쥐기
+            ang = np.degrees(np.linalg.norm(Rotation.from_matrix(gmx @ cur.T).as_rotvec()))
+            if ang < ang_max and (best is None or ang < best[0]):
+                best = (ang, gmx, g)
+    if best is None:
+        return None
+    _, gm, g = best
+    if not se.servo(ep, np.array([g[0], g[1], max(hand[2], g[2] + 0.025)]), gm, -1.0, tol=0.003, vmax=0.2, max_steps=30,
+                    record=record):
+        return None
+    if not se.servo(ep, g, gm, -1.0, tol=0.004, vmax=float(se._rng.uniform(0.08, 0.14)), max_steps=40, record=record):
+        return None
+    se.hold(ep, -1.0, int(se._rng.integers(3, 7)), record)
+    se.hold(ep, 1.0, 12, record)
+    z0 = ep.obj_pos(obj)[2]
+    se.servo(ep, g + [0, 0, 0.10], gm, 1.0, tol=0.02, record=record)
+    if ep.obj_pos(obj)[2] > z0 + 0.04:
+        return True
+    se.hold(ep, -1.0, 8, record)
+    return None
 
 
 def _is_blocks():
