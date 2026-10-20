@@ -532,11 +532,13 @@ class Trainer:
                     (d / "sufstate").write_text("상태를 동작 토큰에도 더함 (ttrtc.enable_sufstate, 10/15)\n")
                 if FEAT == "relfeat":
                     (d / "relfeat").write_text("물체 24개가 손 기준 위치 (relfeat.py, 10/15)\n")
+                elif (d / "relfeat").exists():
+                    (d / "relfeat").unlink()
+                # 10/20: 아래 SUBTASK 블록을 위 if 와 elif 사이에 넣었더니 elif 가 SUBTASK 에 붙어, 단계 지시 없이 학습한 모델은
+                #   relfeat 표시가 저장 직후 지워졌다 (als3b: 평가가 화면 좌표를 넣어 한 번도 못 쥠). 순서를 되돌림
                 if SUBTASK:
                     (d / "subtask").write_text("단계 지시로 학습 (subtask.py, 10/17) — 평가는 --subtask\n")
                     (d / "subtask_style").write_text(f"{SUBTASK}\n")
-                elif (d / "relfeat").exists():
-                    (d / "relfeat").unlink()
             (out / "history.json").write_text(json.dumps(hist, ensure_ascii=False, indent=2))
             print(f"정책 저장: {d}", flush=True)
             return
