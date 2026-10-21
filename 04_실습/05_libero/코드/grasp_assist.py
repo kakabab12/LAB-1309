@@ -55,6 +55,12 @@
      움직였는데 기억한 위치(손이 8cm 안이면 갱신 안 함)는 옛 자리라, 보조가 블록 옆 2cm 를 누르던 장면도 있다 (A8→B0 장면 1007).
   ⑨ 손목 맞추기는 6번 관절 한계를 본다: 돌릴 방향이 관절을 한계 10° 안으로 넣으면 대칭인 반대 방향으로 돌린다
      (정육면체 90°, 막대 180°). 6번 관절 +δ ≈ 손가락 방향 세계 z −δ·cos(기울기) (받침대 없는 처음 자세에서 +11.5° → −8.6°).
+내려놓기 (10/22, putdown=True, 평가 --putdown-assist): 받침대 없는 장면
+  ⑫ 지시문의 블록이 아닌 블록을 쥐고 있으면 (일 바꾸기 직후), 빈 자리 — 다른 물체에서 9cm, 지시문의 블록·놓을 곳에서 12cm,
+     로봇 밑동에서 18~40cm, 되도록 그 블록이 처음 놓여 있던 자리 — 로 10cm 높이에서 옮겨 내려놓고 6cm 든 뒤 VLA 에 돌려준다.
+     np2 + 막힘 풀기 평가에서 일 바꾸기 140장면 중 59장면은 VLA 가 A 를 B 의 놓을 곳(6cm 안)에 내려놓았다. 그때 B 성공 32/59
+     (다른 곳이면 78/81), 돌아오기 17/47 (다른 곳이면 67/73) — A 가 가장 가까운 물체에서 9cm 넘게 떨어져 있으면 돌아오기 52/54.
+     시범은 A 를 쥔 자리에 그대로 내려놓는다 (switch_v6.put_down_any).
 """
 import json
 import re
@@ -82,7 +88,8 @@ def _feats(u, v):
 class GraspAssist:
     def __init__(self, calib=HERE / "piper_sim" / "front_calib.json", radius=0.04, height=0.10,
                  stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03,
-                 complete=False, idle_steps=20, descend=False, approach=False, yaw=False, close=False, unjam=False):
+                 complete=False, idle_steps=20, descend=False, approach=False, yaw=False, close=False, unjam=False,
+                 putdown=False):
         self.C = {k: np.array(v) for k, v in json.loads(Path(calib).read_text()).items()}
         self.radius, self.height, self.stop_err, self.close_err, self.vmax = radius, height, stop_err, close_err, vmax
         self.place, self.place_radius, self.release_err = place, place_radius, release_err
@@ -93,7 +100,7 @@ class GraspAssist:
         self.ep = None
         self.n_used = 0
         self.descend, self.approach, self.yaw, self.close = descend, approach, yaw, close
-        self.unjam = unjam
+        self.unjam, self.putdown = unjam, putdown
         self.stat = {}
 
     def stats(self):
@@ -123,6 +130,8 @@ class GraspAssist:
                 self.pos.setdefault(c, xy)
             elif np.linalg.norm(xy - hand[:2]) > 0.08 or c not in self.pos:
                 self.pos[c] = xy
+            if c in objdet.BLOCKS:
+                self.pos0.setdefault(c, xy)     # 장면 처음 자리 (⑫ 내려놓을 자리 1순위)
 
     def __call__(self, ep, act, instruction):
         if ep is not self.ep:              # 새 장면
@@ -132,10 +141,14 @@ class GraspAssist:
             self.stat = {"align": 0, "place": 0, "descend": 0, "close": 0, "approach": 0, "yaw": 0}
             if self.unjam:
                 self.stat.update(unjam=0, unjam_n=0)
+            if self.putdown:
+                self.stat.update(putdown=0, putdown_n=0)
+            self.pos0, self.pd = {}, None
             self.yaw_bad = False
             self.nclose = 0
             self.ujmode, self.ujhist = 0, []
             self.home_mat = np.asarray(ep.obs["robot_state"]["eef"]["mat"], dtype=np.float64).reshape(3, 3)   # 장면 처음 = 처음 자세
+            self.home_xy = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)[:2].copy()
         self._update(ep)
         q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
         hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
@@ -148,8 +161,16 @@ class GraspAssist:
         c = self._target(instruction)
         if self.prim is not None:          # ⑥ 쥐기 마무리 중
             return self._primitive(act, hand, q)
+        if self.pd is not None:            # ⑫ 내려놓는 중
+            return self._putdown(act, hand)
         if c is None or c not in self.pos:
             return act
+        if self.putdown and q <= 0.028 and self.held is not None and self.held != c:
+            spot = self._free_spot(instruction, hand, self.held)
+            if spot is not None:
+                self.pd = {"spot": spot, "held": self.held, "phase": "carry", "n": 0}
+                self.stat["putdown_n"] += 1
+                return self._putdown(act, hand)
         if q <= 0.028:
             return self._place(act, instruction, c, hand) if self.place else act
         e = self.pos[c] - hand[:2]
@@ -306,6 +327,62 @@ class GraspAssist:
             self.dmode, self.dhist, self.yaw_bad = False, [], False
             if c in getattr(self, "fresh", {}):    # 블록 7cm 위에서 새로 잰 위치 (기억은 손가락에 밀린 블록을 모른다)
                 self.pos[c] = self.fresh[c]
+        return a
+
+    def _free_spot(self, instruction, hand, held):
+        """⑫ 쥔 블록을 내려놓을 빈 자리 (책상 위 x, y). 처음 자리 → 손에서 가까운 격자 순. 없으면 None."""
+        c, dst = self._target(instruction), self._dest(instruction)
+        others = {k: v for k, v in self.pos.items() if k != held}
+        base = np.array([-0.33, 0.0])       # 로봇 밑동 (layout_noped)
+
+        def ok(p):
+            if min((np.linalg.norm(p - v) for v in others.values()), default=1.0) < 0.09:
+                return False
+            if min((np.linalg.norm(p - others[k]) for k in (c, dst) if k in others), default=1.0) < 0.12:
+                return False
+            r = np.linalg.norm(p - base)
+            return 0.18 < r < 0.40          # 처음 자세(책상 위 18cm)와는 옮기는 높이 10cm 에서도 8cm 넘게 떨어진다
+        cands = [self.pos0[held]] if held in self.pos0 else []
+        xs, ys = np.meshgrid(np.arange(-0.16, 0.07, 0.02), np.arange(-0.26, 0.27, 0.02))
+        grid = np.stack([xs.ravel(), ys.ravel()], 1)
+        cands += list(grid[np.argsort(np.linalg.norm(grid - hand[:2], axis=1))])
+        for p in cands:
+            if ok(np.asarray(p)):
+                return np.array(p, dtype=np.float64)
+        return None
+
+    def _putdown(self, act, hand):
+        """⑫ 빈 자리 위로 (10cm 높이) → 내림 → 벌림 8스텝 → 6cm 듦 → VLA 에 돌려줌. 손목 방향은 그대로 둔다."""
+        pd = self.pd
+        pd["n"] += 1
+        self.stat["putdown"] += 1
+        a = np.zeros(7, dtype=np.float32)
+        z_travel, z_rest = TABLE_Z + 0.10, TABLE_Z + GRASP_H[pd["held"]] + 0.004
+        e = pd["spot"] - hand[:2]
+        d = float(np.linalg.norm(e))
+        if pd["phase"] == "carry":
+            tgt = np.array([pd["spot"][0], pd["spot"][1], z_travel])
+            if hand[2] < z_travel - 0.02 and d > 0.03:      # 낮으면 먼저 올라감 (다른 블록에 걸리지 않게)
+                tgt[:2] = hand[:2]
+            a[:3] = np.clip((tgt - hand) / 0.05, -self.vmax, self.vmax)
+            a[6] = 1.0
+            if d < 0.01 or pd["n"] > 120:
+                pd["phase"], pd["n"] = "down", 0
+        elif pd["phase"] == "down":
+            a[:3] = np.clip((np.array([pd["spot"][0], pd["spot"][1], z_rest]) - hand) / 0.05, -0.3, 0.3)
+            a[6] = 1.0
+            if abs(hand[2] - z_rest) < 0.004 or pd["n"] > 60:
+                pd["phase"], pd["n"] = "open", 0
+        elif pd["phase"] == "open":
+            a[6] = -1.0
+            if pd["n"] >= 8:
+                pd["phase"], pd["n"], pd["z_up"] = "up", 0, hand[2] + 0.06
+        else:
+            a[:3] = np.clip((np.array([hand[0], hand[1], pd["z_up"]]) - hand) / 0.05, -0.3, 0.3)
+            a[6] = -1.0
+            if hand[2] > pd["z_up"] - 0.005 or pd["n"] > 20:
+                self.pd = None
+                self.pos[pd["held"]] = pd["spot"].copy()     # 손에 가려 못 잰 동안은 놓은 자리로 기억
         return a
 
     def _approach(self, act, instruction, c, hand, d):
