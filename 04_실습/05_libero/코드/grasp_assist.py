@@ -63,6 +63,7 @@
      시범은 A 를 쥔 자리에 그대로 내려놓는다 (switch_v6.put_down_any).
 """
 import json
+import os
 import re
 from pathlib import Path
 
@@ -86,10 +87,13 @@ def _feats(u, v):
 
 
 class GraspAssist:
-    def __init__(self, calib=HERE / "piper_sim" / "front_calib.json", radius=0.04, height=0.10,
+    def __init__(self, calib=None, radius=0.04, height=0.10,
                  stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03,
                  complete=False, idle_steps=20, descend=False, approach=False, yaw=False, close=False, unjam=False,
                  putdown=False):
+        # 10/22: PIPER_FRONT_CALIB=piper_sim/front_calib_wide.json 이면 책상 전체로 맞춘 변환식 (블록 공통, calib_front_wide.py).
+        #   기본(front_calib.json)은 블록마다 처음 배치로만 맞춰, 블록이 제자리를 떠나면 평균 1.8cm·최대 13.6cm 틀렸다
+        calib = calib or os.environ.get("PIPER_FRONT_CALIB", str(HERE / "piper_sim" / "front_calib.json"))
         self.C = {k: np.array(v) for k, v in json.loads(Path(calib).read_text()).items()}
         self.radius, self.height, self.stop_err, self.close_err, self.vmax = radius, height, stop_err, close_err, vmax
         self.place, self.place_radius, self.release_err = place, place_radius, release_err
