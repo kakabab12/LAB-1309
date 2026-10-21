@@ -47,6 +47,14 @@
   ⑩ 쥐는 높이(0.8cm 안)에 맞춰 내려왔으면 VLA 가 손을 올리지 못하게 잡고, 3스텝 뒤 12스텝 동안 오므린다. 그 뒤는 VLA.
      (평가 기록의 물체 높이는 블록 바닥 기준이다.) als2 + 보조 다 켬의 '블록 위에서 못 쥠' 장면을 다시 돌려 보니 손은 쥐는 높이까지
      내려오고 아무것에도 닿지 않았는데, 바닥에서 VLA 가 그리퍼를 벌린 채 위로 +1.0 을 명령해 2.7 ↔ 3.9cm(바닥 위)를 오르내렸다.
+막힘 풀기 (10/21, unjam=True, 평가 --unjam-assist): 받침대 없는 장면
+  ⑪ 빈손으로 블록 옆 4cm·위 10cm 안에서 1초(20스텝) 동안 손이 3mm 도 안 움직이고, 손목 관절(4·5·6번) 하나가 한계 3° 안이면,
+     손을 쥐는 높이 7cm 위까지 올리면서 처음 자세의 손 방향으로 되돌린 뒤(최대 60스텝), 정면 카메라로 블록 위치를 새로 재고 VLA 에 돌려준다.
+     np1 + 보조 '블록 위에서 못 쥠' 8장면을 다시 돌려 보니 모두 같은 순서였다: 손가락이 블록 윗면·모서리나 책상에 걸림 →
+     내려가기 재촉이 계속 누름 → 손이 70° 넘게 기울며 4·5·6번 관절이 한계에 박힘 → 끝까지 못 움직임. 블록이 손가락에 밀려
+     움직였는데 기억한 위치(손이 8cm 안이면 갱신 안 함)는 옛 자리라, 보조가 블록 옆 2cm 를 누르던 장면도 있다 (A8→B0 장면 1007).
+  ⑨ 손목 맞추기는 6번 관절 한계를 본다: 돌릴 방향이 관절을 한계 10° 안으로 넣으면 대칭인 반대 방향으로 돌린다
+     (정육면체 90°, 막대 180°). 6번 관절 +δ ≈ 손가락 방향 세계 z −δ·cos(기울기) (받침대 없는 처음 자세에서 +11.5° → −8.6°).
 """
 import json
 import re
@@ -54,6 +62,7 @@ from pathlib import Path
 
 import numpy as np
 from scipy import ndimage
+from scipy.spatial.transform import Rotation
 
 import objdet
 
@@ -63,6 +72,7 @@ TABLE_Z = 0.90          # 책상 높이 (실물: 로봇 밑동 기준으로 한 
 GRASP_H = {"red": 0.0225, "green": 0.0225, "blue": 0.0225, "yellow": 0.020}   # 쥐는 높이 = 블록 높이 절반 (시범과 같음)
 if __import__("os").environ.get("PIPER_NOPED") == "1":      # 10/20 받침대 없음: 막대는 2.8cm 에서 쥔다 (task_experts)
     GRASP_H["yellow"] = 0.028
+LIMIT_DEG = {3: 100.0, 4: 70.0, 5: 120.0}       # PiPER 손목 관절 4·5·6번 한계 [도] (build_piper_xml URDF_RANGE_DEG, 대칭)
 
 
 def _feats(u, v):
@@ -72,7 +82,7 @@ def _feats(u, v):
 class GraspAssist:
     def __init__(self, calib=HERE / "piper_sim" / "front_calib.json", radius=0.04, height=0.10,
                  stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03,
-                 complete=False, idle_steps=20, descend=False, approach=False, yaw=False, close=False):
+                 complete=False, idle_steps=20, descend=False, approach=False, yaw=False, close=False, unjam=False):
         self.C = {k: np.array(v) for k, v in json.loads(Path(calib).read_text()).items()}
         self.radius, self.height, self.stop_err, self.close_err, self.vmax = radius, height, stop_err, close_err, vmax
         self.place, self.place_radius, self.release_err = place, place_radius, release_err
@@ -83,6 +93,7 @@ class GraspAssist:
         self.ep = None
         self.n_used = 0
         self.descend, self.approach, self.yaw, self.close = descend, approach, yaw, close
+        self.unjam = unjam
         self.stat = {}
 
     def stats(self):
@@ -102,10 +113,12 @@ class GraspAssist:
         """손이 8cm 넘게 떨어진 블록만 위치를 새로 잰다 (가까우면 손에 가려 중심이 틀어질 수 있다)."""
         f = objdet.detect(np.asarray(ep.obs["pixels"]["image"]), np.asarray(ep.obs["pixels"]["image2"]))
         hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
+        self.fresh = {}
         for k, c in enumerate(objdet.OBJECTS):
             if f[2 * k] < 0 or c not in self.C:
                 continue
             xy = self.C[c] @ _feats(f[2 * k], f[2 * k + 1])
+            self.fresh[c] = xy
             if c in objdet.PADS:                # 판은 움직이지 않는다 — 처음 값 (블록을 올리면 가려져 틀어진다)
                 self.pos.setdefault(c, xy)
             elif np.linalg.norm(xy - hand[:2]) > 0.08 or c not in self.pos:
@@ -117,8 +130,12 @@ class GraspAssist:
             self.prim, self.zhist = None, []
             self.dmode, self.dbottom, self.amode, self.dhist, self.dhist_a = False, 0, False, [], []
             self.stat = {"align": 0, "place": 0, "descend": 0, "close": 0, "approach": 0, "yaw": 0}
+            if self.unjam:
+                self.stat.update(unjam=0, unjam_n=0)
             self.yaw_bad = False
             self.nclose = 0
+            self.ujmode, self.ujhist = 0, []
+            self.home_mat = np.asarray(ep.obs["robot_state"]["eef"]["mat"], dtype=np.float64).reshape(3, 3)   # 장면 처음 = 처음 자세
         self._update(ep)
         q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
         hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
@@ -138,6 +155,10 @@ class GraspAssist:
         e = self.pos[c] - hand[:2]
         d = float(np.linalg.norm(e))
         dz = hand[2] - (TABLE_Z + GRASP_H[c])           # 쥐는 높이 위로 얼마나
+        if self.unjam and self.held is None:
+            a2 = self._unjam(ep, act, c, hand, d, dz)
+            if a2 is not None:
+                return a2
         if self.approach and self.held is None:
             a2 = self._approach(act, instruction, c, hand, d)
             if a2 is not None:
@@ -200,12 +221,25 @@ class GraspAssist:
             self.yaw_bad = False
         if not self.yaw_bad:
             return act
+        if self.unjam:                     # 막힘 풀기를 켜면 6번 관절 한계도 본다
+            m = self._yaw_turn(ep, m, c)
         act[5] = float(np.clip(np.radians(m) / 0.5, -0.4, 0.4))     # 세계 z 축 회전 (회전 1.0 = 0.5rad)
         if dz < 0.045:
             act[2] = max(act[2], 0.0)
         act[6] = -1.0
         self.stat["yaw"] += 1
         return act
+
+    def _yaw_turn(self, ep, m, c):
+        """돌릴 각도 m[도, 세계 z] 이 6번 관절을 한계 10° 안으로 넣으면 대칭인 반대 방향 (정육면체 m∓90, 막대 m∓180).
+        6번 관절 +δ ≈ 손가락 방향 세계 z −δ·cos(기울기) → 돌린 뒤 6번 관절 ≈ 지금 − m / cos(기울기)."""
+        j6 = float(np.degrees(ep.obs["robot_state"]["joints"]["pos"][5]))
+        k = max(abs(float(np.asarray(ep.obs["robot_state"]["eef"]["mat"]).reshape(3, 3)[2, 2])), 0.3)
+        per = 180.0 if c == "yellow" else 90.0
+        for mm in (m, m - np.sign(m) * per):
+            if abs(j6 - mm / k) < LIMIT_DEG[5] - 10:
+                return mm
+        return m
 
     def _descend(self, act, hand, d, dz):
         """⑦ 맞춰졌는데 내려가지 않으면 쥐는 높이까지 내려가게, 바닥에서 오래 안 쥐면 오므림."""
@@ -244,6 +278,35 @@ class GraspAssist:
         if act[6] > 0:
             self.dmode, self.dhist = False, []
         return act
+
+    def _unjam(self, ep, act, c, hand, d, dz):
+        """⑪ 블록 위에서 손목 관절이 한계에 박혀 멈췄으면 위로 빼며 처음 자세의 손 방향으로 되돌린다. 안 하면 None."""
+        jp = np.degrees(np.asarray(ep.obs["robot_state"]["joints"]["pos"], dtype=np.float64))
+        margin = min(lim - abs(jp[k]) for k, lim in LIMIT_DEG.items())
+        self.ujhist = (self.ujhist + [hand.copy()])[-20:]
+        if not self.ujmode:
+            if d > self.radius or dz > self.height or len(self.ujhist) < 20 or margin > 3:
+                return None
+            h = np.array(self.ujhist[-20:])
+            if np.linalg.norm(h.max(0) - h.min(0)) > 0.003:
+                return None
+            self.ujmode = 1
+            self.stat["unjam_n"] += 1
+        self.ujmode += 1
+        m = np.asarray(ep.obs["robot_state"]["eef"]["mat"], dtype=np.float64).reshape(3, 3)
+        rv = Rotation.from_matrix(self.home_mat @ m.T).as_rotvec()       # 세계 기준, 지금 → 처음 자세 방향
+        a = np.array(act, dtype=np.float32, copy=True)
+        a[:2] = 0.0
+        a[2] = 0.4 if dz < 0.07 else 0.0
+        a[3:6] = np.clip(rv / 0.5, -0.3, 0.3)
+        a[6] = -1.0
+        self.stat["unjam"] += 1
+        if (dz >= 0.07 and np.degrees(np.linalg.norm(rv)) < 10) or self.ujmode > 60:
+            self.ujmode, self.ujhist = 0, []
+            self.dmode, self.dhist, self.yaw_bad = False, [], False
+            if c in getattr(self, "fresh", {}):    # 블록 7cm 위에서 새로 잰 위치 (기억은 손가락에 밀린 블록을 모른다)
+                self.pos[c] = self.fresh[c]
+        return a
 
     def _approach(self, act, instruction, c, hand, d):
         """⑧ 빈손으로 놓을 곳 근처에 있거나 블록에 다가가지 않으면 블록 위로 데려간다. 안 하면 None."""

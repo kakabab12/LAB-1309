@@ -199,6 +199,9 @@ def build_parser():
                    help="쥐기 확정 (grasp_assist ⑩, 10/17): 쥐는 높이에 오면 올리지 못하게 잡고 오므림. --descend-assist 와 같이")
     p.add_argument("--yaw-assist", action="store_true",
                    help="손목 맞추기 (grasp_assist ⑨, 10/17): 손목 카메라의 블록 기울기로 손가락을 블록 면과 나란히. 정렬·놓기 보조 포함")
+    p.add_argument("--unjam-assist", action="store_true",
+                   help="막힘 풀기 (grasp_assist ⑪, 10/21): 블록 위에서 손목 관절이 한계에 박혀 멈추면 위로 빼며 처음 자세의 손 방향으로. "
+                        "손목 맞추기(--yaw-assist)는 6번 관절 한계를 봄. 정렬·놓기 보조 포함")
     p.add_argument("--place-assist", action="store_true",
                    help="정렬 보조 + 놓기 보조 (10/16): 지시문의 블록을 쥐고 놓을 곳 5cm 안이면 가운데로, 3cm 넘게 떨어져 있으면 벌리지 않음")
     p.add_argument("--grasp-complete", action="store_true",
@@ -956,12 +959,13 @@ class Runner:
         dsc, apr = getattr(args, "descend_assist", False), getattr(args, "approach_assist", False)
         yw = getattr(args, "yaw_assist", False)
         cl = getattr(args, "close_assist", False)
+        uj = getattr(args, "unjam_assist", False)
         dsc = dsc or cl
         if getattr(args, "grasp_assist", False) or getattr(args, "place_assist", False) or getattr(args, "grasp_complete", False) \
-                or dsc or apr or yw:
+                or dsc or apr or yw or uj:
             import grasp_assist
             self.assist = grasp_assist.GraspAssist(place=getattr(args, "place_assist", False) or getattr(args, "grasp_complete", False)
-                                                   or dsc or apr or yw, descend=dsc, approach=apr, yaw=yw, close=cl,
+                                                   or dsc or apr or yw or uj, descend=dsc, approach=apr, yaw=yw, close=cl, unjam=uj,
                                                    complete=getattr(args, "grasp_complete", False))
         if getattr(args, "cuda_graph", False):
             # 10/14: 같은 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py). 지연 스텝 수는 --latency-steps 로 따로 맞춘다
