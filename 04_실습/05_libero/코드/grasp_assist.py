@@ -61,6 +61,25 @@
      np2 + 막힘 풀기 평가에서 일 바꾸기 140장면 중 59장면은 VLA 가 A 를 B 의 놓을 곳(6cm 안)에 내려놓았다. 그때 B 성공 32/59
      (다른 곳이면 78/81), 돌아오기 17/47 (다른 곳이면 67/73) — A 가 가장 가까운 물체에서 9cm 넘게 떨어져 있으면 돌아오기 52/54.
      시범은 A 를 쥔 자리에 그대로 내려놓는다 (switch_v6.put_down_any).
+쥔 블록 알아보기 (10/22, fresh_held=True, 평가 --fresh-held):
+  ⑬ 무엇을 쥐었나를 쥐는 순간 '지금 사진'으로 잰 위치로 정하고 (블록이 아직 책상 위라 정확), 쥐고 있는 블록은 기억을 고치지 않는다.
+     np2 + 보조 5가지의 돌아오기 '판 밖에 놓음' (원래 블록이 목표에서 30~55cm) 을 다시 돌려 보니 (A1→B7 장면 1001), 원래 블록(빨강)을
+     제대로 쥐었는데 보조의 기억 속 노란 막대 자리(옮기는 동안 공중의 막대를 책상 위로 잘못 읽은 '유령' 자리)가 손에 더 가까워
+     노랑을 쥐었다고 보고, 내려놓기(⑫)가 빨강을 빈 자리로 가져가 버렸다. 내려놓기는 지시문의 블록이 손에서 6cm 넘게 떨어져
+     책상에 보일 때만 켠다 (안 보이면 손에 있을 수 있다).
+  ⑫' 옮기는 도중 새 지시 (10/22, putdown_near=True, 평가 --putdown-near): 사용자 "어느 정도 수행했다가 다른 곳에 놨다가 다른 태스크하고
+     다시 하는 걸로". 처음 자리로 되돌려 놓지 않고, 지금 손에서 가장 가까운 빈 자리에 내려놓는다 (처음 자리도 후보 중 하나).
+엉뚱한 블록 막기 (10/22, wrong_guard=True, 평가 --wrong-guard):
+  ⑭ 돌아오기에서 B 로 쌓아 둔 블록(파랑 위 초록)을 VLA 가 집어 가, 내려놓기(⑫)가 그것을 빈 자리에 놓아 B 를 망쳤다
+     (np2 + 보조 5가지: A4→B9·A8→B9 에서 B 를 끝까지 지킨 장면 40 중 1). 두 가지로 막는다.
+     ① 빈손으로 지시문의 블록이 아닌 블록 바로 위(2.5cm 안)에서 오므리려 하고 지시문의 블록은 4cm 넘게 떨어져 보이면, 오므리지 않고 조금 든다
+     ② 그래도 같은 지시 아래에서 엉뚱한 블록을 쥐었으면, 빈 자리가 아니라 쥐었던 그 자리·그 높이에 도로 놓는다 (쌓여 있던 블록은 다시 쌓임).
+        지시가 바뀌어 쥐고 있던 블록(일 바꾸기)만 빈 자리로.
+     ①② 로도 쌓은 B 가 그대로 무너져 다시 돌려 보니 (A4→B9 장면 1000, diag_stack.py): 초록을 파랑 위에 올려 닿는 순간 평가가
+     B 성공으로 보고 돌아오기(A2)로 넘어갔는데 손은 아직 초록을 쥐고 있었다 → 보조가 '지시문(빨강)이 아닌 블록' 으로 보고 빈 자리로
+     옮겨 가 쌓은 것이 무너졌다. '앞 지시의 놓을 곳 위면 그 자리에서 놓기' 는 옮기는 도중(쥔 뒤 1.5초) 이미 목적지 근처인 장면(A4: 빨강
+     → 가까운 회색 판)에서 A 를 미리 놓아 버려 뺐다. 대신 평가가 B 성공 뒤 손을 벌릴 때까지 기다린다 (switch_experiment --release-wait,
+     한국어 실행기·실물은 원래 손을 벌려야 끝으로 본다).
 """
 import json
 import os
@@ -90,7 +109,7 @@ class GraspAssist:
     def __init__(self, calib=None, radius=0.04, height=0.10,
                  stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03,
                  complete=False, idle_steps=20, descend=False, approach=False, yaw=False, close=False, unjam=False,
-                 putdown=False):
+                 putdown=False, fresh_held=False, putdown_near=False, wrong_guard=False):
         # 10/22: PIPER_FRONT_CALIB=piper_sim/front_calib_wide.json 이면 책상 전체로 맞춘 변환식 (블록 공통, calib_front_wide.py).
         #   기본(front_calib.json)은 블록마다 처음 배치로만 맞춰, 블록이 제자리를 떠나면 평균 1.8cm·최대 13.6cm 틀렸다
         calib = calib or os.environ.get("PIPER_FRONT_CALIB", str(HERE / "piper_sim" / "front_calib.json"))
@@ -104,7 +123,8 @@ class GraspAssist:
         self.ep = None
         self.n_used = 0
         self.descend, self.approach, self.yaw, self.close = descend, approach, yaw, close
-        self.unjam, self.putdown = unjam, putdown
+        self.unjam, self.putdown, self.fresh_held, self.putdown_near = unjam, putdown, fresh_held, putdown_near
+        self.wrong_guard = wrong_guard
         self.stat = {}
 
     def stats(self):
@@ -132,7 +152,7 @@ class GraspAssist:
             self.fresh[c] = xy
             if c in objdet.PADS:                # 판은 움직이지 않는다 — 처음 값 (블록을 올리면 가려져 틀어진다)
                 self.pos.setdefault(c, xy)
-            elif np.linalg.norm(xy - hand[:2]) > 0.08 or c not in self.pos:
+            elif (np.linalg.norm(xy - hand[:2]) > 0.08 or c not in self.pos) and not (self.fresh_held and c == self.held):
                 self.pos[c] = xy
             if c in objdet.BLOCKS:
                 self.pos0.setdefault(c, xy)     # 장면 처음 자리 (⑫ 내려놓을 자리 1순위)
@@ -159,20 +179,31 @@ class GraspAssist:
         if q > 0.028 or q < 0.005:         # 벌렸거나 빈손으로 끝까지 닫힘 → 쥔 것 없음
             self.held = None
         elif self.held is None:            # 방금 무언가를 쥠 → 손에 가장 가까운 블록
-            near = [(np.linalg.norm(self.pos[b] - hand[:2]), b) for b in objdet.BLOCKS if b in self.pos]
+            cand = {b: self.pos[b] for b in objdet.BLOCKS if b in self.pos}
+            if self.fresh_held:            # ⑬ 지금 사진으로 잰 위치 우선 (기억은 공중의 블록을 잘못 읽은 '유령' 자리일 수 있다)
+                cand.update({b: v for b, v in self.fresh.items() if b in objdet.BLOCKS})
+            near = [(np.linalg.norm(xy - hand[:2]), b) for b, xy in cand.items()]
             if near and min(near)[0] < 0.04:
                 self.held = min(near)[1]
+                self.grasp_at = (hand.copy(), instruction)        # ⑭ 어디서·어떤 지시 아래 쥐었나
         c = self._target(instruction)
+        if instruction != getattr(self, "cur_instr", None):          # 바로 앞 지시 (⑭③)
+            self.prev_instr, self.cur_instr = getattr(self, "cur_instr", None), instruction
         if self.prim is not None:          # ⑥ 쥐기 마무리 중
             return self._primitive(act, hand, q)
         if self.pd is not None:            # ⑫ 내려놓는 중
             return self._putdown(act, hand)
         if c is None or c not in self.pos:
             return act
-        if self.putdown and q <= 0.028 and self.held is not None and self.held != c:
-            spot = self._free_spot(instruction, hand, self.held)
+        if self.putdown and q <= 0.028 and self.held is not None and self.held != c and \
+                (not self.fresh_held or (c in self.fresh and np.linalg.norm(self.fresh[c] - hand[:2]) > 0.06)):
+            ga = getattr(self, "grasp_at", None)
+            if self.wrong_guard and ga is not None and ga[1] == instruction:     # ⑭② 같은 지시 아래 엉뚱한 블록 → 쥐었던 자리·높이에 도로
+                spot, z_back = ga[0][:2].copy(), float(ga[0][2])
+            else:
+                spot, z_back = self._free_spot(instruction, hand, self.held), None
             if spot is not None:
-                self.pd = {"spot": spot, "held": self.held, "phase": "carry", "n": 0}
+                self.pd = {"spot": spot, "held": self.held, "phase": "carry", "n": 0, "z_back": z_back}
                 self.stat["putdown_n"] += 1
                 return self._putdown(act, hand)
         if q <= 0.028:
@@ -180,6 +211,16 @@ class GraspAssist:
         e = self.pos[c] - hand[:2]
         d = float(np.linalg.norm(e))
         dz = hand[2] - (TABLE_Z + GRASP_H[c])           # 쥐는 높이 위로 얼마나
+        if self.wrong_guard and self.held is None and act[6] > 0 and hand[2] < TABLE_Z + 0.12:
+            # ⑭① 지시문의 블록이 아닌 블록 바로 위에서 오므리려 함 (지시문의 블록은 4cm 넘게 떨어져 보임) → 오므리지 않고 조금 든다
+            others = [self.fresh.get(b, self.pos.get(b)) for b in objdet.BLOCKS if b != c]
+            near_other = min((np.linalg.norm(v - hand[:2]) for v in others if v is not None), default=1.0)
+            fc = self.fresh.get(c, self.pos.get(c))
+            if near_other < 0.025 and fc is not None and np.linalg.norm(fc - hand[:2]) > 0.04:
+                act = np.array(act, dtype=np.float32, copy=True)
+                act[6], act[2] = -1.0, max(float(act[2]), 0.3)
+                self.stat["guard"] = self.stat.get("guard", 0) + 1
+                return act
         if self.unjam and self.held is None:
             a2 = self._unjam(ep, act, c, hand, d, dz)
             if a2 is not None:
@@ -346,9 +387,11 @@ class GraspAssist:
                 return False
             r = np.linalg.norm(p - base)
             return 0.18 < r < 0.40          # 처음 자세(책상 위 18cm)와는 옮기는 높이 10cm 에서도 8cm 넘게 떨어진다
-        cands = [self.pos0[held]] if held in self.pos0 else []
+        cands = [self.pos0[held]] if held in self.pos0 and not self.putdown_near else []
         xs, ys = np.meshgrid(np.arange(-0.16, 0.07, 0.02), np.arange(-0.26, 0.27, 0.02))
         grid = np.stack([xs.ravel(), ys.ravel()], 1)
+        if self.putdown_near and held in self.pos0:
+            grid = np.vstack([grid, self.pos0[held][None]])
         cands += list(grid[np.argsort(np.linalg.norm(grid - hand[:2], axis=1))])
         for p in cands:
             if ok(np.asarray(p)):
@@ -362,6 +405,9 @@ class GraspAssist:
         self.stat["putdown"] += 1
         a = np.zeros(7, dtype=np.float32)
         z_travel, z_rest = TABLE_Z + 0.10, TABLE_Z + GRASP_H[pd["held"]] + 0.004
+        if pd.get("z_back") is not None:                     # ⑭② 쥐었던 높이 (다른 블록 위였으면 그 위) + 0.4cm
+            z_rest = pd["z_back"] + 0.004
+            z_travel = max(z_travel, z_rest + 0.06)
         e = pd["spot"] - hand[:2]
         d = float(np.linalg.norm(e))
         if pd["phase"] == "carry":

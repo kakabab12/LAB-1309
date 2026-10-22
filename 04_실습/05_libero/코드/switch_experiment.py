@@ -204,6 +204,14 @@ def build_parser():
                         "손목 맞추기(--yaw-assist)는 6번 관절 한계를 봄. 정렬·놓기 보조 포함")
     p.add_argument("--putdown-assist", action="store_true",
                    help="내려놓기 (grasp_assist ⑫, 10/22): 일 바꾸기 때 쥔 다른 블록을 빈 자리(처음 자리 우선)에 내려놓음. 정렬·놓기 보조 포함")
+    p.add_argument("--putdown-near", action="store_true",
+                   help="내려놓기(⑫)를 처음 자리 대신 지금 손에서 가장 가까운 빈 자리에 (옮기는 도중 새 지시, 10/22)")
+    p.add_argument("--release-wait", type=int, default=0,
+                   help="새 기준(10/22): B 성공 뒤 손을 벌릴 때까지 최대 이만큼 B 지시로 더 돌린 뒤 돌아오기로 (0 = 예전처럼 바로)")
+    p.add_argument("--wrong-guard", action="store_true",
+                   help="엉뚱한 블록 막기 (grasp_assist ⑭, 10/22): 다른 블록 위에서 못 오므리게, 같은 지시 아래 엉뚱한 블록을 쥐면 그 자리·높이에 도로")
+    p.add_argument("--fresh-held", action="store_true",
+                   help="쥔 블록 알아보기 (grasp_assist ⑬, 10/22): 쥐는 순간 지금 사진 위치로, 쥔 블록 기억은 고치지 않음, 내려놓기는 지시문 블록이 책상에 보일 때만")
     p.add_argument("--place-assist", action="store_true",
                    help="정렬 보조 + 놓기 보조 (10/16): 지시문의 블록을 쥐고 놓을 곳 5cm 안이면 가운데로, 3cm 넘게 떨어져 있으면 벌리지 않음")
     p.add_argument("--grasp-complete", action="store_true",
@@ -969,7 +977,9 @@ class Runner:
             import grasp_assist
             self.assist = grasp_assist.GraspAssist(place=getattr(args, "place_assist", False) or getattr(args, "grasp_complete", False)
                                                    or dsc or apr or yw or uj or pdn, descend=dsc, approach=apr, yaw=yw, close=cl, unjam=uj,
-                                                   putdown=pdn,
+                                                   putdown=pdn, fresh_held=getattr(args, "fresh_held", False),
+                                                   putdown_near=getattr(args, "putdown_near", False),
+                                                   wrong_guard=getattr(args, "wrong_guard", False),
                                                    complete=getattr(args, "grasp_complete", False))
         if getattr(args, "cuda_graph", False):
             # 10/14: 같은 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py). 지연 스텝 수는 --latency-steps 로 따로 맞춘다
@@ -1123,6 +1133,15 @@ class Runner:
         rec["home_dist_before_cm"] = round(100 * home_before, 1)
         rec["home_dist_after_cm"] = round(100 * float(np.linalg.norm(eef_pos(ep.obs) - ep.home[0])), 1)
         why, n_b = ep.run_policy(b_lang, "B", a.max_steps, self.chk_b, watch_fn=watch_b)
+        if why == "success" and getattr(a, "release_wait", 0) > 0:
+            # 10/22 새 기준: B 성공(블록이 놓을 곳에 닿음) 뒤 손을 벌릴 때까지 B 지시로 더 (최대 release_wait 스텝).
+            #   닿는 순간 돌아오기로 넘어가면 손이 아직 B 블록을 쥐고 있어, 보조가 그것을 '지시문이 아닌 블록' 으로 보고 옮겨 갔다
+            #   (쌓기 B9: B 를 끝까지 지킨 장면 40 중 1). 한국어 실행기·실물은 원래 손을 벌려야 끝으로 본다.
+            for _ in range(a.release_wait):
+                if not gripper_closed(ep.obs):
+                    break
+                ep.run_policy(b_lang, "B", 1)
+                n_b += 1
         b_end = len(ep.log["pos"])
         rec["b_success_loose"] = bool(ep.loose_hit.get("B"))
         rec.update(b_success=why == "success", b_steps=n_b, a_completed_during_b=a_during_b["v"],

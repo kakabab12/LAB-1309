@@ -31,7 +31,8 @@ import piper_sim.blocks as pb  # noqa: E402
 import korean_cmd as kc  # noqa: E402
 
 POLICY = "outputs/piper_np2_model/merged"
-ASSIST = ["--approach-assist", "--descend-assist", "--unjam-assist", "--yaw-assist", "--putdown-assist"]
+ASSIST = ["--approach-assist", "--descend-assist", "--unjam-assist", "--yaw-assist", "--putdown-assist",
+          "--fresh-held", "--putdown-near", "--wrong-guard"]   # 10/22: 쥔 블록 알아보기, 가까운 빈 자리에, 엉뚱한 블록 막기
 FONT = "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf"
 FONT_R = "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf"
 
@@ -122,6 +123,9 @@ def main():
     p.add_argument("--max-steps", type=int, default=2400)
     p.add_argument("--no-assist", action="store_true", help="VLA 혼자")
     p.add_argument("--debug", action="store_true", help="100스텝마다 끝 판정에 쓰는 카메라 위치를 찍는다")
+    p.add_argument("--render4k", default=None, help="4K 시연 영상 이름 (…mp4 와 …gif). render4k.py")
+    p.add_argument("--k4-every", type=int, default=4, help="몇 스텝마다 4K 한 장 (영상 10장/초 → 4 면 2배속)")
+    p.add_argument("--title", default="", help="4K 화면 왼쪽 위 제목")
     a = p.parse_args()
 
     argv = ["--policy", a.policy, "--task-a", "8", "--strategy", "keep", "--latency-steps", "9", "--ttrtc",
@@ -158,6 +162,12 @@ def main():
             print("창의 왼쪽(정면 카메라)에서 블록을 누르면 '저거', 판을 누르면 '저기' 가 됩니다. 예: (초록 누르고 흰 판 누르고) 저거 저기에 놔", flush=True)
 
     first_grasp, prev, chk, t0 = None, None, None, time.time()
+    w4k = None
+    if a.render4k:
+        import imageio
+        import render4k
+        Path(a.render4k).parent.mkdir(parents=True, exist_ok=True)
+        w4k = imageio.get_writer(a.render4k + ".mp4", fps=10, codec="libx264", quality=8, macro_block_size=8)
     for t in range(a.max_steps):
         # 명령 받기 (대본 / 터미널)
         texts = []
@@ -246,6 +256,8 @@ def main():
                                            f"{(t + 1) / 20:4.1f}초 · 할 일 없음"))
                 break
         status = f"{(t + 1) / 20:4.1f}초 · 지금: {instr or '없음'}" + (f" · 돌아갈 일 {len(ctl.stack)}" if ctl.stack else "")
+        if w4k is not None and t % a.k4_every == 0:
+            w4k.append_data(render4k.frame(ep, lines, status, a.title))
         if a.video or a.show:
             fr = np.concatenate([ep.obs["pixels"]["image"][::-1, ::-1], ep.obs["pixels"]["image2"][::-1, ::-1]], 1)
             img = draw(fr, lines, status)
@@ -258,6 +270,12 @@ def main():
           f"{100 * np.linalg.norm(sx.eef_pos(ep.obs) - ep.home[0]):.1f}cm", flush=True)
     for e in events:
         print("  ", e)
+    if w4k is not None:
+        for _ in range(10):                                  # 마지막 모습 1초
+            w4k.append_data(render4k.frame(ep, lines, "끝", a.title))
+        w4k.close()
+        mb, n, ev = render4k.save_gif(a.render4k + ".mp4", a.render4k + ".gif")
+        print(f"4K: {a.render4k}.mp4, GIF {mb:.0f}MB ({n}장, {ev}장마다)", flush=True)
     if a.video and frames:
         import imageio.v3 as iio
         Path(a.video).parent.mkdir(parents=True, exist_ok=True)
