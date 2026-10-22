@@ -210,6 +210,12 @@ def build_parser():
                    help="새 기준(10/22): B 성공 뒤 손을 벌릴 때까지 최대 이만큼 B 지시로 더 돌린 뒤 돌아오기로 (0 = 예전처럼 바로)")
     p.add_argument("--wrong-guard", action="store_true",
                    help="엉뚱한 블록 막기 (grasp_assist ⑭, 10/22): 다른 블록 위에서 못 오므리게, 같은 지시 아래 엉뚱한 블록을 쥐면 그 자리·높이에 도로")
+    p.add_argument("--pad-safe", action="store_true",
+                   help="판 지키기 (grasp_assist ⑮, 10/22 밤): 쥔 블록을 책상 높이에서 판 쪽으로 끌지 않고 먼저 듦, 내려놓을 자리는 그 블록의 목표 판에서 13cm 밖")
+    p.add_argument("--pad-track", action="store_true",
+                   help="판 따라가기 (grasp_assist ⑯, 10/22 밤): 밀린 판은 정면 카메라로 기억을 고침")
+    p.add_argument("--mem-refresh", action="store_true",
+                   help="기억 고치기 (grasp_assist ⑰, 10/22 밤): 손 8cm 안이어도 블록이 계속 다른 자리에 보이면 고침 (넓은 변환식과 같이)")
     p.add_argument("--fresh-held", action="store_true",
                    help="쥔 블록 알아보기 (grasp_assist ⑬, 10/22): 쥐는 순간 지금 사진 위치로, 쥔 블록 기억은 고치지 않음, 내려놓기는 지시문 블록이 책상에 보일 때만")
     p.add_argument("--place-assist", action="store_true",
@@ -980,6 +986,8 @@ class Runner:
                                                    putdown=pdn, fresh_held=getattr(args, "fresh_held", False),
                                                    putdown_near=getattr(args, "putdown_near", False),
                                                    wrong_guard=getattr(args, "wrong_guard", False),
+                                                   pad_safe=getattr(args, "pad_safe", False), pad_track=getattr(args, "pad_track", False),
+                                                   mem_refresh=getattr(args, "mem_refresh", False),
                                                    complete=getattr(args, "grasp_complete", False))
         if getattr(args, "cuda_graph", False):
             # 10/14: 같은 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py). 지연 스텝 수는 --latency-steps 로 따로 맞춘다

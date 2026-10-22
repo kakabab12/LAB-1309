@@ -80,6 +80,18 @@
      옮겨 가 쌓은 것이 무너졌다. '앞 지시의 놓을 곳 위면 그 자리에서 놓기' 는 옮기는 도중(쥔 뒤 1.5초) 이미 목적지 근처인 장면(A4: 빨강
      → 가까운 회색 판)에서 A 를 미리 놓아 버려 뺐다. 대신 평가가 B 성공 뒤 손을 벌릴 때까지 기다린다 (switch_experiment --release-wait,
      한국어 실행기·실물은 원래 손을 벌려야 끝으로 본다).
+판 지키기 (10/22 밤, pad_safe=True, 평가 --pad-safe): 새 기준(옮기는 도중 바꿈) 돌아오기 실패를 같은 장면으로 다시 돌려 보니 (diag_pad.py,
+  A4→B9 장면 1000) 빨강을 판에서 9.5cm 떨어진 빈 자리에 내려놨다가 다시 쥐자마자, 놓기 보조(④)가 아직 책상 높이인 손을 판 쪽으로
+  끌어 빨강이 책상 위를 미끄러지며 판을 6cm 밀었다 (판에 닿은 것: 빨강). 블록은 판의 옛 자리에 놓였고 판은 밀려 있어 실패.
+  ⑮ 지시문의 블록을 쥐었는데 놓을 곳에서 3cm 넘게 떨어져 있고 쥐는 높이 3cm 위보다 낮으면, 옆으로 끌지 않고 먼저 똑바로 든다
+  ⑮' 내려놓기(⑫) 빈 자리는 그 블록의 원래 목표(앞 지시의 놓을 곳)에서 13cm 넘게 (없으면 예전 조건)
+판 따라가기 (pad_track=True, 평가 --pad-track):
+  ⑯ 판도 밀리면 기억을 고친다: 정면 카메라로 잰 판이 기억과 1.5cm 넘게 5스텝 연속 다르고, 그 판 8cm 안에 블록이 없고(가림), 손이 10cm 넘게 떨어져 있을 때
+기억 고치기 (mem_refresh=True, 평가 --mem-refresh):
+  ⑰ 손이 8cm 안이어도, 블록이 손 바로 밑(3cm 안)이 아니고 사진 위치가 기억과 2.5cm 넘게 10스텝 연속 다르면 사진 위치로 고친다.
+     A4→B9 장면 1004: 헛쥐기로 빨강이 6cm 밀렸는데 기억(손 8cm 안이면 안 고침)은 옛 자리라 정렬 보조가 손을 빈 자리에 400스텝 붙잡았다.
+  넓은 변환식: 블록을 새 빈 자리에 내려놓는 새 기준에서는 블록별 변환식(처음 자리 근처로만 맞춤)이 2~3cm 틀려(diag_pad: 2.2·3.2cm)
+  정렬 보조가 블록 옆을 짚었다 → PIPER_FRONT_CALIB=piper_sim/front_calib_wide.json 과 같이 쓴다.
 """
 import json
 import os
@@ -109,7 +121,8 @@ class GraspAssist:
     def __init__(self, calib=None, radius=0.04, height=0.10,
                  stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03,
                  complete=False, idle_steps=20, descend=False, approach=False, yaw=False, close=False, unjam=False,
-                 putdown=False, fresh_held=False, putdown_near=False, wrong_guard=False):
+                 putdown=False, fresh_held=False, putdown_near=False, wrong_guard=False, pad_safe=False, pad_track=False,
+                 mem_refresh=False):
         # 10/22: PIPER_FRONT_CALIB=piper_sim/front_calib_wide.json 이면 책상 전체로 맞춘 변환식 (블록 공통, calib_front_wide.py).
         #   기본(front_calib.json)은 블록마다 처음 배치로만 맞춰, 블록이 제자리를 떠나면 평균 1.8cm·최대 13.6cm 틀렸다
         calib = calib or os.environ.get("PIPER_FRONT_CALIB", str(HERE / "piper_sim" / "front_calib.json"))
@@ -125,6 +138,7 @@ class GraspAssist:
         self.descend, self.approach, self.yaw, self.close = descend, approach, yaw, close
         self.unjam, self.putdown, self.fresh_held, self.putdown_near = unjam, putdown, fresh_held, putdown_near
         self.wrong_guard = wrong_guard
+        self.pad_safe, self.pad_track, self.mem_refresh = pad_safe, pad_track, mem_refresh
         self.stat = {}
 
     def stats(self):
@@ -152,10 +166,30 @@ class GraspAssist:
             self.fresh[c] = xy
             if c in objdet.PADS:                # 판은 움직이지 않는다 — 처음 값 (블록을 올리면 가려져 틀어진다)
                 self.pos.setdefault(c, xy)
+                if self.pad_track:              # ⑯ 밀린 판은 고친다 (블록이 가까우면 가려지니 안 고침)
+                    self._track_pad(c, xy, hand)
+            elif self.mem_refresh and c in self.pos and np.linalg.norm(xy - self.pos[c]) > 0.025 \
+                    and np.linalg.norm(xy - hand[:2]) > 0.03 and not (self.fresh_held and c == self.held):
+                self.mr_n[c] = self.mr_n.get(c, 0) + 1          # ⑰ 손 8cm 안이어도 계속 다르게 보이면 고침
+                if self.mr_n[c] >= 10 or np.linalg.norm(xy - hand[:2]) > 0.08:
+                    self.pos[c], self.mr_n[c] = xy, 0
             elif (np.linalg.norm(xy - hand[:2]) > 0.08 or c not in self.pos) and not (self.fresh_held and c == self.held):
                 self.pos[c] = xy
             if c in objdet.BLOCKS:
                 self.pos0.setdefault(c, xy)     # 장면 처음 자리 (⑫ 내려놓을 자리 1순위)
+            if self.mem_refresh and c in objdet.BLOCKS and (c not in self.pos or np.linalg.norm(xy - self.pos[c]) <= 0.025):
+                self.mr_n[c] = 0
+
+    def _track_pad(self, c, xy, hand):
+        """⑯ 판 기억 고치기: 1.5cm 넘게 5스텝 연속 다르고, 판 8cm 안에 블록 없고, 손 10cm 밖."""
+        if np.linalg.norm(xy - self.pos[c]) < 0.015 or np.linalg.norm(xy - hand[:2]) < 0.10 \
+                or any(b in self.fresh and np.linalg.norm(self.fresh[b] - xy) < 0.08 for b in objdet.BLOCKS):
+            self.pt_n[c] = 0
+            return
+        self.pt_n[c] = self.pt_n.get(c, 0) + 1
+        if self.pt_n[c] >= 5:
+            self.pos[c], self.pt_n[c] = xy, 0
+            self.stat["pad_track"] = self.stat.get("pad_track", 0) + 1
 
     def __call__(self, ep, act, instruction):
         if ep is not self.ep:              # 새 장면
@@ -171,6 +205,7 @@ class GraspAssist:
             self.yaw_bad = False
             self.nclose = 0
             self.ujmode, self.ujhist = 0, []
+            self.mr_n, self.pt_n = {}, {}
             self.home_mat = np.asarray(ep.obs["robot_state"]["eef"]["mat"], dtype=np.float64).reshape(3, 3)   # 장면 처음 = 처음 자세
             self.home_xy = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)[:2].copy()
         self._update(ep)
@@ -380,7 +415,14 @@ class GraspAssist:
         others = {k: v for k, v in self.pos.items() if k != held}
         base = np.array([-0.33, 0.0])       # 로봇 밑동 (layout_noped)
 
-        def ok(p):
+        own = None                          # ⑮' 쥔 블록의 원래 목표 (앞 지시의 놓을 곳)
+        pi = getattr(self, "prev_instr", None)
+        if self.pad_safe and pi and self._target(pi) == held and self._dest(pi) in others:
+            own = others[self._dest(pi)]
+
+        def ok(p, strict=False):
+            if strict and own is not None and np.linalg.norm(p - own) < 0.13:
+                return False
             if min((np.linalg.norm(p - v) for v in others.values()), default=1.0) < 0.09:
                 return False
             if min((np.linalg.norm(p - others[k]) for k in (c, dst) if k in others), default=1.0) < 0.12:
@@ -393,9 +435,10 @@ class GraspAssist:
         if self.putdown_near and held in self.pos0:
             grid = np.vstack([grid, self.pos0[held][None]])
         cands += list(grid[np.argsort(np.linalg.norm(grid - hand[:2], axis=1))])
-        for p in cands:
-            if ok(np.asarray(p)):
-                return np.array(p, dtype=np.float64)
+        for strict in ([True, False] if own is not None else [False]):
+            for p in cands:
+                if ok(np.asarray(p), strict):
+                    return np.array(p, dtype=np.float64)
         return None
 
     def _putdown(self, act, hand):
@@ -488,6 +531,10 @@ class GraspAssist:
         e = self.pos[dst] - hand[:2]
         d = float(np.linalg.norm(e))
         act = np.array(act, dtype=np.float32, copy=True)
+        if self.pad_safe and d > self.release_err and hand[2] < TABLE_Z + GRASP_H[c] + 0.03:
+            act[:2], act[2], act[6] = 0.0, max(float(act[2]), 0.3), 1.0     # ⑮ 책상 높이면 옆으로 끌지 않고 먼저 든다
+            self.stat["lift"] = self.stat.get("lift", 0) + 1
+            return act
         if d < self.place_radius:
             act[:2] = np.clip(e / 0.05, -self.vmax, self.vmax)        # ④ 놓을 곳 가운데로
             self.n_place += 1
