@@ -12,6 +12,8 @@
   ③ 끼어들기 낱말(잠깐·먼저·그 전에·우선) 이 있으면 지금 하던 일을 쌓아 두고 새 일을 하고, 돌아오기 낱말(이어서·하던 거·
      원래·다시·계속) 이 있으면 끝난 뒤 쌓아 둔 일로 돌아간다. 끼어들기 낱말만 있어도 돌아온다 ("먼저" = 그다음 하던 일).
   ④ 놓을 곳이 없으면 되묻는다. 배운 10가지 지시문이 아니면 알려 주고 그래도 한다 (정확도는 낮을 수 있음).
+  ⑤ 가리키기 (10/22): "저거·이거·그거" 는 화면에서 마지막으로 누른 블록, "저기·여기·거기" 는 그다음 누른 판(또는 블록 위)으로
+     바꿔 읽는다 (korean_live --show 창에서 정면 카메라 화면을 누름 → 그 자리의 색 덩어리). "그거 말고" 는 가리키기가 아니다.
 
   python korean_cmd.py            # 예시 문장 시험
   python korean_cmd.py "빨간 블록을 보라 판에 올려줘"
@@ -47,6 +49,10 @@ KNOWN = {
     "put the green block on the red block", "put the yellow block on the white square",
     "put the red block on the purple square", "put the green block on the blue block",
 }
+POINT_OBJ = ["저거", "이거", "그거", "저것", "이것", "그것", "저 블록", "이 블록", "그 블록", "저 막대", "이 막대"]
+POINT_DST = ["저기", "여기", "거기", "저 판", "이 판", "그 판", "저쪽", "이쪽", "저 위", "그 위"]
+SAY_COLOR = {"red": "빨간", "green": "초록", "blue": "파란", "yellow": "노란",
+             "purple": "보라", "gray": "회색", "orange": "주황", "white": "흰"}
 KO = {"red": "빨강", "green": "초록", "blue": "파랑", "yellow": "노란 막대",
       "purple": "보라 판", "gray": "회색 판", "orange": "주황 판", "white": "흰 판"}
 
@@ -118,7 +124,29 @@ def split_clauses(s):
     return [p for p in parts if p and p.strip()]
 
 
-def interpret(text):
+def resolve_pointing(text, point):
+    """'저거'·'저기' 를 화면에서 누른 블록·판의 색 낱말로 바꾼다. point = {"obj": 블록 색, "dst": 판 또는 블록 색} (없으면 None).
+    가리킨 게 없는데 '저거' 를 쓰면 None (되물음)."""
+    s = text
+    guard = s.replace("그거 말고", "\0")          # '그거 말고' 는 가리키기가 아니다
+    if _has(guard, POINT_OBJ):
+        obj = (point or {}).get("obj")
+        if obj is None:
+            return None, "어느 블록인지 화면에서 눌러 주세요."
+        noun = "막대" if obj == "yellow" else "블록"
+        for w in sorted(POINT_OBJ, key=len, reverse=True):
+            guard = guard.replace(w, f"{SAY_COLOR[obj]} {noun}")
+    if _has(guard, POINT_DST):
+        dst = (point or {}).get("dst")
+        if dst is None:
+            return None, "어디에 놓을지 화면에서 판(또는 블록)을 눌러 주세요."
+        rep = f"{SAY_COLOR[dst]} 판" if dst in PAD_WORDS else f"{SAY_COLOR[dst]} 블록 위"
+        for w in sorted(POINT_DST, key=len, reverse=True):
+            guard = guard.replace(w, rep)
+    return guard.replace("\0", "그거 말고"), None
+
+
+def interpret(text, point=None):
     """한국어 한 문장 → 명령 목록. 각 명령은 dict:
        {"type": "do", "instr": 영어}            지금 일을 버리고 이것을 한다
        {"type": "interrupt", "instr": 영어}     지금 일을 쌓아 두고 이것을 한 뒤 돌아온다
@@ -128,6 +156,9 @@ def interpret(text):
     s = text.strip()
     if not s:
         return []
+    s, ask = resolve_pointing(s, point)
+    if ask:
+        return [{"type": "ask", "msg": ask, "say": ask}]
     if _has(s, STOP) and not _mentions(s) and not _has(s, RESUME):
         return [{"type": "stop", "say": "멈춥니다."}]
     if _has(s, RESUME_ONLY) and not _mentions(s):
@@ -170,10 +201,21 @@ class Controller:
 
     def __init__(self):
         self.current, self.queue, self.stack, self.log = None, [], [], []
+        self.point = {"obj": None, "dst": None}
+
+    def click(self, color):
+        """화면에서 누른 것: 블록이면 '저거', 판이면 '저기'. 블록을 이미 골랐으면 두 번째 블록은 '저기'(그 위)."""
+        if color in PAD_WORDS or (self.point["obj"] is not None and color != self.point["obj"]):
+            self.point["dst"] = color
+        else:
+            self.point = {"obj": color, "dst": None}
+        return dict(self.point)
 
     def command(self, text, t=0):
-        cmds = interpret(text)
+        cmds = interpret(text, self.point)
         self.log.append((t, text, cmds))
+        if not any(c["type"] == "ask" for c in cmds):
+            self.point = {"obj": None, "dst": None}        # 누른 것은 다음 명령 하나에만 쓴다
         for c in cmds:
             if c["type"] == "stop":
                 self.current, self.queue = None, []
@@ -221,9 +263,19 @@ EXAMPLES = [
     "흰 판에 초록 블록 놔줘",
 ]
 
+POINT_EXAMPLES = [  # (누른 것, 문장)
+    ({"obj": "green", "dst": "white"}, "저거 저기에 놔줘"),
+    ({"obj": "yellow", "dst": None}, "이거 보라 판에 올려"),
+    ({"obj": "red", "dst": "blue"}, "잠깐, 그거 먼저 저 위에 쌓고 이어서 해"),
+    ({"obj": None, "dst": None}, "저거 흰 판에 놔"),
+    ({"obj": "blue", "dst": None}, "그거 말고 빨간 블록을 회색 판에 놔"),
+]
+
 if __name__ == "__main__":
-    for text in (sys.argv[1:] or EXAMPLES):
-        cmds = interpret(text)
+    for point, text in ([(None, t) for t in sys.argv[1:]] or [(None, t) for t in EXAMPLES] + POINT_EXAMPLES):
+        cmds = interpret(text, point)
+        if point:
+            print(f"(누름: {point})", end=" ")
         print(f"「{text}」")
         for c in cmds:
             extra = "" if c.get("known", True) else "  (배운 적 없는 조합 — 정확도 낮을 수 있음)"

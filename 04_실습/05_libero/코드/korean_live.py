@@ -71,6 +71,23 @@ class CameraDone:
         return self.n >= self.need
 
 
+def color_at(front_raw, x, y, r=6):
+    """창(정면 화면 2배, 위아래·좌우 뒤집어 보임)에서 누른 (x, y) → 그 자리의 물체 색. 블록이 판보다 먼저 (판 위 블록을 누르면 블록)."""
+    import objdet
+    if not (0 <= x < 512 and 0 <= y < 512):
+        return None
+    row, col = 255 - y // 2, 255 - x // 2              # 보이는 화면은 원래 사진을 [::-1, ::-1] 한 것
+    m = objdet.masks(np.asarray(front_raw))
+    best = None
+    for c in list(objdet.BLOCKS) + list(objdet.PADS):
+        win = m[c][max(0, row - r):row + r + 1, max(0, col - r):col + r + 1]
+        n = int(win.sum())
+        if n > 3 and (best is None or (c in objdet.BLOCKS) > (best[1] in objdet.BLOCKS) or
+                      ((c in objdet.BLOCKS) == (best[1] in objdet.BLOCKS) and n > best[0])):
+            best = (n, c)
+    return None if best is None else best[1]
+
+
 def checker_for(runner, instr):
     """시뮬 정답 판정 (배운 10가지만). 없으면 None."""
     for t, (_, _, lang) in pb.TASKS.items():
@@ -122,8 +139,11 @@ def main():
         k, text = s.split("=", 1)
         script.append([k.strip(), text.strip(), False])
     inq = queue.Queue()
+    clicks = queue.Queue()
     if a.show:
         import cv2
+        cv2.namedWindow("PiPER")
+        cv2.setMouseCallback("PiPER", lambda ev, x, y, *_: clicks.put((x, y)) if ev == cv2.EVENT_LBUTTONDOWN else None)
     if a.script is None:                   # 대본이 없으면 터미널에서 문장을 받는다 (창은 --show 일 때만)
 
         def reader():
@@ -134,6 +154,8 @@ def main():
                     return
         threading.Thread(target=reader, daemon=True).start()
         print("한국어로 명령을 치세요. 예: 빨간 블록을 보라 판에 올려줘 / 잠깐, 초록 블록 먼저 흰 판에 놓고 이어서 해 / 멈춰 / 끝", flush=True)
+        if a.show:
+            print("창의 왼쪽(정면 카메라)에서 블록을 누르면 '저거', 판을 누르면 '저기' 가 됩니다. 예: (초록 누르고 흰 판 누르고) 저거 저기에 놔", flush=True)
 
     first_grasp, prev, chk, t0 = None, None, None, time.time()
     for t in range(a.max_steps):
@@ -143,6 +165,13 @@ def main():
             k, text, used = item
             if used:
                 continue
+            if text.startswith("click:"):          # 대본에서 화면 누르기 (시험·시연용): "0=click:230,330"
+                fire0 = (k == "0" and t == 0) or (k.startswith("step:") and t >= int(k[5:])) or \
+                        (k.startswith("grasp+") and first_grasp is not None and t >= first_grasp + int(k[6:]))
+                if fire0:
+                    item[2] = True
+                    clicks.put(tuple(int(v) for v in text[6:].split(",")))
+                continue
             fire = (k == "0" and t == 0) or (k.startswith("step:") and t >= int(k[5:])) or \
                    (k.startswith("grasp+") and first_grasp is not None and t >= first_grasp + int(k[6:]))
             if fire:
@@ -150,6 +179,14 @@ def main():
                 texts.append(text)
         while not inq.empty():
             texts.append(inq.get())
+        while not clicks.empty():           # 화면을 누름 → '저거'(블록) / '저기'(판, 또는 두 번째 블록)
+            x, y = clicks.get()
+            col = color_at(ep.obs["pixels"]["image"], x, y)
+            if col is not None:
+                pt = ctl.click(col)
+                ko = lambda c: None if c is None else (kc.KO[c] if c in kc.KO else c)
+                lines.append((f"누름: 저거 = {ko(pt['obj'])}" + (f", 저기 = {ko(pt['dst'])}" if pt["dst"] else ""), (82, 81, 78)))
+                print(f"[{t / 20:5.1f}s] 누름 → {pt}", flush=True)
         for text in texts:
             if text.strip() in ("끝", "q", "quit"):
                 a.max_steps = t
@@ -215,7 +252,7 @@ def main():
             if a.video and t % 2 == 0:
                 frames.append(img)
             if a.show:
-                cv2.imshow("PiPER 한국어 명령", img[:, :, ::-1])
+                cv2.imshow("PiPER", img[:, :, ::-1])
                 cv2.waitKey(1)
     print(f"끝: {t + 1}스텝 ({(t + 1) / 20:.1f}초 시뮬, {time.time() - t0:.0f}초 걸림), 처음 자세까지 거리 "
           f"{100 * np.linalg.norm(sx.eef_pos(ep.obs) - ep.home[0]):.1f}cm", flush=True)
