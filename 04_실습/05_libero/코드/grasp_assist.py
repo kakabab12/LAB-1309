@@ -84,7 +84,8 @@
   A4→B9 장면 1000) 빨강을 판에서 9.5cm 떨어진 빈 자리에 내려놨다가 다시 쥐자마자, 놓기 보조(④)가 아직 책상 높이인 손을 판 쪽으로
   끌어 빨강이 책상 위를 미끄러지며 판을 6cm 밀었다 (판에 닿은 것: 빨강). 블록은 판의 옛 자리에 놓였고 판은 밀려 있어 실패.
   ⑮ 지시문의 블록을 쥐었는데 놓을 곳에서 3cm 넘게 떨어져 있고 쥐는 높이 3cm 위보다 낮으면, 옆으로 끌지 않고 먼저 똑바로 든다
-  ⑮' 내려놓기(⑫) 빈 자리는 그 블록의 원래 목표(앞 지시의 놓을 곳)에서 13cm 넘게 (없으면 예전 조건)
+  ⑮' 내려놓기(⑫) 빈 자리는 그 블록의 원래 목표(앞 지시의 놓을 곳)에서 13cm 넘게 (없으면 예전 조건). ⑮ 없이 이것만: putdown_far=True, --putdown-far
+     (10/23: 고친 보조 28항목 A8→B0 에서 ⑮ 먼저 들기가 45스텝 넘게 켜진 장면은 B 성공 2/7, 짧으면 29/31 → 따로 잴 수 있게 나눔)
 판 따라가기 (pad_track=True, 평가 --pad-track):
   ⑯ 판도 밀리면 기억을 고친다: 정면 카메라로 잰 판이 기억과 1.5cm 넘게 5스텝 연속 다르고, 그 판 8cm 안에 블록이 없고(가림), 손이 10cm 넘게 떨어져 있을 때
 기억 고치기 (mem_refresh=True, 평가 --mem-refresh):
@@ -92,6 +93,18 @@
      A4→B9 장면 1004: 헛쥐기로 빨강이 6cm 밀렸는데 기억(손 8cm 안이면 안 고침)은 옛 자리라 정렬 보조가 손을 빈 자리에 400스텝 붙잡았다.
   넓은 변환식: 블록을 새 빈 자리에 내려놓는 새 기준에서는 블록별 변환식(처음 자리 근처로만 맞춤)이 2~3cm 틀려(diag_pad: 2.2·3.2cm)
   정렬 보조가 블록 옆을 짚었다 → PIPER_FRONT_CALIB=piper_sim/front_calib_wide.json 과 같이 쓴다.
+쥐기 확정 기다리기 (10/23 새벽, close_wait=N, 평가 --close-wait N):
+  ⑩' 쥐는 높이에서 3스텝 만에 대신 오므리지 않고 N 스텝 기다린다. 그동안 VLA 가 스스로 오므리면 VLA 에 맡긴다 (예전 ⑩ 은 그 3스텝 동안
+     VLA 의 오므리기를 막았다). 고친 보조로 A8→B0 장면 1010 을 다시 돌려 보니(diag_held.py) ⑩ 이 VLA 보다 먼저 파랑을 쥐어 주자,
+     VLA 는 쥔 직후부터 계속 벌리려 했고 ⑤ 가 500스텝 막는 동안 파랑을 든 채 헤맸다 (고치기 전에는 VLA 가 스스로 쥐어 성공한 장면).
+다시 쥐기 허용 (10/23 새벽, regrasp_ok=True, 평가 --regrasp-ok):
+  ⑱ ⑤(놓을 곳에서 멀면 못 벌림)와 ⑮(먼저 들기)는 쥔 자리 3cm 안·쥔 높이 5cm 위까지에서 VLA 가 벌리려 하면 막지 않는다 (다시 쥐기).
+     ⑩' 로도 A8→B0 1010 의 VLA 는 쥐어 준 뒤 계속 벌리려 했다 → 쥔 자리에서는 놓게 두고 VLA 가 다시 쥐게 한다. 판에서 먼 공중 놓기는 그대로 막는다.
+  (⑩'·⑱ 은 몇 장면으로 차이가 안 보였다. A8→B0·A8→B7 40장면 짝 비교에서 ⑩·⑮ 를 빼고 ⑮'·⑯·⑰·넓은 변환식만 둔 것이 가장 좋았다)
+막힌 쥐기 마무리 (10/23 03시, stuck_grasp=N, 평가 --stuck-grasp N):
+  ⑲ 빈손으로 지시문의 블록 바로 위(1cm 안)·쥐는 높이 1.5cm 안에서 벌린 채 머문 스텝이 지시마다 누적 N 이 되면, ⑥ 처럼 똑바로 내려가
+     오므리고(10스텝) 5cm 든 뒤 VLA 에 돌려준다. 손 안 잡는 고침의 노란 막대 B 실패 5개 중 4개가 막대를 한 번도 못 쥐고 쥐는 높이에서
+     벌린 채 67~231스텝 머물렀다 (A8→B7). 바로 쥐어 주는 ⑩ 과 달리 VLA 가 오래(N=40, 2초) 못 쥘 때만.
 """
 import json
 import os
@@ -122,7 +135,7 @@ class GraspAssist:
                  stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03,
                  complete=False, idle_steps=20, descend=False, approach=False, yaw=False, close=False, unjam=False,
                  putdown=False, fresh_held=False, putdown_near=False, wrong_guard=False, pad_safe=False, pad_track=False,
-                 mem_refresh=False):
+                 mem_refresh=False, close_wait=3, regrasp_ok=False, putdown_far=False, stuck_grasp=0):
         # 10/22: PIPER_FRONT_CALIB=piper_sim/front_calib_wide.json 이면 책상 전체로 맞춘 변환식 (블록 공통, calib_front_wide.py).
         #   기본(front_calib.json)은 블록마다 처음 배치로만 맞춰, 블록이 제자리를 떠나면 평균 1.8cm·최대 13.6cm 틀렸다
         calib = calib or os.environ.get("PIPER_FRONT_CALIB", str(HERE / "piper_sim" / "front_calib.json"))
@@ -139,6 +152,8 @@ class GraspAssist:
         self.unjam, self.putdown, self.fresh_held, self.putdown_near = unjam, putdown, fresh_held, putdown_near
         self.wrong_guard = wrong_guard
         self.pad_safe, self.pad_track, self.mem_refresh = pad_safe, pad_track, mem_refresh
+        self.close_wait, self.regrasp_ok, self.putdown_far = close_wait, regrasp_ok, putdown_far
+        self.stuck_grasp = stuck_grasp
         self.stat = {}
 
     def stats(self):
@@ -205,7 +220,7 @@ class GraspAssist:
             self.yaw_bad = False
             self.nclose = 0
             self.ujmode, self.ujhist = 0, []
-            self.mr_n, self.pt_n = {}, {}
+            self.mr_n, self.pt_n, self.sg_n = {}, {}, {}
             self.home_mat = np.asarray(ep.obs["robot_state"]["eef"]["mat"], dtype=np.float64).reshape(3, 3)   # 장면 처음 = 처음 자세
             self.home_xy = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)[:2].copy()
         self._update(ep)
@@ -275,6 +290,14 @@ class GraspAssist:
             act[6] = -1.0                                           # ③ 오므리기를 미룬다
         self.n_used += 1
         self.stat["align"] = self.stat.get("align", 0) + 1
+        if self.stuck_grasp and self.held is None and q > 0.03 and d < 0.01 and dz < 0.015:
+            k = (instruction, c)                                    # ⑲ 블록 바로 위 쥐는 높이에서 벌린 채 머문 스텝 (지시마다 누적)
+            self.sg_n[k] = self.sg_n.get(k, 0) + 1
+            if self.sg_n[k] >= self.stuck_grasp:
+                self.sg_n[k] = 0
+                self.prim = {"c": c, "phase": "down", "n": 0, "xy": self.pos[c].copy(), "z": TABLE_Z + GRASP_H[c]}
+                self.stat["stuck_grasp"] = self.stat.get("stuck_grasp", 0) + 1
+                return self._primitive(act, hand, q)
         if self.yaw:
             act = self._yaw(ep, act, c, d, dz)
         if self.descend and not getattr(self, "yaw_bad", False):
@@ -363,7 +386,10 @@ class GraspAssist:
         if self.close:                     # ⑩ 바닥: 올리지 못하게, 3스텝 뒤 12스텝 오므림, 그 뒤 VLA
             self.dbottom += 1
             act[2] = min(act[2], 0.0)
-            if self.dbottom > 3:
+            if self.close_wait > 3 and self.dbottom <= self.close_wait and act[6] > 0:
+                self.dmode, self.dhist, self.dbottom, self.nclose = False, [], 0, 0     # ⑩' 기다리는 동안 VLA 가 스스로 오므리면 맡김
+                return act
+            if self.dbottom > self.close_wait:
                 act[6] = 1.0
                 self.nclose += 1
                 self.stat["close"] += 1
@@ -417,7 +443,7 @@ class GraspAssist:
 
         own = None                          # ⑮' 쥔 블록의 원래 목표 (앞 지시의 놓을 곳)
         pi = getattr(self, "prev_instr", None)
-        if self.pad_safe and pi and self._target(pi) == held and self._dest(pi) in others:
+        if (self.pad_safe or self.putdown_far) and pi and self._target(pi) == held and self._dest(pi) in others:
             own = others[self._dest(pi)]
 
         def ok(p, strict=False):
@@ -531,6 +557,11 @@ class GraspAssist:
         e = self.pos[dst] - hand[:2]
         d = float(np.linalg.norm(e))
         act = np.array(act, dtype=np.float32, copy=True)
+        ga = getattr(self, "grasp_at", None)
+        if self.regrasp_ok and act[6] < 0 and ga is not None and np.linalg.norm(hand[:2] - ga[0][:2]) < 0.03 \
+                and hand[2] < ga[0][2] + 0.05:
+            self.stat["regrasp"] = self.stat.get("regrasp", 0) + 1     # ⑱ 쥔 자리에서 다시 쥐려고 벌리는 것은 둔다
+            return act
         if self.pad_safe and d > self.release_err and hand[2] < TABLE_Z + GRASP_H[c] + 0.03:
             act[:2], act[2], act[6] = 0.0, max(float(act[2]), 0.3), 1.0     # ⑮ 책상 높이면 옆으로 끌지 않고 먼저 든다
             self.stat["lift"] = self.stat.get("lift", 0) + 1

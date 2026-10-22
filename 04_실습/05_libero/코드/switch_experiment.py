@@ -210,6 +210,14 @@ def build_parser():
                    help="새 기준(10/22): B 성공 뒤 손을 벌릴 때까지 최대 이만큼 B 지시로 더 돌린 뒤 돌아오기로 (0 = 예전처럼 바로)")
     p.add_argument("--wrong-guard", action="store_true",
                    help="엉뚱한 블록 막기 (grasp_assist ⑭, 10/22): 다른 블록 위에서 못 오므리게, 같은 지시 아래 엉뚱한 블록을 쥐면 그 자리·높이에 도로")
+    p.add_argument("--close-wait", type=int, default=3,
+                   help="쥐기 확정(⑩)이 바닥에서 기다리는 스텝 (10/23). 3 넘게 주면 그동안 VLA 가 스스로 오므리면 맡김 (기본 3 = 예전처럼 막고 3스텝 뒤 오므림)")
+    p.add_argument("--stuck-grasp", type=int, default=0,
+                   help="막힌 쥐기 마무리 (grasp_assist ⑲, 10/23): 블록 바로 위 쥐는 높이에서 벌린 채 누적 N 스텝이면 내려가 쥐고 5cm 듦 (0 = 끔)")
+    p.add_argument("--putdown-far", action="store_true",
+                   help="내려놓을 빈 자리를 그 블록의 목표 판에서 13cm 밖으로만 (grasp_assist ⑮', --pad-safe 의 먼저 들기 없이, 10/23)")
+    p.add_argument("--regrasp-ok", action="store_true",
+                   help="다시 쥐기 허용 (grasp_assist ⑱, 10/23): 쥔 자리 3cm 안에서 VLA 가 벌리려 하면 ⑤·⑮ 가 막지 않음")
     p.add_argument("--pad-safe", action="store_true",
                    help="판 지키기 (grasp_assist ⑮, 10/22 밤): 쥔 블록을 책상 높이에서 판 쪽으로 끌지 않고 먼저 듦, 내려놓을 자리는 그 블록의 목표 판에서 13cm 밖")
     p.add_argument("--pad-track", action="store_true",
@@ -988,6 +996,10 @@ class Runner:
                                                    wrong_guard=getattr(args, "wrong_guard", False),
                                                    pad_safe=getattr(args, "pad_safe", False), pad_track=getattr(args, "pad_track", False),
                                                    mem_refresh=getattr(args, "mem_refresh", False),
+                                                   close_wait=getattr(args, "close_wait", 3),
+                                                   regrasp_ok=getattr(args, "regrasp_ok", False),
+                                                   putdown_far=getattr(args, "putdown_far", False),
+                                                   stuck_grasp=getattr(args, "stuck_grasp", 0),
                                                    complete=getattr(args, "grasp_complete", False))
         if getattr(args, "cuda_graph", False):
             # 10/14: 같은 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py). 지연 스텝 수는 --latency-steps 로 따로 맞춘다

@@ -23,6 +23,9 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+# 10/23: 보조도 책상 전체로 맞춘 변환식 (새 빈 자리에 내려놓은 블록을 블록별 식은 2~3cm 틀리게 잼, diag_pad.py)
+import os  # noqa: E402
+os.environ.setdefault("PIPER_FRONT_CALIB", str(Path(__file__).resolve().parent / "piper_sim" / "front_calib_wide.json"))
 import piper_sim.piper_robot as pr  # noqa: E402
 
 pr.use_piper_in_lerobot()
@@ -32,7 +35,8 @@ import korean_cmd as kc  # noqa: E402
 
 POLICY = "outputs/piper_np2_model/merged"
 ASSIST = ["--approach-assist", "--descend-assist", "--unjam-assist", "--yaw-assist", "--putdown-assist",
-          "--fresh-held", "--putdown-near", "--wrong-guard"]   # 10/22: 쥔 블록 알아보기, 가까운 빈 자리에, 엉뚱한 블록 막기
+          "--fresh-held", "--putdown-near", "--wrong-guard",   # 10/22: 쥔 블록 알아보기, 가까운 빈 자리에, 엉뚱한 블록 막기
+          "--mem-refresh", "--putdown-far"]      # 10/23: 기억 고치기, 목표 판에서 먼 빈 자리 (⑯ 판 따라가기는 팔이 판을 가려 잘못 고쳐 뺌)
 FONT = "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf"
 FONT_R = "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf"
 
@@ -41,32 +45,44 @@ class CameraDone:
     """지시문의 일이 끝났나 — 정면 카메라 사진과 그리퍼만 본다 (실물과 같음).
     블록 위치는 책상 전체로 맞춘 변환식(front_calib_wide.json)으로 새로 잰다 — 보조가 쓰는 예전 식은 블록이 제자리를 떠나면
     크게 틀려(흰 판 위 노란 막대를 11cm 옆으로 읽음) 일이 끝난 줄 몰랐다 (장면 1005). 판은 장면 처음에 잰 위치 (보조와 같음).
-    판이면 블록 중심이 판(10cm) 가운데 4.5cm 안 ('판 안'), 블록 위면 2.5cm 안. 손을 벌린 채 10스텝 이어지면 끝."""
+    판이면 블록 중심이 판(10cm) 가운데 4.5cm 안 ('판 안'), 블록 위면 2.5cm 안. 손을 벌린 채 10스텝 이어지면 끝.
+    10/23: 쌓기는 위 블록·가린 아래 블록을 따로 맞춘 식(front_calib_stack.json, calib_front_stack.py)으로 잰다. 책상 식으로는 실제로 쌓아도
+    위·아래가 평균 7cm 떨어져 보여(228번 중 2.5cm 안 0번) 4K 시연(A4→B9 1004)에서 쌓고도 끝난 줄 몰랐다. 정면 카메라만으로는 '위'와
+    '바로 뒤'가 비슷하게 보일 수 있어, 마지막으로 손을 벌린 높이가 책상 5.5cm 위보다 높았을 때만 쌓기로 본다 (로봇 상태, 실물에도 있음)."""
 
-    def __init__(self, calib="piper_sim/front_calib_wide.json", need=10):
+    def __init__(self, calib="piper_sim/front_calib_wide.json", need=10, stack_calib="piper_sim/front_calib_stack.json"):
         import json
         self.C = {k: np.array(v) for k, v in json.loads(Path(calib).read_text()).items()}
+        self.S = {k: np.array(v) for k, v in json.loads(Path(stack_calib).read_text()).items()}
         self.need, self.n, self.last = need, 0, None
+        self.q_prev, self.rel_z = None, None
 
-    def blocks(self, ep):
+    def blocks(self, ep, which=None):
+        """블록 위치. which = {색: 'top'|'bottom'} 이면 그 색은 쌓은 블록 식으로."""
         import objdet
         f = objdet.detect(np.asarray(ep.obs["pixels"]["image"]), np.asarray(ep.obs["pixels"]["image2"]))
         out = {}
         for k, c in enumerate(objdet.OBJECTS):
             if c in objdet.BLOCKS and f[2 * k] >= 0:
                 u, v = f[2 * k], f[2 * k + 1]
-                out[c] = self.C[c] @ np.array([u, v, 1.0, u * u, u * v, v * v])
+                M = self.S[which[c]] if which and c in which else self.C[c]
+                out[c] = M @ np.array([u, v, 1.0, u * u, u * v, v * v])
         return out
 
     def __call__(self, ep, A, instr, q):
         if instr is None or A is None:
             return False
         c, dst = A._target(instr), A._dest(instr)
-        b = self.blocks(ep)
+        if self.q_prev is not None and self.q_prev <= 0.028 < q:          # 방금 벌림 → 그때 손 높이
+            self.rel_z = float(ep.obs["robot_state"]["eef"]["pos"][2])
+        self.q_prev = q
+        pad = dst in ("purple", "gray", "orange", "white")
+        b = self.blocks(ep, None if pad else {c: "top", dst: "bottom"})
         pc = b.get(c)
-        pd = A.pos.get(dst) if dst in ("purple", "gray", "orange", "white") else b.get(dst)
-        tol = 0.045 if dst in ("purple", "gray", "orange", "white") else 0.025
-        ok = pc is not None and pd is not None and np.linalg.norm(pc - pd) < tol and q > 0.028
+        pd = A.pos.get(dst) if pad else b.get(dst)
+        tol = 0.045 if pad else 0.025
+        high = pad or (self.rel_z is not None and self.rel_z > 0.90 + 0.055)
+        ok = pc is not None and pd is not None and np.linalg.norm(pc - pd) < tol and q > 0.028 and high
         self.last = (c, dst, None if pc is None else np.round(pc, 3), None if pd is None else np.round(pd, 3), round(q, 4))
         self.n = self.n + 1 if ok else 0
         return self.n >= self.need
