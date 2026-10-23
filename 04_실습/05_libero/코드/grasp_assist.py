@@ -105,6 +105,28 @@
   ⑲ 빈손으로 지시문의 블록 바로 위(1cm 안)·쥐는 높이 1.5cm 안에서 벌린 채 머문 스텝이 지시마다 누적 N 이 되면, ⑥ 처럼 똑바로 내려가
      오므리고(10스텝) 5cm 든 뒤 VLA 에 돌려준다. 손 안 잡는 고침의 노란 막대 B 실패 5개 중 4개가 막대를 한 번도 못 쥐고 쥐는 높이에서
      벌린 채 67~231스텝 머물렀다 (A8→B7). 바로 쥐어 주는 ⑩ 과 달리 VLA 가 오래(N=40, 2초) 못 쥘 때만.
+     stuck_dz (평가 --stuck-dz, 기본 0.015): 머무는 높이 한도. 0.09 면 블록 바로 위(1.5cm 안) 쥐는 높이 9cm 안 (np3 A8→B7 1013: 막대 위 7~9cm 에서 400스텝)
+빈손 그리퍼 벌리기 (10/23 12시, open_empty=True, 평가 --open-empty):
+  ⑳ 쥔 것이 없는데 그리퍼가 끝까지 닫혀 있고(빈손으로 닫음) 지시문의 블록에서 4cm 넘게 떨어져 있으면 벌린다.
+     np3 A8→B7 1007: 빨강 쥐기가 빗나간 채 일 바꾸기가 되어 B 동안 그리퍼를 닫은 채 450스텝 헤맸다.
+np3 + ⑲ 의 B 실패를 다시 돌려 본 것 (10/23 14시, diag_pad.py, outputs/piper/diag_np3b.log):
+  ⑨' yaw_none_reset=N (평가 --yaw-none-reset N): 손목 사진에서 블록 기울기를 N 스텝 연속 못 읽으면 yaw_bad 를 푼다. A8→B7 1013 은 막대 위
+     7.7cm 에서 각도를 계속 못 읽었는데(덩어리가 작음) 그 전의 '어긋남' 판정이 남아 내려가기 재촉(⑦)이 400스텝 꺼져 있었다.
+  ⑰' mem_tol (평가 --mem-tol, 기본 0.025): 기억 고치기 문턱. 0.025 보다 작게 주면 손이 블록 위 4cm(쥐는 높이 8.5cm) 넘게 떠 있을 때는
+     손 바로 밑이어도 고친다. A8→B5 1012 는 기억이 1.7cm 틀렸는데(지금 사진은 0.2cm) 2.5cm 문턱에 걸려 안 고쳐, 손가락이 블록 윗면에 얹혀
+     블록 위 5cm 에서 400스텝 못 내려갔다.
+쌓을 자리 비켜 놓기 (10/23 16시, stack_clear=True, 평가 --stack-clear):
+  ㉑ 새 지시 B 가 '블록 위에 쌓기' 면, 쥐고 있던 A 블록을 내려놓을 빈 자리는 로봇 밑동 → 그 자리, 그 자리 → A 의 목표로 가는 선이
+     쌓일 자리(B 의 아래 블록)에서 8cm 넘게 떨어진 곳 (없으면 예전 조건). np3 + 새 설정 셋 다 실패 중 B 무너짐 5: A8→B9 1000·1015 는
+     빨강을 둔 자리에서 밑동 쪽 선이 쌓은 블록 5cm 옆을 지나, 다시 집으러 갈 때 팔이 쌓은 블록을 쓸었다는 가설 → 다시 돌려 보니 아님 (아래 ㉒)
+쌓은 블록 지키기 (10/23 16:30, stack_guard=True, 평가 --stack-guard):
+  ㉒ 앞 지시(B)가 쌓기였으면, 지금 지시의 블록을 든 손이 쌓은 블록(B 의 아래 블록 자리) 10cm 안에서 책상 13.5cm 높이(쌓은 높이 9cm + 든
+     블록 절반 + 2cm)보다 낮으면 먼저 들고 옆으로는 0.3배로. diag_stack.py 로 B 무너짐 4장면(A8→B9 1000·1015, A4→B9 1000·1015)을
+     다시 돌려 보니 모두 돌아오기 중 빨강을 든 손이 쌓은 블록 3~6cm 옆을 책상 높이 근처(z 0.94~0.96)로 지나다 쳤다 (손목 몸통 g6 또는 든 빨강).
+     ⑮(어디서나 먼저 들기)는 VLA 를 헷갈리게 해 B 를 떨어뜨렸으므로 쌓은 블록 근처에서만.
+     시험 (run_np3g_test.sh, A8→B9·A4→B9 40장면): B 무너짐 5 → 0 이지만 A4→B9 돌아오기 20 → 15 — 회색 판이 쌓은 블록에서 9~12cm 라
+     놓으러 내려갈 때마다 들어 올림 (183~340스텝).
+  ㉒' guard_r < 0.10 (평가 --guard-r 0.07): 반경을 줄이고, 놓을 곳 5cm 안이면 막지 않고, 옆으로는 쌓은 블록 쪽으로 가는 성분만 뺀다
 """
 import json
 import os
@@ -135,7 +157,8 @@ class GraspAssist:
                  stop_err=0.006, close_err=0.008, vmax=0.4, place=False, place_radius=0.05, release_err=0.03,
                  complete=False, idle_steps=20, descend=False, approach=False, yaw=False, close=False, unjam=False,
                  putdown=False, fresh_held=False, putdown_near=False, wrong_guard=False, pad_safe=False, pad_track=False,
-                 mem_refresh=False, close_wait=3, regrasp_ok=False, putdown_far=False, stuck_grasp=0):
+                 mem_refresh=False, close_wait=3, regrasp_ok=False, putdown_far=False, stuck_grasp=0, stuck_dz=0.015,
+                 open_empty=False, mem_tol=0.025, yaw_none_reset=0, stack_clear=False, stack_guard=False, guard_r=0.10):
         # 10/22: PIPER_FRONT_CALIB=piper_sim/front_calib_wide.json 이면 책상 전체로 맞춘 변환식 (블록 공통, calib_front_wide.py).
         #   기본(front_calib.json)은 블록마다 처음 배치로만 맞춰, 블록이 제자리를 떠나면 평균 1.8cm·최대 13.6cm 틀렸다
         calib = calib or os.environ.get("PIPER_FRONT_CALIB", str(HERE / "piper_sim" / "front_calib.json"))
@@ -153,7 +176,9 @@ class GraspAssist:
         self.wrong_guard = wrong_guard
         self.pad_safe, self.pad_track, self.mem_refresh = pad_safe, pad_track, mem_refresh
         self.close_wait, self.regrasp_ok, self.putdown_far = close_wait, regrasp_ok, putdown_far
-        self.stuck_grasp = stuck_grasp
+        self.stuck_grasp, self.stuck_dz, self.open_empty = stuck_grasp, stuck_dz, open_empty
+        self.mem_tol, self.yaw_none_reset, self.stack_clear = mem_tol, yaw_none_reset, stack_clear
+        self.stack_guard, self.guard_r = stack_guard, guard_r
         self.stat = {}
 
     def stats(self):
@@ -183,8 +208,9 @@ class GraspAssist:
                 self.pos.setdefault(c, xy)
                 if self.pad_track:              # ⑯ 밀린 판은 고친다 (블록이 가까우면 가려지니 안 고침)
                     self._track_pad(c, xy, hand)
-            elif self.mem_refresh and c in self.pos and np.linalg.norm(xy - self.pos[c]) > 0.025 \
-                    and np.linalg.norm(xy - hand[:2]) > 0.03 and not (self.fresh_held and c == self.held):
+            elif self.mem_refresh and c in self.pos and np.linalg.norm(xy - self.pos[c]) > self.mem_tol \
+                    and (np.linalg.norm(xy - hand[:2]) > 0.03 or (self.mem_tol < 0.025 and hand[2] > TABLE_Z + 0.085)) \
+                    and not (self.fresh_held and c == self.held):
                 self.mr_n[c] = self.mr_n.get(c, 0) + 1          # ⑰ 손 8cm 안이어도 계속 다르게 보이면 고침
                 if self.mr_n[c] >= 10 or np.linalg.norm(xy - hand[:2]) > 0.08:
                     self.pos[c], self.mr_n[c] = xy, 0
@@ -192,7 +218,7 @@ class GraspAssist:
                 self.pos[c] = xy
             if c in objdet.BLOCKS:
                 self.pos0.setdefault(c, xy)     # 장면 처음 자리 (⑫ 내려놓을 자리 1순위)
-            if self.mem_refresh and c in objdet.BLOCKS and (c not in self.pos or np.linalg.norm(xy - self.pos[c]) <= 0.025):
+            if self.mem_refresh and c in objdet.BLOCKS and (c not in self.pos or np.linalg.norm(xy - self.pos[c]) <= self.mem_tol):
                 self.mr_n[c] = 0
 
     def _track_pad(self, c, xy, hand):
@@ -256,6 +282,12 @@ class GraspAssist:
                 self.pd = {"spot": spot, "held": self.held, "phase": "carry", "n": 0, "z_back": z_back}
                 self.stat["putdown_n"] += 1
                 return self._putdown(act, hand)
+        if self.open_empty and self.held is None and q < 0.005 and act[6] > 0 \
+                and np.linalg.norm(self.pos[c] - hand[:2]) > 0.04:
+            act = np.array(act, dtype=np.float32, copy=True)       # ⑳ 빈손인데 다 닫혀 있고 블록에서 멀면 벌린다
+            act[6] = -1.0
+            self.stat["open_empty"] = self.stat.get("open_empty", 0) + 1
+            return act
         if q <= 0.028:
             return self._place(act, instruction, c, hand) if self.place else act
         e = self.pos[c] - hand[:2]
@@ -290,7 +322,7 @@ class GraspAssist:
             act[6] = -1.0                                           # ③ 오므리기를 미룬다
         self.n_used += 1
         self.stat["align"] = self.stat.get("align", 0) + 1
-        if self.stuck_grasp and self.held is None and q > 0.03 and d < 0.01 and dz < 0.015:
+        if self.stuck_grasp and self.held is None and q > 0.03 and d < (0.015 if self.stuck_dz > 0.015 else 0.01) and dz < self.stuck_dz:
             k = (instruction, c)                                    # ⑲ 블록 바로 위 쥐는 높이에서 벌린 채 머문 스텝 (지시마다 누적)
             self.sg_n[k] = self.sg_n.get(k, 0) + 1
             if self.sg_n[k] >= self.stuck_grasp:
@@ -338,7 +370,11 @@ class GraspAssist:
             return act
         m = self._wrist_angle(ep.obs["pixels"]["image2"], c)
         if m is None:
+            self.yaw_none = getattr(self, "yaw_none", 0) + 1
+            if self.yaw_none_reset and self.yaw_none >= self.yaw_none_reset:
+                self.yaw_bad = False                  # ⑨' 각도를 계속 못 읽으면 예전 '어긋남' 판정으로 내려가기를 막지 않는다
             return act
+        self.yaw_none = 0
         if abs(m) > 6:
             self.yaw_bad = True
         elif abs(m) < 4:
@@ -446,8 +482,17 @@ class GraspAssist:
         if (self.pad_safe or self.putdown_far) and pi and self._target(pi) == held and self._dest(pi) in others:
             own = others[self._dest(pi)]
 
+        stack = others.get(dst) if self.stack_clear and dst in objdet.BLOCKS else None     # ㉑ B 가 쌓기면 그 아래 블록 = 쌓일 자리
+
+        def seg(a, b, q):                   # 선분 a-b 에서 점 q 까지 거리
+            ab = b - a
+            t = float(np.clip(np.dot(q - a, ab) / max(float(np.dot(ab, ab)), 1e-9), 0.0, 1.0))
+            return float(np.linalg.norm(a + t * ab - q))
+
         def ok(p, strict=False):
             if strict and own is not None and np.linalg.norm(p - own) < 0.13:
+                return False
+            if strict and stack is not None and (seg(base, p, stack) < 0.08 or (own is not None and seg(p, own, stack) < 0.08)):
                 return False
             if min((np.linalg.norm(p - v) for v in others.values()), default=1.0) < 0.09:
                 return False
@@ -461,7 +506,7 @@ class GraspAssist:
         if self.putdown_near and held in self.pos0:
             grid = np.vstack([grid, self.pos0[held][None]])
         cands += list(grid[np.argsort(np.linalg.norm(grid - hand[:2], axis=1))])
-        for strict in ([True, False] if own is not None else [False]):
+        for strict in ([True, False] if (own is not None or stack is not None) else [False]):
             for p in cands:
                 if ok(np.asarray(p), strict):
                     return np.array(p, dtype=np.float64)
@@ -557,6 +602,21 @@ class GraspAssist:
         e = self.pos[dst] - hand[:2]
         d = float(np.linalg.norm(e))
         act = np.array(act, dtype=np.float32, copy=True)
+        pi = getattr(self, "prev_instr", None)
+        sd = self._dest(pi) if (self.stack_guard and pi) else None
+        if sd in objdet.BLOCKS and sd in self.pos and sd != dst and np.linalg.norm(self.pos[sd] - hand[:2]) < self.guard_r \
+                and hand[2] < TABLE_Z + 0.135 and (self.guard_r >= 0.10 or d > 0.05):
+            act[2] = max(float(act[2]), 0.4)       # ㉒ 앞 지시로 쌓은 블록 가까이에서 블록을 든 손이 낮으면 먼저 들고
+            if self.guard_r >= 0.10:
+                act[:2] *= 0.3                     #    옆으로는 천천히 (처음 판)
+            else:                                  #    ㉒' 쌓은 블록 쪽으로 가는 성분만 뺀다 (놓을 곳 5cm 안이면 안 막음)
+                away = (hand[:2] - self.pos[sd]) / max(float(np.linalg.norm(hand[:2] - self.pos[sd])), 1e-6)
+                toward = float(np.dot(act[:2], away))
+                if toward < 0:
+                    act[:2] -= toward * away
+            act[6] = 1.0
+            self.stat["stack_guard"] = self.stat.get("stack_guard", 0) + 1
+            return act
         ga = getattr(self, "grasp_at", None)
         if self.regrasp_ok and act[6] < 0 and ga is not None and np.linalg.norm(hand[:2] - ga[0][:2]) < 0.03 \
                 and hand[2] < ga[0][2] + 0.05:

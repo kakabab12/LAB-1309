@@ -70,7 +70,7 @@ def step(self, action, phase):
         print(f"   ({phase} {len(self.acts)}) 손 {np.round(hand, 3).tolist()} 그리퍼 {q:.3f} | 블록 실제 {fmt(o)} 기억 {fmt(mo)} 사진 {fmt(fr.get(c))} "
               f"기억-실제 {None if mo is None else round(100 * float(np.linalg.norm(mo - o[:2])), 1)}cm | 손목 어긋남 {None if m is None else round(m, 1)}° "
               f"6번 관절 {j6:.0f}° yaw_bad {getattr(A, 'yaw_bad', None)} 내려가기 {getattr(A, 'dmode', None)} 막힘풀기 {getattr(A, 'ujmode', None)} "
-              f"쥔 {getattr(A, 'held', None)}", flush=True)
+              f"쥔 {getattr(A, 'held', None)} 마무리 {(A.prim or {}).get('phase') if getattr(A, 'prim', None) else None} 머묾 {getattr(A, 'sg_n', {})}", flush=True)
     st["q"] = q
     return out
 

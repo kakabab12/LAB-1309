@@ -214,6 +214,20 @@ def build_parser():
                    help="쥐기 확정(⑩)이 바닥에서 기다리는 스텝 (10/23). 3 넘게 주면 그동안 VLA 가 스스로 오므리면 맡김 (기본 3 = 예전처럼 막고 3스텝 뒤 오므림)")
     p.add_argument("--stuck-grasp", type=int, default=0,
                    help="막힌 쥐기 마무리 (grasp_assist ⑲, 10/23): 블록 바로 위 쥐는 높이에서 벌린 채 누적 N 스텝이면 내려가 쥐고 5cm 듦 (0 = 끔)")
+    p.add_argument("--stuck-dz", type=float, default=0.015,
+                   help="⑲ 이 보는 머무는 높이 한도 [m] (기본 0.015 = 쥐는 높이 1.5cm 안). 0.09 면 블록 바로 위 9cm 안 (10/23)")
+    p.add_argument("--mem-tol", type=float, default=0.025,
+                   help="기억 고치기(⑰) 문턱 [m] (기본 0.025). 작게 주면 손이 블록 위 4cm 넘게 떠 있을 때 손 바로 밑이어도 고침 (⑰', 10/23)")
+    p.add_argument("--yaw-none-reset", type=int, default=0,
+                   help="손목 맞추기(⑨)가 각도를 N 스텝 연속 못 읽으면 '어긋남' 판정을 풂 (⑨', 10/23, 0 = 끔)")
+    p.add_argument("--stack-clear", action="store_true",
+                   help="쌓을 자리 비켜 놓기 (grasp_assist ㉑, 10/23): B 가 쌓기면 A 를 내려놓을 자리를 밑동·A 목표로 가는 선이 쌓일 자리에서 8cm 밖으로")
+    p.add_argument("--stack-guard", action="store_true",
+                   help="쌓은 블록 지키기 (grasp_assist ㉒, 10/23): 앞 지시로 쌓은 블록 10cm 안에서 블록을 든 손이 낮으면 먼저 들고 옆으로는 천천히")
+    p.add_argument("--guard-r", type=float, default=0.10,
+                   help="㉒ 쌓은 블록 지키기 반경 [m] (기본 0.10). 0.10 보다 작으면 ㉒': 놓을 곳 5cm 안은 안 막고 쌓은 블록 쪽 성분만 뺌 (10/23)")
+    p.add_argument("--open-empty", action="store_true",
+                   help="빈손 그리퍼 벌리기 (grasp_assist ⑳, 10/23): 빈손으로 다 닫혀 있고 지시문의 블록에서 4cm 넘게 떨어지면 벌림")
     p.add_argument("--putdown-far", action="store_true",
                    help="내려놓을 빈 자리를 그 블록의 목표 판에서 13cm 밖으로만 (grasp_assist ⑮', --pad-safe 의 먼저 들기 없이, 10/23)")
     p.add_argument("--regrasp-ok", action="store_true",
@@ -999,7 +1013,11 @@ class Runner:
                                                    close_wait=getattr(args, "close_wait", 3),
                                                    regrasp_ok=getattr(args, "regrasp_ok", False),
                                                    putdown_far=getattr(args, "putdown_far", False),
-                                                   stuck_grasp=getattr(args, "stuck_grasp", 0),
+                                                   stuck_grasp=getattr(args, "stuck_grasp", 0), stuck_dz=getattr(args, "stuck_dz", 0.015),
+                                                   open_empty=getattr(args, "open_empty", False),
+                                                   mem_tol=getattr(args, "mem_tol", 0.025), yaw_none_reset=getattr(args, "yaw_none_reset", 0),
+                                                   stack_clear=getattr(args, "stack_clear", False), stack_guard=getattr(args, "stack_guard", False),
+                                                   guard_r=getattr(args, "guard_r", 0.10),
                                                    complete=getattr(args, "grasp_complete", False))
         if getattr(args, "cuda_graph", False):
             # 10/14: 같은 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py). 지연 스텝 수는 --latency-steps 로 따로 맞춘다
