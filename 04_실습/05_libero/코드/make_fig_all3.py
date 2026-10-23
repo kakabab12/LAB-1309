@@ -48,9 +48,12 @@ CFG = [("np2 + 예전 보조", {"*": ["outputs/piper_np2mc"]}),
        ("np2 + 고친 보조", {"*": ["outputs/piper_np2fd"]}),
        ("np3 + 고친 보조", {"*": ["outputs/piper_np3fd"]}),
        ("np3 + 새 설정", {"*": ["outputs/piper_np3x"]}),
-       ("np3 + 새 설정\n+ 쌓은 블록 지키기", {"*": ["outputs/piper_np3x"], "8:9": ["outputs/piper_np3h"], "4:9": ["outputs/piper_np3h"]})]
+       ("np3 + 새 설정\n+ 쌓은 블록 지키기", {"*": ["outputs/piper_np3x"], "8:9": ["outputs/piper_np3h"], "4:9": ["outputs/piper_np3h"]}),
+       ("np4 + 같은 설정", {"*": ["outputs/piper_np4x"]}),
+       ("np3 + 고친 보조 전부\n(+ 데려다 놓기)", {"*": ["outputs/piper_np3d"]}),
+       ("같은 설정, 처음 보는\n장면 1020~1039", {"*": ["outputs/piper_np3d2"]})]
 rows = [(n, count(d)) for n, d in CFG]
-fig, ax = plt.subplots(figsize=(11, 4.8))
+fig, ax = plt.subplots(figsize=(11, 6.6))
 ys = np.arange(len(rows))[::-1]
 for y, (n, c) in zip(ys, rows):
     left = 0

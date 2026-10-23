@@ -33,10 +33,12 @@ import switch_experiment as sx  # noqa: E402
 import piper_sim.blocks as pb  # noqa: E402
 import korean_cmd as kc  # noqa: E402
 
-POLICY = "outputs/piper_np2_model/merged"
+POLICY = "outputs/piper_np3_model/merged"     # 10/24: 셋 다 240장면 90.4% (np3 + 고친 보조 전부)
 ASSIST = ["--approach-assist", "--descend-assist", "--unjam-assist", "--yaw-assist", "--putdown-assist",
           "--fresh-held", "--putdown-near", "--wrong-guard",   # 10/22: 쥔 블록 알아보기, 가까운 빈 자리에, 엉뚱한 블록 막기
-          "--mem-refresh", "--putdown-far"]      # 10/23: 기억 고치기, 목표 판에서 먼 빈 자리 (⑯ 판 따라가기는 팔이 판을 가려 잘못 고쳐 뺌)
+          "--mem-refresh", "--putdown-far",      # 10/23: 기억 고치기, 목표 판에서 먼 빈 자리 (⑯ 판 따라가기는 팔이 판을 가려 잘못 고쳐 뺌)
+          "--stuck-grasp", "40", "--yaw-none-reset", "10", "--mem-tol", "0.012", "--open-empty",       # 10/23 ⑲⑨'⑰'⑳
+          "--stack-guard", "--stack-clear", "--guard-r", "0.07", "--deliver"]                          # 10/23~24 ㉒'㉓
 FONT = "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf"
 FONT_R = "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf"
 

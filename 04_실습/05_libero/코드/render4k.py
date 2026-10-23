@@ -5,7 +5,7 @@
 import numpy as np
 
 W, H = 3840, 2160
-CAM = dict(azimuth=165.0, elevation=-34.0, distance=0.78, lookat=(-0.09, 0.0, 1.0))
+CAM = dict(azimuth=165.0, elevation=-38.0, distance=0.96, lookat=(-0.05, 0.0, 1.0))   # 10/24: 앞쪽 판(회색)이 글자 칸에 안 가리게 더 내려다봄
 FONT_B = "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf"
 FONT_R = "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf"
 
@@ -56,8 +56,9 @@ def frame(ep, lines, status, title="", cam=CAM):
     return np.asarray(im)
 
 
-def save_gif(frames_path, gif_path, every=1, colors=128, fps=10, limit_mb=95):
-    """4K mp4 → 4K GIF. 색 줄이기는 떨림 없이 (나뭇결이 떨리면 장마다 달라져 파일이 커진다). 100MB 넘으면 장 수를 줄여 다시."""
+def save_gif(frames_path, gif_path, every=1, colors=128, fps=10, limit_mb=48):
+    """4K mp4 → 4K GIF. 색 줄이기는 떨림 없이 (나뭇결이 떨리면 장마다 달라져 파일이 커진다). 48MB 넘으면 장 수를 줄여 다시
+    (GitHub 은 50MB 넘으면 경고, 100MB 넘으면 거부 — 첫 GIF 70MB 에서 경고)."""
     import os
     import imageio.v3 as iio
     from PIL import Image

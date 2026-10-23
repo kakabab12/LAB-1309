@@ -127,6 +127,12 @@ np3 + ⑲ 의 B 실패를 다시 돌려 본 것 (10/23 14시, diag_pad.py, outpu
      시험 (run_np3g_test.sh, A8→B9·A4→B9 40장면): B 무너짐 5 → 0 이지만 A4→B9 돌아오기 20 → 15 — 회색 판이 쌓은 블록에서 9~12cm 라
      놓으러 내려갈 때마다 들어 올림 (183~340스텝).
   ㉒' guard_r < 0.10 (평가 --guard-r 0.07): 반경을 줄이고, 놓을 곳 5cm 안이면 막지 않고, 옆으로는 쌓은 블록 쪽으로 가는 성분만 뺀다
+     (A8→B9·A4→B9 40장면: 셋 다 31 → 32, B 무너짐 5 → 2)
+데려다 놓기 (10/24 02시, deliver=True, 평가 --deliver):
+  ㉓ 지시문의 블록을 든 채 80스텝(4초) 동안 놓을 곳에 1cm 도 안 다가가고 5cm 밖이면, 내려놓기(⑫)와 같은 동작으로 놓을 곳 위로 옮겨
+     (쌓은 블록이 있으면 책상 14cm 높이로 넘어감) 판 위(블록 위면 그 위)에 놓고 6cm 든 뒤 VLA 에 돌려준다.
+     np3 + 새 설정의 돌아오기 실패 5 중 2 (A8→B9 1014, A1→B7 1019) 가 빨강을 든 채 목표 판 6~15cm 에서 500스텝 맴돌았다.
+     np4 (새 기준 보조 시범으로 더 학습) 는 셋 다 83.3% 로 np3 (86.7%) 보다 낫지 않았다.
 """
 import json
 import os
@@ -158,7 +164,8 @@ class GraspAssist:
                  complete=False, idle_steps=20, descend=False, approach=False, yaw=False, close=False, unjam=False,
                  putdown=False, fresh_held=False, putdown_near=False, wrong_guard=False, pad_safe=False, pad_track=False,
                  mem_refresh=False, close_wait=3, regrasp_ok=False, putdown_far=False, stuck_grasp=0, stuck_dz=0.015,
-                 open_empty=False, mem_tol=0.025, yaw_none_reset=0, stack_clear=False, stack_guard=False, guard_r=0.10):
+                 open_empty=False, mem_tol=0.025, yaw_none_reset=0, stack_clear=False, stack_guard=False, guard_r=0.10,
+                 deliver=False):
         # 10/22: PIPER_FRONT_CALIB=piper_sim/front_calib_wide.json 이면 책상 전체로 맞춘 변환식 (블록 공통, calib_front_wide.py).
         #   기본(front_calib.json)은 블록마다 처음 배치로만 맞춰, 블록이 제자리를 떠나면 평균 1.8cm·최대 13.6cm 틀렸다
         calib = calib or os.environ.get("PIPER_FRONT_CALIB", str(HERE / "piper_sim" / "front_calib.json"))
@@ -178,7 +185,7 @@ class GraspAssist:
         self.close_wait, self.regrasp_ok, self.putdown_far = close_wait, regrasp_ok, putdown_far
         self.stuck_grasp, self.stuck_dz, self.open_empty = stuck_grasp, stuck_dz, open_empty
         self.mem_tol, self.yaw_none_reset, self.stack_clear = mem_tol, yaw_none_reset, stack_clear
-        self.stack_guard, self.guard_r = stack_guard, guard_r
+        self.stack_guard, self.guard_r, self.deliver = stack_guard, guard_r, deliver
         self.stat = {}
 
     def stats(self):
@@ -246,7 +253,7 @@ class GraspAssist:
             self.yaw_bad = False
             self.nclose = 0
             self.ujmode, self.ujhist = 0, []
-            self.mr_n, self.pt_n, self.sg_n = {}, {}, {}
+            self.mr_n, self.pt_n, self.sg_n, self.dh = {}, {}, {}, {}
             self.home_mat = np.asarray(ep.obs["robot_state"]["eef"]["mat"], dtype=np.float64).reshape(3, 3)   # 장면 처음 = 처음 자세
             self.home_xy = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)[:2].copy()
         self._update(ep)
@@ -522,6 +529,8 @@ class GraspAssist:
         if pd.get("z_back") is not None:                     # ⑭② 쥐었던 높이 (다른 블록 위였으면 그 위) + 0.4cm
             z_rest = pd["z_back"] + 0.004
             z_travel = max(z_travel, z_rest + 0.06)
+        if pd.get("z_travel") is not None:                   # ㉓ 쌓은 블록이 있으면 그 위로 넘어가게
+            z_travel = max(z_travel, pd["z_travel"])
         e = pd["spot"] - hand[:2]
         d = float(np.linalg.norm(e))
         if pd["phase"] == "carry":
@@ -603,6 +612,17 @@ class GraspAssist:
         d = float(np.linalg.norm(e))
         act = np.array(act, dtype=np.float32, copy=True)
         pi = getattr(self, "prev_instr", None)
+        if self.deliver:                           # ㉓ 든 채 4초 동안 놓을 곳에 1cm 도 안 다가가면 데려다 놓는다
+            h = self.dh.setdefault(instruction, [])
+            h.append(d)
+            if len(h) > 80 and h[-81] - d < 0.01 and d > self.place_radius:
+                stacked = pi and self._dest(pi) in objdet.BLOCKS
+                z_back = TABLE_Z + (0.045 if dst in objdet.BLOCKS else 0.005) + GRASP_H[c]
+                self.pd = {"spot": self.pos[dst].copy(), "held": c, "phase": "carry", "n": 0, "z_back": z_back,
+                           "z_travel": TABLE_Z + 0.14 if stacked else None}
+                self.dh[instruction] = []
+                self.stat["deliver"] = self.stat.get("deliver", 0) + 1
+                return self._putdown(act, hand)
         sd = self._dest(pi) if (self.stack_guard and pi) else None
         if sd in objdet.BLOCKS and sd in self.pos and sd != dst and np.linalg.norm(self.pos[sd] - hand[:2]) < self.guard_r \
                 and hand[2] < TABLE_Z + 0.135 and (self.guard_r >= 0.10 or d > 0.05):

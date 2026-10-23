@@ -226,6 +226,8 @@ def build_parser():
                    help="쌓은 블록 지키기 (grasp_assist ㉒, 10/23): 앞 지시로 쌓은 블록 10cm 안에서 블록을 든 손이 낮으면 먼저 들고 옆으로는 천천히")
     p.add_argument("--guard-r", type=float, default=0.10,
                    help="㉒ 쌓은 블록 지키기 반경 [m] (기본 0.10). 0.10 보다 작으면 ㉒': 놓을 곳 5cm 안은 안 막고 쌓은 블록 쪽 성분만 뺌 (10/23)")
+    p.add_argument("--deliver", action="store_true",
+                   help="데려다 놓기 (grasp_assist ㉓, 10/24): 든 채 4초 동안 놓을 곳에 안 다가가면 놓을 곳 위로 옮겨 놓음")
     p.add_argument("--open-empty", action="store_true",
                    help="빈손 그리퍼 벌리기 (grasp_assist ⑳, 10/23): 빈손으로 다 닫혀 있고 지시문의 블록에서 4cm 넘게 떨어지면 벌림")
     p.add_argument("--putdown-far", action="store_true",
@@ -1017,7 +1019,7 @@ class Runner:
                                                    open_empty=getattr(args, "open_empty", False),
                                                    mem_tol=getattr(args, "mem_tol", 0.025), yaw_none_reset=getattr(args, "yaw_none_reset", 0),
                                                    stack_clear=getattr(args, "stack_clear", False), stack_guard=getattr(args, "stack_guard", False),
-                                                   guard_r=getattr(args, "guard_r", 0.10),
+                                                   guard_r=getattr(args, "guard_r", 0.10), deliver=getattr(args, "deliver", False),
                                                    complete=getattr(args, "grasp_complete", False))
         if getattr(args, "cuda_graph", False):
             # 10/14: 같은 계산을 CUDA 그래프로 묶어 빠르게 (fastinfer.py). 지연 스텝 수는 --latency-steps 로 따로 맞춘다
