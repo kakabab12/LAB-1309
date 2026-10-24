@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+"""모은 시범(world_collect) 마다 VLA 물체 위치 입력(world_feat, 24칸)을 미리 계산해 *.wfeat.npy 로 (학습 train_lora --objfeat --feat wfeat).
+   평가 때와 같은 길: 저장된 위 카메라 사진(JPEG) → world_detect → 지시문의 물체·놓을 곳 − 손.
+   PIPER_NOPED=1 python piper_sim/world_feat_cache.py --data data/world_default_t [--shard 0 --nshard 3]"""
+import argparse
+import io
+import sys
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import piper_sim.world_feat as WF  # noqa: E402
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--data", nargs="+", required=True)
+    p.add_argument("--shard", type=int, default=0)
+    p.add_argument("--nshard", type=int, default=1)
+    a = p.parse_args()
+    wf = WF.WorldFeat()
+    files = sorted(f for d in a.data for f in Path(d, "episodes").glob("*.npz"))[a.shard::a.nshard]
+    n = 0
+    for f in files:
+        out = f.with_suffix("").with_suffix(".wfeat.npy") if f.suffix == ".npz" else None
+        out = f.parent / f"{f.stem}.wfeat.npy"
+        if out.exists():
+            continue
+        ep = np.load(f, allow_pickle=True)
+        task = str(ep["task"])
+        wf.reset()
+        feats = []
+        for blob, pos in zip(ep["img"], ep["eef_pos"]):
+            img = np.asarray(Image.open(io.BytesIO(bytes(blob))).convert("RGB"))
+            feats.append(wf.step({"pixels": {"image": img}, "robot_state": {"eef": {"pos": pos}}}, task, hand=pos))
+        np.save(out, np.stack(feats).astype(np.float32))
+        n += 1
+        if n % 50 == 0:
+            print(f"{n}/{len(files)}", flush=True)
+    print("끝", n, flush=True)
+
+
+if __name__ == "__main__":
+    main()

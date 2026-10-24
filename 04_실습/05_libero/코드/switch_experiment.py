@@ -326,6 +326,8 @@ class Episode:
         self.pending = None  # 지연 모사: [동작, 정규화 동작, 남은 도착 스텝]
         if getattr(self.r, "rf", None) is not None:
             self.r.rf.reset()   # 10/15: 장면마다 물체 위치 기억을 비운다
+        if getattr(self.r, "wf", None) is not None:
+            self.r.wf.reset()
         self.loose_hit = {}  # 단계별 '판 안' 성공 (10/5)
         self.hold_segs = []  # 10/7: 쥔 구간 [시작, 끝, 물체, 끝날 때 그리퍼 명령, 오므리는 방향 어긋남cm, 바닥 위 높이cm] — 실패 분류(못 집음/미끄러짐/엉뚱한 곳)
         self._hold_cur = None
@@ -954,8 +956,11 @@ class Runner:
         """환경 관측 → 모델 입력. objfeat 모델이면 두 카메라 사진에서 색·모양으로 찾은 물체 위치 24개를 로봇 상태 뒤에 붙인다."""
         b = self.env_step(batch)
         if getattr(self, "objfeat", False):
-            import objdet
-            f = objdet.detect(np.asarray(obs["pixels"]["image"]), np.asarray(obs["pixels"]["image2"]))
+            if getattr(self, "wf", None) is not None:      # 10/24: 여러 모양·N개 장면 — 지시문의 물체·놓을 곳만 (world_feat.py)
+                f = self.wf.step(obs, batch["task"][0])
+            else:
+                import objdet
+                f = objdet.detect(np.asarray(obs["pixels"]["image"]), np.asarray(obs["pixels"]["image2"]))
             if getattr(self, "rf", None) is not None:      # 10/15: 손 기준 물체 위치 (relfeat.py)
                 f = self.rf.step(f, eef_pos(obs))
             st = b["observation.state"]
@@ -979,6 +984,10 @@ class Runner:
         if (Path(args.policy) / "relfeat").exists():
             import relfeat
             self.rf = relfeat.RelFeat()
+        self.wf = None
+        if (Path(args.policy) / "worldfeat").exists():
+            import piper_sim.world_feat as WF
+            self.wf = WF.WorldFeat()
         # 10/17: 단계 지시로 학습한 모델 (train_lora --subtask 가 subtask 를 남김) — 지시문을 지금 단계 지시로 바꿔 준다
         self.seq = None
         if (Path(args.policy) / "subtask").exists() or getattr(args, "subtask", False):

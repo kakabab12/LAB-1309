@@ -94,6 +94,14 @@ def parse_args():
     p.add_argument("--log-every", type=int, default=25)
     p.add_argument("--eval-every", type=int, default=500)
     p.add_argument("--save-every", type=int, default=1000)
+    p.add_argument("--vlm-lora", type=int, default=0,
+                   help="VLM(사진·지시문을 읽는 언어 모델 층)에도 이 랭크의 LoRA 를 붙여 같이 학습 (10/24). 지금까지는 동작 전문가만 "
+                        "학습하고 VLM 은 LIBERO 체크포인트 그대로 얼려 둠. 저장할 때 본체에 합쳐 평가·추론은 그대로")
+    p.add_argument("--vlm-lora-lr", type=float, default=2e-4, help="--vlm-lora 의 학습률 (나머지는 --lr)")
+    p.add_argument("--fp32-master", action="store_true",
+                   help="bfloat16 로 읽힌 학습 가중치에 float32 원본을 따로 두고 거기에 갱신을 쌓는다 (10/24). 동작 전문가 가중치 257개가 "
+                        "bfloat16 이라, 3e-5 학습률의 한 번 갱신이 반올림에 지워졌다 (np2→np3 10000스텝에 바뀐 값 32%, |w|≥0.03 은 0%). "
+                        "EMA(0.999)도 bfloat16 이면 갱신이 지워진다. 앞으로 계산(bfloat16)은 그대로라 추론도 그대로")
     p.add_argument("--out", default="outputs/lora_v1")
     p.add_argument("--seed", type=int, default=0)
     a = p.parse_args()
@@ -109,6 +117,27 @@ def parse_args():
     FEAT = a.feat
     SUBTASK = getattr(a, "subtask", None) or False
     return a
+
+
+class VLMLoRA(torch.nn.Module):
+    """nn.Linear 하나에 붙이는 LoRA (W + s·B·A). peft 를 안 쓰는 것은 저장 때 본체에 합쳐 원래 SmolVLA 모양 그대로 저장하려고."""
+
+    def __init__(self, base, r, alpha):
+        super().__init__()
+        self.base = base
+        self.s = alpha / r
+        self.A = torch.nn.Parameter(torch.randn(r, base.in_features, device=base.weight.device) / np.sqrt(base.in_features))
+        self.B = torch.nn.Parameter(torch.zeros(base.out_features, r, device=base.weight.device))
+
+    @property
+    def weight(self):          # smolvlm_with_expert 가 q_proj.weight.dtype 을 본다
+        return self.base.weight
+
+    def forward(self, x):
+        return self.base(x) + (x.to(self.A.dtype) @ self.A.T @ self.B.T * self.s).to(x.dtype)
+
+    def delta(self):
+        return self.B @ self.A * self.s
 
 
 def decode(blob) -> np.ndarray:
@@ -279,7 +308,9 @@ class Trainer:
             tot = sum(p.numel() for p in self.policy.parameters())
             print(f"전체 미세조정(동작 전문가): 학습 파라미터 {tr / 1e6:.2f}M / 전체 {tot / 1e6:.1f}M "
                   f"({100 * tr / tot:.2f}%)", flush=True)
+            self.apply_vlm_lora()
             return
+        assert not getattr(self.a, "vlm_lora", 0), "--vlm-lora 는 --full-expert 와 같이 (저장 방식이 그쪽)"
         expert = self.policy.model.vlm_with_expert.lm_expert
         cfg = LoraConfig(r=self.a.lora_r, lora_alpha=self.a.lora_alpha, lora_dropout=self.a.lora_dropout,
                          bias="none", target_modules=LORA_TARGETS)
@@ -289,6 +320,39 @@ class Trainer:
         tot = sum(p.numel() for p in self.policy.parameters())
         print(f"LoRA 적용: r={self.a.lora_r}, 학습 파라미터 {tr / 1e6:.2f}M / 전체 {tot / 1e6:.1f}M "
               f"({100 * tr / tot:.2f}%)", flush=True)
+
+    def apply_vlm_lora(self):
+        """VLM 언어 모델 층(사진 토큰·지시문·상태 토큰을 읽는 16층)의 주의·MLP 선형층에 LoRA. 비전 인코더는 그대로 얼림
+        (사진 특징 미리 계산 cache/vis 를 그대로 쓸 수 있다). 마지막 층 일부는 동작 전문가가 안 써 기울기가 없을 수 있다."""
+        self.vlm_lora = []
+        r = getattr(self.a, "vlm_lora", 0)
+        if not r:
+            return
+        vwe = self.policy.model.vlm_with_expert
+        for li, layer in enumerate(vwe.get_vlm_model().text_model.layers):
+            for parent, names in ((layer.self_attn, ("q_proj", "k_proj", "v_proj", "o_proj")),
+                                  (layer.mlp, ("gate_proj", "up_proj", "down_proj"))):
+                for n in names:
+                    base = getattr(parent, n)
+                    w = VLMLoRA(base, r, 2 * r)
+                    setattr(parent, n, w)
+                    self.vlm_lora.append((parent, n, w))
+        n = sum(w.A.numel() + w.B.numel() for _, _, w in self.vlm_lora)
+        print(f"VLM LoRA: 층 {len(vwe.get_vlm_model().text_model.layers)}개 × 7, r={r}, 학습 파라미터 {n / 1e6:.2f}M, "
+              f"학습률 {self.a.vlm_lora_lr:g}", flush=True)
+
+    def merge_vlm_lora(self, on):
+        """on=True: LoRA 를 본체 가중치에 더하고 원래 nn.Linear 로 되돌려 둔다 (저장용). on=False: 빼고 LoRA 로 다시."""
+        with torch.no_grad():
+            for parent, n, w in getattr(self, "vlm_lora", []):
+                if on:      # 본체가 bfloat16 이라 더했다 빼면 반올림이 쌓인다 → 원래 값을 CPU 에 두었다 되돌림
+                    w.orig = w.base.weight.detach().cpu().clone()
+                    w.base.weight.copy_((w.base.weight.float() + w.delta().float()).to(w.base.weight.dtype))
+                    setattr(parent, n, w.base)
+                else:
+                    w.base.weight.copy_(w.orig.to(w.base.weight.device))
+                    w.orig = None
+                    setattr(parent, n, w)
 
     def setup_objfeat(self, ds):
         """로봇 상태 정규화 통계를 8 → 32 로 늘리고(새 24개는 데이터에서 잼), 처음 붙일 때는 state_proj 의 새 입력 열을 0 으로
@@ -427,12 +491,25 @@ class Trainer:
 
         new = list(self.policy.model.state_suffix_proj.parameters()) \
             if getattr(a, "new_lr", 0) > 0 and hasattr(self.policy.model, "state_suffix_proj") else []
-        ids = {id(p) for p in new}
-        groups = [{"params": [p for p in self.policy.parameters() if p.requires_grad and id(p) not in ids], "lr": a.lr}]
+        vl = [p for _, _, w in getattr(self, "vlm_lora", []) for p in (w.A, w.B)]
+        ids = {id(p) for p in new + vl}
+        # 10/24 --fp32-master: bfloat16 학습 가중치마다 float32 원본. 옵티마이저·EMA 는 원본에, 모델에는 갱신 뒤 원본을 반올림해 복사
+        self.master_of = {}
+        if getattr(a, "fp32_master", False):
+            for prm in self.policy.parameters():
+                if prm.requires_grad and prm.dtype != torch.float32:
+                    self.master_of[id(prm)] = prm.detach().float().clone().requires_grad_(True)
+            nm = sum(m.numel() for m in self.master_of.values())
+            print(f"float32 원본: 가중치 {len(self.master_of)}개 ({nm / 1e6:.1f}M 값, bfloat16 → 갱신은 원본에)", flush=True)
+        M = lambda ps: [self.master_of.get(id(q), q) for q in ps]
+        new = M(new)
+        groups = [{"params": M([p for p in self.policy.parameters() if p.requires_grad and id(p) not in ids]), "lr": a.lr}]
         lrs = [a.lr]
         if new:     # 10/16: 0 에서 시작한 층은 3e-5 로 10,000스텝 돌아도 가중치가 0.003 수준 → 상태 입력이 동작에 거의 안 닿음
             groups.append({"params": new, "lr": a.new_lr}); lrs.append(a.new_lr)
             print(f"새 층 학습률: state_suffix_proj {a.new_lr:g} (나머지 {a.lr:g})", flush=True)
+        if vl:
+            groups.append({"params": vl, "lr": a.vlm_lora_lr, "weight_decay": 0.0}); lrs.append(a.vlm_lora_lr)
         opt = torch.optim.AdamW(groups, lr=a.lr, weight_decay=1e-4)
         sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lrs, total_steps=a.steps, pct_start=0.05)
         out = Path(a.out)
@@ -440,7 +517,9 @@ class Trainer:
         hist = []
         step, t0, acc_loss = 0, time.time(), 0.0
         self.train_params = [p for p in self.policy.parameters() if p.requires_grad]
-        self.ema = [p.detach().clone() for p in self.train_params] if a.ema > 0 else None
+        self.ema_src = [self.master_of.get(id(p), p) for p in self.train_params]      # EMA 는 float32 원본 기준
+        self.ema = [s.detach().clone() for s in self.ema_src] if a.ema > 0 else None
+        opt_params = [q for g in groups for q in g["params"]]
         self.n_updates = 0
         self.policy.train()
         while step < a.steps:
@@ -449,15 +528,26 @@ class Trainer:
                 loss.backward()
                 acc_loss += loss.item() * a.grad_accum
                 if (step + 1) % a.grad_accum == 0:
-                    torch.nn.utils.clip_grad_norm_([p for p in self.policy.parameters() if p.requires_grad], 1.0)
+                    for prm in self.train_params:      # bfloat16 기울기 → float32 원본으로
+                        mst = self.master_of.get(id(prm))
+                        if mst is not None:
+                            mst.grad = None if prm.grad is None else prm.grad.float()
+                            prm.grad = None
+                    torch.nn.utils.clip_grad_norm_(opt_params, 1.0)
                     opt.step()
                     opt.zero_grad(set_to_none=True)
+                    if self.master_of:
+                        with torch.no_grad():
+                            for prm in self.train_params:
+                                mst = self.master_of.get(id(prm))
+                                if mst is not None:
+                                    prm.copy_(mst)
                     self.n_updates += 1
                     if self.ema is not None:
                         dcy = min(a.ema, (1 + self.n_updates) / (10 + self.n_updates))
                         with torch.no_grad():
-                            for e, prm in zip(self.ema, self.train_params):
-                                e.mul_(dcy).add_(prm.detach(), alpha=1 - dcy)
+                            for e, src in zip(self.ema, self.ema_src):
+                                e.mul_(dcy).add_(src.detach(), alpha=1 - dcy)
                 step += 1
                 sched.step()
                 if step % a.log_every == 0:
@@ -484,10 +574,12 @@ class Trainer:
         if getattr(self, "ema", None) is None:
             return
         with torch.no_grad():
-            for e, prm in zip(self.ema, self.train_params):
-                tmp = prm.detach().clone()
-                prm.copy_(e)
+            for e, src, prm in zip(self.ema, self.ema_src, self.train_params):
+                tmp = src.detach().clone()
+                src.copy_(e)
                 e.copy_(tmp)
+                if src is not prm:      # float32 원본이면 모델(bfloat16)에도 반올림해 복사
+                    prm.copy_(src)
 
     @torch.no_grad()
     def validate(self, vdl, max_batches=40):
@@ -521,7 +613,11 @@ class Trainer:
         d = out / f"step_{step}"
         d.mkdir(parents=True, exist_ok=True)
         if self.lora_expert is None:          # 전체 미세조정: 정책 전체를 저장 (1.2GB)
-            self.policy.save_pretrained(d)
+            self.merge_vlm_lora(True)         # VLM LoRA 는 본체에 합쳐 원래 모양으로 저장
+            try:
+                self.policy.save_pretrained(d)
+            finally:
+                self.merge_vlm_lora(False)
             self.pre.save_pretrained(d)
             self.post.save_pretrained(d)
             if getattr(self.a, "abs_pos", False):
@@ -534,6 +630,10 @@ class Trainer:
                     (d / "relfeat").write_text("물체 24개가 손 기준 위치 (relfeat.py, 10/15)\n")
                 elif (d / "relfeat").exists():
                     (d / "relfeat").unlink()
+                if FEAT == "wfeat":          # 10/24 여러 모양·N개 장면: 지시문의 물체·놓을 곳만 (piper_sim/world_feat.py)
+                    (d / "worldfeat").write_text("물체 입력 = 지시문의 옮길 물체·놓을 곳 손 기준 위치 (world_feat.py, 10/24)\n")
+                elif (d / "worldfeat").exists():
+                    (d / "worldfeat").unlink()
                 # 10/20: 아래 SUBTASK 블록을 위 if 와 elif 사이에 넣었더니 elif 가 SUBTASK 에 붙어, 단계 지시 없이 학습한 모델은
                 #   relfeat 표시가 저장 직후 지워졌다 (als3b: 평가가 화면 좌표를 넣어 한 번도 못 쥠). 순서를 되돌림
                 if SUBTASK:
