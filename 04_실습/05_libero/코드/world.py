@@ -106,8 +106,19 @@ def grasp_widths(name):
     for k in range(n):                                   # 면에 수직으로 쥔다: 짝수 각형은 마주 보는 면, 홀수 각형은 면-꼭짓점
         ang = 360.0 / n * k + 180.0 / n                 # 면의 법선 방향 (꼭짓점이 0° 에 있을 때)
         w = 2 * R * np.cos(np.pi / n) if n % 2 == 0 else R * (1 + np.cos(np.pi / n))
-        out[round(ang % 360, 3)] = w
+        # 상자 규칙에서 yaw 0 은 물체 y 방향(90°)으로 오므린다 → 법선 방향 ang 으로 오므리려면 yaw = ang − 90
+        #   (10/24 앞: yaw = ang 이라 육각기둥을 꼭짓점끼리 쥐었다)
+        out[round((ang - 90) % 360, 3)] = w
     return out
+
+
+def max_extent(name):
+    """바닥에서 본 가장 긴 폭 (m) — 그리퍼보다 확실히 작으면 손목을 맞출 필요가 없다."""
+    kind, shape, _ = parse(name)
+    s = CFG["shapes"][shape]
+    if s["type"] == "box":
+        return float(np.hypot(*s["size"][:2]))
+    return 2 * float(s["radius"])
 
 
 def _mesh_prism(n, R, h):
@@ -182,13 +193,24 @@ def joint1_range():
     raise RuntimeError("로봇 모델에 joint1 범위가 없다")
 
 
+def planner_key():
+    """로봇 파일 내용·닿는 범위 설정·쥐는 규칙이 같으면 같은 열쇠 (설정 이름이 달라도 지도를 같이 쓴다)."""
+    import piper_sim.piper_robot as pr
+    G = {k: v for k, v in CFG.get("grasp", {}).items() if k in ("z_max", "short_below", "z_short", "z_min", "top_margin", "gripper_max_width")}
+    return hashlib.md5((Path(pr.ROBOT_XML).read_text() + json.dumps(CFG["workspace"]) + json.dumps(G)).encode()).hexdigest()[:8]
+
+
+def planner_file(key=None):
+    return HERE / "worlds" / f"reach_planner_{key or planner_key()}.json"
+
+
 def reach_map(n_r=24, n_t=37, force=False):
     """(반지름 r, 각도 θ) 격자에서 손이 책상 위 쥐는 높이에 닿는지 — 역기구학 (menagerie PiPER, 관절 한계 그대로).
     결과는 파일에 둔다 (설정·로봇 모델이 바뀌면 다시 잼). 반환: {"theta": [...], "r_min": [...], "r_max": [...]}"""
     import piper_sim.piper_robot as pr
     # 시범 프로그램의 길 찾기로 잰 범위 (world_expert.planner_reach) 가 있으면 그것을 쓴다
-    fp = ROOT / CFG["workspace"]["reach_file"].format(robot="planner_" + Path(pr.ROBOT_XML).parent.name)
-    kp = hashlib.md5((Path(pr.ROBOT_XML).read_text() + json.dumps(CFG["workspace"]) + json.dumps(CFG.get("grasp"))).encode()).hexdigest()[:8]
+    kp = planner_key()
+    fp = planner_file(kp)
     if fp.exists() and not force:
         d = json.loads(fp.read_text())
         if d.get("key") == kp:
@@ -400,22 +422,21 @@ def tasks_for(sc):
 
 
 def chain(sc, k, rng, pads_first=True):
-    """서로 부딪히지 않는 일 k 개 (같은 물체를 두 번 옮기지 않고, 판 하나에 하나, 옮길 물체 위에 쌓지 않음)."""
+    """서로 부딪히지 않는 일 k 개: 옮길 물체 k 개를 먼저 정하고(같은 물체 두 번 안 옮김), 놓을 곳은 판(하나에 하나) 또는
+    '옮기지 않을' 물체 위(쌓기 받침). 쌓은 받침을 나중 일이 옮겨 위 물체가 떨어지던 것을 막는다 (world_chain3 장면 2200)."""
     objs = list(rng.permutation(sc.objects))
+    movers = objs[:k]
     free_pads = list(rng.permutation(sc.pads))
-    used_dst, moved, out = set(), set(), []
-    for o in objs:
-        if len(out) >= k:
-            break
+    used_dst, out = set(), []
+    for o in movers:
         cands = [p for p in free_pads if p not in used_dst]
-        stack = [t for t in sc.objects if t != o and t not in moved and t not in used_dst
-                 and CFG["shapes"][parse(t)[1]].get("stack_on") and all(t != x[0] for x in out)]
+        stack = [t for t in sc.objects if t not in movers and t not in used_dst
+                 and CFG["shapes"][parse(t)[1]].get("stack_on")]
         pool = cands if (cands and (pads_first or not stack)) else (stack or cands)
         if not pool:
             continue
         d = pool[rng.integers(len(pool))]
         used_dst.add(d)
-        moved.add(o)
         out.append((o, d, instruction(o, d)))
     return out
 
@@ -499,6 +520,8 @@ def place(env, sc, settle=20):
     """뽑은 자리·방향으로 물체를 옮겨 놓는다 (LIBERO 가 뽑은 방향은 무시)."""
     inner = env._env.env
     sim = inner.sim
+    global CAMERA_CALIB
+    CAMERA_CALIB = None
     sc.env_info = randomize(env, np.random.default_rng(sc.seed + 104729))
     for name in sc.names:
         o = inner.objects_dict[name]
@@ -513,6 +536,17 @@ def place(env, sc, settle=20):
     for _ in range(settle):         # lerobot 변환을 거치지 않는 원래 step (switch_experiment.Episode.step 과 같은 길)
         raw, *_ = env._env.step(np.array([0, 0, 0, 0, 0, 0, -1.0], dtype=np.float64))
     return env._format_raw_obs(raw)
+
+
+CAMERA_CALIB = None      # (pos, quat wxyz) — 이 장면 위 카메라의 '보정값'. randomize 가 카메라를 흔들면 그 값 (실물 = 카메라 보정 결과)
+
+
+def camera_pose():
+    """물체 찾기가 쓰는 위 카메라 자리·방향 (보정값이 있으면 그것, 없으면 설정)."""
+    if CAMERA_CALIB is not None:
+        return np.asarray(CAMERA_CALIB[0], float), np.asarray(CAMERA_CALIB[1], float)
+    cam = CFG["camera"]
+    return np.asarray(cam["pos"], float), np.asarray(look_quat(cam["pos"], cam["lookat"], cam["up"]), float)
 
 
 def randomize(env, rng):
@@ -555,6 +589,9 @@ def randomize(env, rng):
         q = (dq * R.from_quat([x, y, z, w])).as_quat()
         m.cam_quat[cid] = [q[3], q[0], q[1], q[2]]
         info["camera_shift_cm"] = 100 * float(np.linalg.norm(m.cam_pos[cid] - np.array(CFG["camera"]["pos"])))
+        global CAMERA_CALIB
+        CAMERA_CALIB = (m.cam_pos[cid].tolist(), m.cam_quat[cid].tolist())
+        info["camera"] = [list(CAMERA_CALIB[0]), list(CAMERA_CALIB[1])]
     return info
 
 
@@ -678,4 +715,17 @@ def install():
                 if c.get("name") == cam["name"]:
                     c.set("fovy", str(cam["fovy"]))
     cls._setup_camera = setup_camera
+    # 사진 크기 (설정 obs_size, 기본 256): 위 카메라 256 에서 물체가 9픽셀이라 같은 색 원기둥·육각기둥을 못 가렸다.
+    #   SmolVLA 는 사진을 512 로 늘려 보므로 512 로 찍어 주면 늘리는 흐림도 없다. lerobot LiberoEnv 의 기본값을 바꾼다
+    n = int(CFG.get("obs_size", 256))
+    if n != 256:
+        from lerobot.envs.libero import LiberoEnv
+        init = LiberoEnv.__init__
+        if not getattr(init, "_world_size", False):
+            def init2(self, *a, **kw):
+                kw.setdefault("observation_width", n)
+                kw.setdefault("observation_height", n)
+                init(self, *a, **kw)
+            init2._world_size = True
+            LiberoEnv.__init__ = init2
     _installed = True

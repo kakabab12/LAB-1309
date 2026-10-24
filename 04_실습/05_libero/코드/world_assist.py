@@ -2,7 +2,7 @@
 여러 모양·N개 장면용 보조 (2026-10-24) — grasp_assist.GraspAssist 의 판단(①~㉓)은 그대로, 장면에 박혀 있던 값만 설정·로봇 모델에서
 
   블록 장면 보조에 박혀 있던 것                         → 여기서는
-  색 4개·판 4개 (objdet.BLOCKS/PADS, NAMES)              → 이 장면의 물체·판 (키 "obj:색" / "pad:색")
+  색 4개·판 4개 (objdet.BLOCKS/PADS, NAMES)              → 이 장면의 물체·판 (키 = 인스턴스 이름, 같은 색 다른 모양도 따로)
   정면 카메라 2차 변환식                                  → 위 카메라 world_detect (색 분포 + 카메라 광선)
   지시문 정규식 (red|green|blue|yellow …)                → world_feat.parse_instruction (설정의 지시문 틀)
   쥐는 높이 GRASP_H[색]                                  → 설정 grasp 규칙 × 그 물체 높이
@@ -34,23 +34,19 @@ class _GraspH(dict):
         name = _name(self.scene, key)
         if name is None:
             return 0.0225
-        G = W.CFG["grasp"]
-        h = W.height(name)
-        return G["z_short"] if h < G["short_below"] else min(G["z_max"], h / 2)
+        import piper_sim.world_expert as WE
+        return WE.grasp_z(name)
 
 
 def _name(scene, key):
+    """보조 안의 키 = 인스턴스 이름 (같은 색 다른 모양도 구분, world_detect.detect 와 같음)."""
     if scene is None or key is None:
         return None
-    kind, col = key.split(":")
-    return next((n for n in scene.names if W.parse(n)[0] == kind and W.parse(n)[2] == col), None)
+    return key if key in scene.names else None
 
 
 def _key(cat):
-    if cat is None:
-        return None
-    kind, _, col = W.parse(cat)
-    return f"{kind}:{col}"
+    return None if cat is None else W.inst(cat)
 
 
 def yaw_period(name):
@@ -58,6 +54,9 @@ def yaw_period(name):
     s = W.CFG["shapes"][W.parse(name)[1]]
     if "yaw_period" in s:
         return s["yaw_period"]
+    G = W.CFG["grasp"]
+    if W.max_extent(name) < G.get("gripper_open", 0.07) - G.get("yaw_free_margin", 0.01):
+        return None             # 어느 방향으로 와도 벌린 손가락 사이에 들어간다 (육각기둥 5.2cm·삼각기둥 4.9cm·원기둥 4.5cm < 6cm)
     if s["type"] == "box":
         a, b, _ = s["size"]
         return 90.0 if abs(a - b) < 1e-6 else 180.0
@@ -80,8 +79,8 @@ class WorldAssist(GA.GraspAssist):
     # ---------- 장면이 바뀔 때 ----------
     def _scene(self, ep):
         sc = ep.scene
-        _Shim.BLOCKS = {f"obj:{W.parse(o)[2]}" for o in sc.objects}
-        _Shim.PADS = {f"pad:{W.parse(p)[2]}" for p in sc.pads}
+        _Shim.BLOCKS = set(sc.objects)
+        _Shim.PADS = set(sc.pads)
         _Shim.OBJECTS = sorted(_Shim.BLOCKS | _Shim.PADS)
         GA.GRASP_H.clear()
         GA.GRASP_H.scene = sc
@@ -104,7 +103,7 @@ class WorldAssist(GA.GraspAssist):
     def _update(self, ep):
         hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
         sc = ep.scene
-        found = self.det.locate(np.asarray(ep.obs["pixels"]["image"]), sc)
+        found = self.det.locate(np.asarray(ep.obs["pixels"]["image"]), sc, robot_q=ep.obs["robot_state"]["joints"]["pos"])
         self.fresh = {}
         for c, (x, y, _n) in found.items():
             xy = np.array([x, y])
@@ -136,7 +135,8 @@ class WorldAssist(GA.GraspAssist):
             return 0.0
         img = np.asarray(img)
         lab = self.wrist_det.classify(img)
-        i = self.wrist_det.keys.index(c) if c in self.wrist_det.keys else None
+        ck = f"obj:{W.parse(c)[2]}"               # 손목 사진은 색으로 (가까이에서는 그 물체가 화면 대부분)
+        i = self.wrist_det.keys.index(ck) if ck in self.wrist_det.keys else None
         if i is None:
             return None
         m = lab == i

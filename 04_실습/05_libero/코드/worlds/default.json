@@ -332,7 +332,11 @@
   "short_below": 0.045,
   "z_short": 0.028,
   "gripper_max_width": 0.065,
-  "note": "쥐는 높이 = min(z_max, 높이/2), 높이가 short_below 보다 낮으면 z_short (받침대 없는 기울인 손이 책상을 파고들지 않게). 손가락 방향 폭이 gripper_max_width 보다 좁은 방향만"
+  "note": "쥐는 높이 = min(max(높이/2, z_min), 높이 − top_margin). 기울인 손(로봇 옆·뒤)으로 2.25cm 에서 쥐면 손가락 끝이 책상을 파고들어 후보가 다 빠졌다 (10/24 장면 2300). 손가락 방향 폭이 gripper_max_width 보다 좁은 방향만",
+  "z_min": 0.028,
+  "top_margin": 0.012,
+  "gripper_open": 0.07,
+  "yaw_free_margin": 0.01
  },
  "putdown_gap": 0.05,
  "wrist_camera": {
@@ -376,5 +380,6 @@
    "deg_sigma": 1.5
   },
   "note": "켜면 장면마다 조명 세기·방향, 물체 색 ±0.05, 책상 색, 위 카메라 자리 ±1cm·±1.5° 를 흔든다 (world.randomize). 끈 설정과 켠 설정 둘 다 잰다"
- }
+ },
+ "obs_size": 512
 }

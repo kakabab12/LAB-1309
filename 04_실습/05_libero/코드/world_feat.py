@@ -47,10 +47,8 @@ class WorldFeat:
         hand = np.asarray(hand if hand is not None else obs["robot_state"]["eef"]["pos"], dtype=np.float64)
         o, d = parse_instruction(instruction)
         z_of = {}
-        for cat in (o, d):                      # 지시문이 모양을 알려 주므로 그 물체 높이 절반에서 광선을 끊는다
-            if cat is not None and W.parse(cat)[0] == "obj":
-                z_of[f"obj:{W.parse(cat)[2]}"] = W.TABLE_Z + 0.5 * W.height(W.inst(cat))
-        found = self.det.locate(np.asarray(obs["pixels"]["image"]), z_of=z_of)
+        q = obs["robot_state"].get("joints", {}).get("pos")                # 로봇 팔 자리를 가리고 찾는다
+        found = self.det.locate(np.asarray(obs["pixels"]["image"]), robot_q=q)   # 인스턴스 이름 → (x, y, 픽셀 수)
         for k, (x, y, _n) in found.items():
             p = np.array([x, y])
             if k not in self.mem or np.linalg.norm(p - hand[:2]) > FAR:
@@ -59,8 +57,7 @@ class WorldFeat:
         for j, cat in enumerate((o, d)):
             if cat is None:
                 continue
-            kind, _, col = W.parse(cat)
-            key = f"{kind}:{col}"
+            key = W.inst(cat)
             if key in self.mem:
                 f[2 * j:2 * j + 2] = self.mem[key] - hand[:2]
                 f[4 + j] = W.height(W.inst(cat))

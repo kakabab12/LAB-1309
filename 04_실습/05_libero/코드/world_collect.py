@@ -86,7 +86,8 @@ def main():
                 if len(r) < 10:
                     continue
                 r.save(out / f"W{seed}_k{k}{'n' if nested else 's'}_s{j}.npz", lang, source="world_expert",
-                       scene=json.dumps({"seed": seed, "objects": sc.objects, "pads": sc.pads}), seg=j)
+                       scene=json.dumps({"seed": seed, "objects": sc.objects, "pads": sc.pads,
+                                         "env_info": getattr(sc, "env_info", {})}), seg=j)
                 st["segs"] += 1
                 st["frames"] += len(r)
         print(f"{seed} k={k} {'겹침' if nested else '차례'} 물체 {len(sc.objects)} 판 {len(sc.pads)}: {'성공' if ok else '실패'} "

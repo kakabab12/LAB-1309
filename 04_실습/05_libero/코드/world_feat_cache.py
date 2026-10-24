@@ -4,6 +4,7 @@
    PIPER_NOPED=1 python piper_sim/world_feat_cache.py --data data/world_default_t [--shard 0 --nshard 3]"""
 import argparse
 import io
+import json
 import sys
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import piper_sim.world as W  # noqa: E402
 import piper_sim.world_feat as WF  # noqa: E402
 
 
@@ -30,11 +32,15 @@ def main():
             continue
         ep = np.load(f, allow_pickle=True)
         task = str(ep["task"])
+        meta = json.loads(str(ep["scene"])) if "scene" in ep.files else {}
+        cam = meta.get("env_info", {}).get("camera")
+        W.CAMERA_CALIB = (cam[0], cam[1]) if cam else None      # 흔든 장면이면 그 장면의 카메라 보정값
         wf.reset()
         feats = []
-        for blob, pos in zip(ep["img"], ep["eef_pos"]):
+        J = ep["joints"] if "joints" in ep.files and len(ep["joints"]) == len(ep["img"]) else [None] * len(ep["img"])
+        for blob, pos, q in zip(ep["img"], ep["eef_pos"], J):
             img = np.asarray(Image.open(io.BytesIO(bytes(blob))).convert("RGB"))
-            feats.append(wf.step({"pixels": {"image": img}, "robot_state": {"eef": {"pos": pos}}}, task, hand=pos))
+            feats.append(wf.step({"pixels": {"image": img}, "robot_state": {"eef": {"pos": pos}, "joints": {"pos": q}}}, task, hand=pos))
         np.save(out, np.stack(feats).astype(np.float32))
         n += 1
         if n % 50 == 0:

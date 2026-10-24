@@ -52,7 +52,7 @@ class Rec:
     """(관측, 동작) 을 모으는 기록기. 전문가 구간과 정책 구간 모두 같은 형식으로."""
 
     def __init__(self):
-        self.f = {"img": [], "wrist": [], "eef_pos": [], "eef_quat": [], "grip": [], "action": []}
+        self.f = {"img": [], "wrist": [], "eef_pos": [], "eef_quat": [], "grip": [], "action": [], "joints": []}
 
     def __call__(self, o, a):
         self.f["img"].append(jpeg(o["pixels"]["image"]))
@@ -61,6 +61,8 @@ class Rec:
         self.f["eef_quat"].append(np.asarray(o["robot_state"]["eef"]["quat"], np.float32))
         self.f["grip"].append(np.asarray(o["robot_state"]["gripper"]["qpos"], np.float32))
         self.f["action"].append(np.asarray(a, np.float32))
+        j = o["robot_state"].get("joints", {}).get("pos")      # 10/24: 관절 각도 (물체 찾기가 로봇 팔 자리를 가릴 때 씀)
+        self.f["joints"].append(np.asarray(j if j is not None else np.zeros(6), np.float32)[:6])
 
     def __len__(self):
         return len(self.f["action"])
@@ -70,6 +72,7 @@ class Rec:
                  wrist=np.array(self.f["wrist"], dtype=object),
                  eef_pos=np.stack(self.f["eef_pos"]), eef_quat=np.stack(self.f["eef_quat"]),
                  grip=np.stack(self.f["grip"]), action=np.stack(self.f["action"]),
+                 joints=np.stack(self.f["joints"]) if self.f["joints"] else np.zeros((0, 6), np.float32),
                  task=task, **meta)
 
 

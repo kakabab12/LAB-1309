@@ -24,12 +24,20 @@ _RZ = lambda deg: Rotation.from_euler("z", deg, degrees=True).as_matrix()  # noq
 STATE = {"objs": ()}
 
 
+def grasp_z(obj):
+    """물체 바닥에서 쥐는 높이 (설정 grasp). z_min 이 있으면 min(max(h/2, z_min), h − top_margin), 없으면 예전 규칙."""
+    G = W.CFG["grasp"]
+    h = W.height(obj)
+    if "z_min" in G:
+        return min(max(h / 2, G["z_min"]), h - G.get("top_margin", 0.012))
+    return G["z_short"] if te.NOPED and h < G["short_below"] else min(G["z_max"], h / 2)
+
+
 def grasp_candidates(ep, obj):
     o = ep.obj_pos(obj)
     h = W.height(obj)
     R = se.obj_rot(ep, obj)
-    G = W.CFG["grasp"]
-    g = o + R.apply([0, 0, (G["z_short"] if te.NOPED and h < G["short_below"] else min(G["z_max"], h / 2))])
+    g = o + R.apply([0, 0, grasp_z(obj)])
     _, shape, _ = W.parse(obj)
     s = W.CFG["shapes"][shape]
     widths = W.grasp_widths(obj)
@@ -38,7 +46,7 @@ def grasp_candidates(ep, obj):
         widths = {k: v for k, v in widths.items() if k % step == 0} or widths
     out = []
     for yaw, w in widths.items():
-        if w < G["gripper_max_width"]:
+        if w < W.CFG["grasp"]["gripper_max_width"]:
             out.append((g, R.as_matrix() @ _RZ(yaw) @ te.DOWN_REF))
     return out
 
@@ -269,10 +277,10 @@ def planner_reach(n_r=13, n_t=25, min_margin_deg=8, above=0.08):
             r_min.append(float(rs[best[0]])); r_max.append(float(rs[best[1]]))
         else:
             r_min.append(None); r_max.append(None)
-    key = hashlib.md5((Path(pr.ROBOT_XML).read_text() + json.dumps(W.CFG["workspace"]) + json.dumps(W.CFG["grasp"])).encode()).hexdigest()[:8]
+    key = W.planner_key()
     d = {"key": key, "method": "planner", "theta": thetas.tolist(), "r_min": r_min, "r_max": r_max,
          "joint1_deg": [j1lo, j1hi], "grid_r": rs.tolist(), "ok": ok.astype(int).tolist()}
-    f = W.ROOT / W.CFG["workspace"]["reach_file"].format(robot="planner_" + Path(pr.ROBOT_XML).parent.name)
+    f = W.planner_file(key)
     f.write_text(json.dumps(d))
     ep.env.close()
     print("저장:", f)
