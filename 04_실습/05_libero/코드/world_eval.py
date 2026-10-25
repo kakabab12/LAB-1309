@@ -56,6 +56,28 @@ class Loose:
         return True
 
 
+class Track:
+    """일마다 실패 나누기용 기록 (10/25, w1 0% 원인 찾기): 성공 판정(goal)을 감싸 스텝마다 그 물체를 쥐고 있었는지,
+    손-물체 최소 거리(xy)를 잰다. run_policy 가 goal.loose 를 읽으므로 그대로 넘긴다."""
+
+    def __init__(self, ep, goal, obj):
+        self.ep, self.goal, self.obj, self.loose = ep, goal, obj, goal.loose
+        self.held, self.dmin, self.other = 0, 9.0, {}
+
+    def __call__(self, env):
+        inner = env._env.env
+        po = inner.sim.data.body_xpos[inner.obj_body_id[self.obj]]
+        hand = np.asarray(self.ep.obs["robot_state"]["eef"]["pos"])
+        self.dmin = min(self.dmin, float(np.linalg.norm(po[:2] - hand[:2])))
+        if self.ep.holding():
+            fo = self.ep.finger_object()
+            if fo == self.obj:
+                self.held += 1
+            elif fo:                                      # 다른 물체를 쥠 (어느 것을 몇 스텝)
+                self.other[fo] = self.other.get(fo, 0) + 1
+        return self.goal(env)
+
+
 def run_episode(r, sc, tasks, a, ep_idx):
     r.suite = W.Suite(sc, tasks[0][:2], tasks[0][2])
     r.chk_a = WE.Goal(*tasks[0][:2])
@@ -70,6 +92,7 @@ def run_episode(r, sc, tasks, a, ep_idx):
         o, d, lang = tasks[i]
         goal = WE.Goal(o, d)
         goal.loose = Loose(o, d)
+        tr = Track(ep, goal, o)
         held = {"n": 0}
 
         def trig(t):
@@ -77,11 +100,11 @@ def run_episode(r, sc, tasks, a, ep_idx):
                 return False
             held["n"] = held["n"] + 1 if (ep.holding() and ep.finger_object() == o) else 0
             return held["n"] >= a.switch_hold
-        why, n = ep.run_policy(lang, f"T{i}", a.max_steps, success_fn=goal, trigger_fn=trig)
+        why, n = ep.run_policy(lang, f"T{i}", a.max_steps, success_fn=tr, trigger_fn=trig)
         if why == "trigger":
             res[i]["switched"] = True
             run(i + 1)
-            why, n = ep.run_policy(lang, f"R{i}", a.max_steps, success_fn=goal)
+            why, n = ep.run_policy(lang, f"R{i}", a.max_steps, success_fn=tr)
         if why == "success":
             res[i]["ok"] = True
             # 놓은 뒤 손을 벌릴 때까지 (쌓기 직후 아직 쥐고 있으면 다음 지시에서 그 블록을 들고 가 버린다 — release-wait)
@@ -90,6 +113,10 @@ def run_episode(r, sc, tasks, a, ep_idx):
                     break
                 ep.step(ep.policy_action(lang), f"T{i}")
         res[i]["loose"] = bool(ep.loose_hit.get(f"T{i}") or ep.loose_hit.get(f"R{i}") or goal.loose(ep.env))
+        inner = ep.env._env.env
+        po, pd = (inner.sim.data.body_xpos[inner.obj_body_id[x]] for x in (o, d))
+        res[i].update(held_steps=tr.held, held_other=tr.other, hand_min_cm=round(100 * tr.dmin, 1),
+                      end_dist_cm=round(100 * float(np.linalg.norm(po[:2] - pd[:2])), 1), end_z_cm=round(100 * float(po[2] - W.TABLE_Z), 1))
 
     if a.nested:
         run(0)

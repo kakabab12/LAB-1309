@@ -70,7 +70,7 @@ class WorldAssist(GA.GraspAssist):
     def __init__(self, **kw):
         super().__init__(calib=str(W.HERE / "front_calib_wide.json"), **kw)
         self.det = WD.Detector()
-        self.wrist_det = self.det          # 손목 사진도 같은 색 분포로 (재 보고 따로 맞출 수 있음)
+        self.wrist_det = WD.Detector(space="raw")     # 손목 사진은 책상이 거의 안 보여 밝기 맞춤 없이 (배운 그대로의 색 분포)
         GA.objdet = _Shim                  # 이 프로세스의 grasp_assist 는 이 장면 집합을 본다
         GA.GRASP_H = _GraspH()
         import piper_sim.ik as _ik         # noqa: F401
@@ -134,7 +134,7 @@ class WorldAssist(GA.GraspAssist):
         if per is None:
             return 0.0
         img = np.asarray(img)
-        lab = self.wrist_det.classify(img)
+        lab = self.wrist_det.classify(img, own_table=False)
         ck = f"obj:{W.parse(c)[2]}"               # 손목 사진은 색으로 (가까이에서는 그 물체가 화면 대부분)
         i = self.wrist_det.keys.index(ck) if ck in self.wrist_det.keys else None
         if i is None:

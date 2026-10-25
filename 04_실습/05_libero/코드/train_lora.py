@@ -62,6 +62,9 @@ def parse_args():
     p.add_argument("--abs-pos", action="store_true",
                    help="10/5: 동작의 위치 3개를 '절대 목표 위치'로 (그때 손 위치 + 5cm×명령). 실행할 때 지금 손 위치와의 차이로 "
                         "명령을 만들어 묶음을 눈 감고 실행해도 오차가 쌓이지 않는다. --renorm-action 과 함께. 모델 폴더에 abs_pos 표시")
+    p.add_argument("--proj-lr", type=float, default=0.0,
+                   help="state_proj (로봇 상태 + 물체 입력 → VLM 토큰) 학습률. 0 이면 --lr. 10/25 w1: 물체 입력 열이 0 에서 3e-5 로 20000스텝 "
+                        "자라 0.25 (로봇 상태 열 3.3) — 위치 입력을 거의 안 씀")
     p.add_argument("--new-lr", type=float, default=0.0,
                    help="새로 붙인 층(state_suffix_proj)만 이 학습률로 (0 이면 --lr). 10/16: 3e-5 로는 0 에서 거의 못 자람")
     p.add_argument("--exclude", default=None,
@@ -492,7 +495,8 @@ class Trainer:
         new = list(self.policy.model.state_suffix_proj.parameters()) \
             if getattr(a, "new_lr", 0) > 0 and hasattr(self.policy.model, "state_suffix_proj") else []
         vl = [p for _, _, w in getattr(self, "vlm_lora", []) for p in (w.A, w.B)]
-        ids = {id(p) for p in new + vl}
+        proj = [q for q in self.policy.model.state_proj.parameters() if q.requires_grad] if getattr(a, "proj_lr", 0) > 0 else []
+        ids = {id(p) for p in new + vl + proj}
         # 10/24 --fp32-master: bfloat16 학습 가중치마다 float32 원본. 옵티마이저·EMA 는 원본에, 모델에는 갱신 뒤 원본을 반올림해 복사
         self.master_of = {}
         if getattr(a, "fp32_master", False):
@@ -508,6 +512,9 @@ class Trainer:
         if new:     # 10/16: 0 에서 시작한 층은 3e-5 로 10,000스텝 돌아도 가중치가 0.003 수준 → 상태 입력이 동작에 거의 안 닿음
             groups.append({"params": new, "lr": a.new_lr}); lrs.append(a.new_lr)
             print(f"새 층 학습률: state_suffix_proj {a.new_lr:g} (나머지 {a.lr:g})", flush=True)
+        if proj:
+            groups.append({"params": M(proj), "lr": a.proj_lr}); lrs.append(a.proj_lr)
+            print(f"상태 입력층 학습률: state_proj {a.proj_lr:g}", flush=True)
         if vl:
             groups.append({"params": vl, "lr": a.vlm_lora_lr, "weight_decay": 0.0}); lrs.append(a.vlm_lora_lr)
         opt = torch.optim.AdamW(groups, lr=a.lr, weight_decay=1e-4)
