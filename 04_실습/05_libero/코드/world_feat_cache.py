@@ -22,17 +22,19 @@ def main():
     p.add_argument("--data", nargs="+", required=True)
     p.add_argument("--shard", type=int, default=0)
     p.add_argument("--nshard", type=int, default=1)
+    p.add_argument("--version", type=int, default=1, help="world_feat 판 (2: 옮길 물체 방향 [8:11])")
     p.add_argument("--reverse", action="store_true", help="뒤에서부터 (앞에서부터 도는 줄과 겹치지 않게 늦게 더 붙일 때)")
     p.add_argument("--stride", type=int, default=1, help="학습이 읽는 장만 계산 (train_lora --frame-stride 와 같게; 사이 장은 앞 값)")
     a = p.parse_args()
-    wf = WF.WorldFeat()
+    wf = WF.WorldFeat(version=a.version)
+    suf = "wfeat" if a.version == 1 else f"wfeat{a.version}"      # 2판은 *.wfeat2.npy (학습 중인 1판 파일을 건드리지 않게)
     files = sorted(f for d in a.data for f in Path(d, "episodes").glob("*.npz"))[a.shard::a.nshard]
     if a.reverse:
         files = files[::-1]
     n = 0
     for f in files:
         out = f.with_suffix("").with_suffix(".wfeat.npy") if f.suffix == ".npz" else None
-        out = f.parent / f"{f.stem}.wfeat.npy"
+        out = f.parent / f"{f.stem}.{suf}.npy"
         if out.exists():
             continue
         ep = np.load(f, allow_pickle=True)

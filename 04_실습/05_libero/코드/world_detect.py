@@ -64,7 +64,7 @@ def pix2table(r, c, z, h, w, _cache={}):
     if key not in _cache:
         _cache[key] = camera_rays(h, w)
     o, D = _cache[key]
-    d = D[int(round(r)), int(round(c))]
+    d = D[min(max(int(round(r)), 0), h - 1), min(max(int(round(c)), 0), w - 1)]   # 10/26: 덩어리 긴 축 끝이 사진 밖일 수 있다 (흔든 카메라)
     t = (z - o[2]) / d[2]
     p = o + t * d
     return p[:2]
@@ -216,6 +216,18 @@ def blob_features(mask, K=8, up=4):
         Fa = np.abs(np.fft.rfft(rg)) / len(rg)
         F = Fa[1:K + 1] / max(Fa[0], 1e-6)
     return np.array([np.log(A), max(rw, rh) / max(min(rw, rh), 1.0), 4 * np.pi * A / P ** 2, A / hull, nv, *F], dtype=float)
+
+
+def _blob_axis(mask):
+    """덩어리 긴 축의 양 끝 (행, 열) 두 점과 길쭉함 — 물체 방향 (10/26: 막대는 손목 방향을 맞춰야 쥔다)."""
+    import cv2
+    cnts, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    if not cnts:
+        return None
+    (cx, cy), (w, h), a = cv2.minAreaRect(max(cnts, key=cv2.contourArea))
+    t = np.radians(a if w >= h else a + 90.0)        # 긴 변 방향 (사진: x = 열, y = 행)
+    L = max(w, h) / 2
+    return (cy - L * np.sin(t), cx - L * np.cos(t), cy + L * np.sin(t), cx + L * np.cos(t), max(w, h) / max(min(w, h), 1.0))
 
 
 def _flip_between(a, b):
@@ -478,6 +490,7 @@ class Detector:
         if rm is not None:
             lab[rm] = -1
         out = {}
+        self.axis = {}                              # 인스턴스 이름 → 덩어리 긴 축 (locate 가 책상 위 방향으로 바꿈)
         used = np.zeros((h, w), bool)
         want = None if only is None else {f"{W.parse(n)[0]}:{W.parse(n)[2]}" for n in only if n}
         for i, k in enumerate(self.keys):
@@ -521,6 +534,7 @@ class Detector:
                     r, c = ndimage.center_of_mass(m, cc, j + 1)
                     out[names[0]] = (r, c, int(sizes[j]))
                     used |= cc == j + 1
+                    self.axis[names[0]] = _blob_axis(cc == j + 1)
                 continue
             # 후보가 여럿: 큰 점수부터 하나씩 짝짓기
             used_b, used_n = set(), set()
@@ -532,6 +546,7 @@ class Detector:
                 r, c = ndimage.center_of_mass(m, cc, j + 1)
                 out[nm] = (r, c, int(sizes[j]))
                 used |= cc == j + 1
+                self.axis[nm] = _blob_axis(cc == j + 1)
             for t in targets:                      # 지시문 물체가 짝을 못 얻었으면 (모양 점수가 다른 모양을 골랐을 때): 남은 덩어리 중 가장 그럴듯한 것
                 if t in out:
                     continue
@@ -541,13 +556,14 @@ class Detector:
                     r, c = ndimage.center_of_mass(m, cc, j + 1)
                     out[t] = (r, c, int(sizes[j]))
                     used |= cc == j + 1
+                    self.axis[t] = _blob_axis(cc == j + 1)
         if scene is not None:                      # 장면을 알 때만 (모르면 안 본 색의 덩어리를 엉뚱하게 가져갔다: 가려진 남색 판 → 보라 판)
             miss = [n for n in scene.names if n not in out]
             if miss:
-                out.update(self._rescue(lab, used, miss, h, lo, hi))
+                out.update(self._rescue(lab, used, miss, h, lo, hi, rm))
         return out
 
-    def _rescue(self, lab, used, miss, h, lo, hi, md_max=20.0):
+    def _rescue(self, lab, used, miss, h, lo, hi, rm=None, md_max=20.0):
         """두 번째 찾기: 못 찾은 것마다, 아직 안 쓴 색 덩어리(어느 색 이름이든) 중 모양이 맞고 (min_ll 위) 그 색 분포에서
         너무 멀지 않은 (가운데값 마할라노비스 md_max 아래) 것. 흔든 환경에서 남색 판이 파란 물체 색으로, 센 조명의 주황 판이
         노란 물체 색으로 읽혀 판을 못 찾았다 — 픽셀마다 고른 색 이름은 틀려도 덩어리 모양과 색 거리로는 알아볼 수 있다."""
@@ -561,6 +577,9 @@ class Detector:
             return {}
         sizes = ndimage.sum(fg, cc, range(1, n + 1))
         res, taken = {}, set()
+        if rm is not None:      # 10/27: 로봇 가리개에 붙은 덩어리는 고르지 않는다 — 원기둥이 그리퍼 밑에 가려지자 가리개 밖으로 나온
+            #                     손목 카메라 몸체를 그 원기둥으로 골라 보조 기억이 9cm 틀렸다 (w3 + 다듬기 1013, 놓기 다듬기가 안 켜짐)
+            taken |= {int(v) - 1 for v in np.unique(cc[ndimage.binary_dilation(rm, iterations=3)]) if v > 0}
         for nm in miss:
             kind, shape, col = W.parse(nm)
             key = f"{kind}:{col}"
@@ -585,6 +604,7 @@ class Detector:
                 taken.add(best[1])
                 r, c = ndimage.center_of_mass(fg, cc, best[1] + 1)
                 res[nm] = (r, c, int(sizes[best[1]]))
+                self.axis[nm] = _blob_axis(cc == best[1] + 1)
         return res
 
     def locate(self, rgb, scene=None, z_of=None, robot_q=None, only=None):
@@ -592,12 +612,17 @@ class Detector:
         rgb = np.asarray(rgb)[::self.flip[0], ::self.flip[1]]
         h, w = rgb.shape[:2]
         res = {}
+        self.yaw = {}
         for nm, (r, c, n) in self.detect(rgb, scene, robot_q=robot_q, only=only).items():
             kind = W.parse(nm)[0]
             z = W.TABLE_Z + (0.5 * W.height(nm) if kind == "obj" else 0.003)
             if z_of and nm in z_of:
                 z = z_of[nm]
             res[nm] = (*pix2table(r, c, z, h, w), n)
+            ax = self.axis.get(nm)
+            if ax is not None:                      # 긴 축 두 끝을 같은 높이의 책상 위 점으로 → 세계 좌표 방향 [도], 길쭉함
+                p0, p1 = pix2table(ax[0], ax[1], z, h, w), pix2table(ax[2], ax[3], z, h, w)
+                self.yaw[nm] = (float(np.degrees(np.arctan2(p1[1] - p0[1], p1[0] - p0[0]))), float(ax[4]))
         return res
 
 

@@ -5,6 +5,9 @@
   24칸 (모델 상태 8 + 24 = 32, 예전 모델과 같은 꼴):
     [0:2] 옮길 물체 − 손 (x, y) m   [2:4] 놓을 곳 − 손   [4] 옮길 물체 높이(윗면, 책상 기준)   [5] 놓을 곳 윗면 높이
     [6] 옮길 물체 보임(1/0)   [7] 놓을 곳 보임   [8:24] 0 (남김)
+  2판 (version=2, 10/26: 막대는 손목 방향을 맞춰야 쥔다 — 길이 9cm > 벌린 손가락 7cm, 위치만 주던 w2 는 막대를 거의 못 쥠):
+    [8:10] 옮길 물체 방향 [sin kθ, cos kθ] (θ = 위 카메라 덩어리 긴 축, k = 360/대칭 주기 — 막대 2, 정육면체 4)
+    [10] 방향을 맞춰야 하는 모양이고 방향을 잼 (1/0). 맞출 필요 없는 모양(원기둥·육각·삼각, 벌린 손가락 안에 들어감)은 0
 """
 import re
 
@@ -51,13 +54,14 @@ def parse_instruction(text):
 
 
 class WorldFeat:
-    def __init__(self, detector=None):
+    def __init__(self, detector=None, version=1):
         import piper_sim.world_detect as WD
         self.det = detector or WD.Detector()
+        self.version = version
         self.reset()
 
     def reset(self):
-        self.mem = {}
+        self.mem, self.ymem = {}, {}
 
     def step(self, obs, instruction, hand=None):
         hand = np.asarray(hand if hand is not None else obs["robot_state"]["eef"]["pos"], dtype=np.float64)
@@ -70,6 +74,8 @@ class WorldFeat:
             p = np.array([x, y])
             if k not in self.mem or np.linalg.norm(p - hand[:2]) > FAR:
                 self.mem[k] = p
+                if k in getattr(self.det, "yaw", {}):            # 방향도 같은 규칙으로 기억 (손이 가까우면 손에 가려 틀릴 수 있다)
+                    self.ymem[k] = self.det.yaw[k][0]
         f = np.zeros(24, dtype=np.float32)
         for j, cat in enumerate((o, d)):
             if cat is None:
@@ -79,4 +85,11 @@ class WorldFeat:
                 f[2 * j:2 * j + 2] = self.mem[key] - hand[:2]
                 f[4 + j] = W.height(W.inst(cat))
                 f[6 + j] = 1.0 if key in found else 0.5
+        if self.version >= 2 and o is not None:
+            import piper_sim.world_assist as WA        # 대칭 주기 (설정 모양·그리퍼 폭) — 여기서 불러야 서로 부르기가 안 꼬임
+            key = W.inst(o)
+            per = WA.yaw_period(key)
+            if per and key in self.ymem:
+                th = np.radians(self.ymem[key]) * 360.0 / per
+                f[8], f[9], f[10] = np.sin(th), np.cos(th), 1.0
         return f

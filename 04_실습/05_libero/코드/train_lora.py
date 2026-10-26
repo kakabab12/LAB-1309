@@ -75,6 +75,8 @@ def parse_args():
     p.add_argument("--cam-drop", type=float, default=0.0, help="학습 장면 중 이 비율만큼 정면 카메라를 가림 → 손 기준 위치 입력을 쓰게 (ttrtc, 10/16)")
     p.add_argument("--sufstate", action="store_true", help="상태(+물체 위치)를 동작 전문가 쪽 동작 토큰에도 더한다 (ttrtc.enable_sufstate, 10/15)")
     p.add_argument("--feat", default="objfeat", help="물체 입력 파일 (.objfeat.npy 화면 좌표 / .relfeat.npy 손 기준 m, 10/15)")
+    p.add_argument("--renorm-new-feat", action="store_true",
+                   help="10/26: 이어 학습할 때 지금까지 늘 0 이던 물체 입력 칸(정규화 표준편차 < 0.002)만 통계를 다시 잰다 (가중치는 그대로) — wfeat2 의 방향 칸")
     p.add_argument("--reset-feat", action="store_true", help="이어 학습할 때 물체 입력 뜻이 바뀌었으면 정규화 통계를 다시 재고 정면 16칸 열을 0 으로")
     p.add_argument("--objfeat", action="store_true",
                    help="10/6: 색·모양 검출(objdet.py)로 사진에서 계산한 물체 화면 위치 24개를 로봇 상태 뒤에 붙인다 "
@@ -369,7 +371,16 @@ class Trainer:
             if isinstance(st, _NormalizationMixin) and "observation.state" in (st.stats or {}):
                 ss = st.stats["observation.state"]
                 m0, s0 = np.asarray(ss["mean"], np.float32), np.asarray(ss["std"], np.float32)
-                if len(m0) == 8 or getattr(self.a, "reset_feat", False):     # 10/15: 입력 뜻이 바뀌면 통계를 다시
+                if len(m0) == 32 and getattr(self.a, "renorm_new_feat", False) and not getattr(self.a, "reset_feat", False):
+                    new = [i for i in range(8, 32) if s0[i] < 0.002]      # 늘 0 이던 칸은 std = 1e-3 (+1e-3 만 남음)
+                    m0, s0 = m0.copy(), s0.copy()
+                    m0[new], s0[new] = fm[np.array(new) - 8], fs[np.array(new) - 8]
+                    ss["mean"], ss["std"] = m0.astype(np.float32), s0.astype(np.float32)
+                    for k in ("min", "max", "q01", "q99"):
+                        ss.pop(k, None)
+                    st._tensor_stats = to_tensor(st.stats, device=st.device, dtype=st.dtype)
+                    print(f"새로 쓰는 물체 입력 칸 {[i - 8 for i in new]} 통계: 평균 {np.round(m0[new], 3).tolist()} 표준편차 {np.round(s0[new], 3).tolist()}", flush=True)
+                elif len(m0) == 8 or getattr(self.a, "reset_feat", False):     # 10/15: 입력 뜻이 바뀌면 통계를 다시
                     m0, s0 = m0[:8], s0[:8]
                     ss["mean"] = np.concatenate([m0, fm]).astype(np.float32)
                     ss["std"] = np.concatenate([s0, fs]).astype(np.float32)
@@ -637,10 +648,14 @@ class Trainer:
                     (d / "relfeat").write_text("물체 24개가 손 기준 위치 (relfeat.py, 10/15)\n")
                 elif (d / "relfeat").exists():
                     (d / "relfeat").unlink()
-                if FEAT == "wfeat":          # 10/24 여러 모양·N개 장면: 지시문의 물체·놓을 곳만 (piper_sim/world_feat.py)
+                if FEAT in ("wfeat", "wfeat2"):          # 10/24 여러 모양·N개 장면: 지시문의 물체·놓을 곳만 (piper_sim/world_feat.py)
                     (d / "worldfeat").write_text("물체 입력 = 지시문의 옮길 물체·놓을 곳 손 기준 위치 (world_feat.py, 10/24)\n")
                 elif (d / "worldfeat").exists():
                     (d / "worldfeat").unlink()
+                if FEAT == "wfeat2":                     # 10/26 2판: + 옮길 물체 방향 [8:11]
+                    (d / "worldfeat_v2").write_text("world_feat 2판: [8:10] 옮길 물체 방향 sin·cos(kθ), [10] 방향 있음 (10/26)\n")
+                elif (d / "worldfeat_v2").exists():
+                    (d / "worldfeat_v2").unlink()
                 # 10/20: 아래 SUBTASK 블록을 위 if 와 elif 사이에 넣었더니 elif 가 SUBTASK 에 붙어, 단계 지시 없이 학습한 모델은
                 #   relfeat 표시가 저장 직후 지워졌다 (als3b: 평가가 화면 좌표를 넣어 한 번도 못 쥠). 순서를 되돌림
                 if SUBTASK:
