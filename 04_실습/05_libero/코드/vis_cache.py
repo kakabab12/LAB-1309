@@ -15,6 +15,7 @@
 """
 import argparse
 import io
+import os
 import time
 from pathlib import Path
 
@@ -69,10 +70,13 @@ def build(a):
     objfeat = (Path(a.policy) / "objfeat").exists()
     files = sorted(f for d in a.data for f in Path(d).glob("episodes/*.npz"))
     files = files[a.shard::a.nshard]
+    if getattr(a, "reverse", False):     # 10/25: 앞에서부터 도는 줄에 뒤에서부터 하나 더 붙일 때 (가운데서 만남)
+        files = files[::-1]
     Path(a.out).mkdir(parents=True, exist_ok=True)
     sf = Path(a.out) / "stride.txt"
     if sf.exists():
-        assert int(sf.read_text()) == a.stride, f"{a.out} 는 {sf.read_text()}장마다 계산본 — --stride 를 맞출 것"
+        # 10/25: 저장 간격의 배수면 허용 (crc % 6 ≡ crc % 3 (mod 3) 이라 6장 간격 프레임은 3장 간격 프레임 안에 있다 — 학습 --frame-stride 6)
+        assert a.stride % int(sf.read_text()) == 0, f"{a.out} 는 {sf.read_text()}장마다 계산본 — --stride 는 그 배수로"
     else:
         sf.write_text(str(a.stride))
     t0, nfr, done = time.time(), 0, 0
@@ -83,7 +87,7 @@ def build(a):
         dst.parent.mkdir(parents=True, exist_ok=True)
         d = np.load(f, allow_pickle=True)
         n = len(d["action"])
-        tmp = dst.with_suffix(".tmp.npy")
+        tmp = dst.with_suffix(f".tmp{os.getpid()}.npy")      # 두 줄이 같은 파일을 동시에 써도 서로 덮지 않게 (끝에 이름 바꾸기)
         mm = np.lib.format.open_memmap(tmp, mode="w+", dtype=np.float16, shape=(n,) + SHAPE)
         import zlib
         off = zlib.crc32(Path(f).stem.encode()) % a.stride if a.stride > 1 else 0   # train_lora.vis_offset 와 같다
@@ -126,6 +130,7 @@ def main():
     b.add_argument("--shard", type=int, default=0)
     b.add_argument("--nshard", type=int, default=1)
     b.add_argument("--stride", type=int, default=1, help="이 장마다 하나만 계산 (학습 --frame-stride 와 같게, 10/14)")
+    b.add_argument("--reverse", action="store_true", help="뒤에서부터")
     a = p.parse_args()
     build(a)
 

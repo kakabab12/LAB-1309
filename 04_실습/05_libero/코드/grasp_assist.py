@@ -151,7 +151,32 @@ TABLE_Z = 0.90          # 책상 높이 (실물: 로봇 밑동 기준으로 한 
 GRASP_H = {"red": 0.0225, "green": 0.0225, "blue": 0.0225, "yellow": 0.020}   # 쥐는 높이 = 블록 높이 절반 (시범과 같음)
 if __import__("os").environ.get("PIPER_NOPED") == "1":      # 10/20 받침대 없음: 막대는 2.8cm 에서 쥔다 (task_experts)
     GRASP_H["yellow"] = 0.028
-LIMIT_DEG = {3: 100.0, 4: 70.0, 5: 120.0}       # PiPER 손목 관절 4·5·6번 한계 [도] (build_piper_xml URDF_RANGE_DEG, 대칭)
+
+
+def _from_model():
+    """10/25 하드코딩 걷어내기: 손목 관절 4·5·6번 한계 [도] 와 그리퍼 손가락을 다 벌린 값을 로봇·그리퍼 모델 파일에서 읽는다
+    (예전: LIMIT_DEG = {3: 100, 4: 70, 5: 120}, 손가락 0.028·0.005·0.03 이 코드에 박혀 있었다 — PiPER 값과 같다)."""
+    import xml.etree.ElementTree as ET
+    lim, q_open = {3: 100.0, 4: 70.0, 5: 120.0}, 0.035
+    try:
+        import piper_sim.piper_robot as pr
+        rng = {j.get("name"): [float(x) for x in j.get("range").split()] for j in ET.parse(pr.ROBOT_XML).iter("joint") if j.get("range")}
+        for k in (3, 4, 5):
+            r = rng.get(f"joint{k + 1}")
+            if r:
+                lim[k] = round(float(np.degrees(max(abs(r[0]), abs(r[1])))), 3)
+        g = {j.get("name"): [float(x) for x in j.get("range").split()] for j in ET.parse(pr.GRIP_XML).iter("joint") if j.get("range")}
+        if "finger_joint1" in g:
+            q_open = max(abs(v) for v in g["finger_joint1"])
+    except Exception as e:      # 모델 파일을 못 읽으면 예전 값 (블록 장면과 같음)
+        print("grasp_assist: 로봇 모델에서 못 읽음, 예전 값:", e)
+    return lim, q_open
+
+
+LIMIT_DEG, Q_OPEN = _from_model()   # 손목 한계 [도], 손가락 다 벌림 (PiPER 0.035)
+Q_HELD = 0.8 * Q_OPEN               # 이보다 덜 벌어져 있으면 오므린 것 (0.028)
+Q_EMPTY = Q_OPEN / 7                # 이보다 더 닫히면 빈손으로 끝까지 닫힘 (0.005)
+Q_WIDE = Q_OPEN * 6 / 7             # 이보다 더 벌어져 있으면 활짝 벌림 (0.03)
 
 
 def _feats(u, v):
@@ -259,7 +284,7 @@ class GraspAssist:
         self._update(ep)
         q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
         hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
-        if q > 0.028 or q < 0.005:         # 벌렸거나 빈손으로 끝까지 닫힘 → 쥔 것 없음
+        if q > Q_HELD or q < Q_EMPTY:      # 벌렸거나 빈손으로 끝까지 닫힘 → 쥔 것 없음
             self.held = None
         elif self.held is None:            # 방금 무언가를 쥠 → 손에 가장 가까운 블록
             cand = {b: self.pos[b] for b in objdet.BLOCKS if b in self.pos}
@@ -278,7 +303,7 @@ class GraspAssist:
             return self._putdown(act, hand)
         if c is None or c not in self.pos:
             return act
-        if self.putdown and q <= 0.028 and self.held is not None and self.held != c and \
+        if self.putdown and q <= Q_HELD and self.held is not None and self.held != c and \
                 (not self.fresh_held or (c in self.fresh and np.linalg.norm(self.fresh[c] - hand[:2]) > 0.06)):
             ga = getattr(self, "grasp_at", None)
             if self.wrong_guard and ga is not None and ga[1] == instruction:     # ⑭② 같은 지시 아래 엉뚱한 블록 → 쥐었던 자리·높이에 도로
@@ -289,13 +314,13 @@ class GraspAssist:
                 self.pd = {"spot": spot, "held": self.held, "phase": "carry", "n": 0, "z_back": z_back}
                 self.stat["putdown_n"] += 1
                 return self._putdown(act, hand)
-        if self.open_empty and self.held is None and q < 0.005 and act[6] > 0 \
+        if self.open_empty and self.held is None and q < Q_EMPTY and act[6] > 0 \
                 and np.linalg.norm(self.pos[c] - hand[:2]) > 0.04:
             act = np.array(act, dtype=np.float32, copy=True)       # ⑳ 빈손인데 다 닫혀 있고 블록에서 멀면 벌린다
             act[6] = -1.0
             self.stat["open_empty"] = self.stat.get("open_empty", 0) + 1
             return act
-        if q <= 0.028:
+        if q <= Q_HELD:
             return self._place(act, instruction, c, hand) if self.place else act
         e = self.pos[c] - hand[:2]
         d = float(np.linalg.norm(e))
@@ -329,7 +354,7 @@ class GraspAssist:
             act[6] = -1.0                                           # ③ 오므리기를 미룬다
         self.n_used += 1
         self.stat["align"] = self.stat.get("align", 0) + 1
-        if self.stuck_grasp and self.held is None and q > 0.03 and d < (0.015 if self.stuck_dz > 0.015 else 0.01) and dz < self.stuck_dz:
+        if self.stuck_grasp and self.held is None and q > Q_WIDE and d < (0.015 if self.stuck_dz > 0.015 else 0.01) and dz < self.stuck_dz:
             k = (instruction, c)                                    # ⑲ 블록 바로 위 쥐는 높이에서 벌린 채 머문 스텝 (지시마다 누적)
             self.sg_n[k] = self.sg_n.get(k, 0) + 1
             if self.sg_n[k] >= self.stuck_grasp:

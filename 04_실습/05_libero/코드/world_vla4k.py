@@ -32,6 +32,7 @@ def main():
     p.add_argument("--every", type=int, default=4, help="몇 스텝마다 한 장 (10장/초 → 4 면 2배속)")
     p.add_argument("--name", default="world_vla")
     p.add_argument("--label", default="VLA")
+    p.add_argument("--refine", default=None, help="grasp,place: 지시문을 안 읽는 다듬기 (world_refine)")
     a, rest = p.parse_known_args()
     import imageio
     args = sx.fill_defaults(sx.build_parser().parse_args(["--task-a", "0", "--policy", a.policy] + rest))
@@ -40,6 +41,9 @@ def main():
     if r.assist is not None:
         import piper_sim.world_assist as WA
         r.assist = WA.from_args(args)
+    if a.refine:
+        import piper_sim.world_refine as WR
+        r.assist = WR.make(tuple(a.refine.split(",")))
     # world_eval.main 과 같은 장면·일
     rng = np.random.default_rng(a.seed * 31 + a.k)
     lo, hi = W.CFG["n_objects"]

@@ -15,22 +15,38 @@ import piper_sim.world as W
 FAR = 0.10
 
 
+def _template_regex(tpl, groups):
+    """설정의 지시문 틀 (예: "put the {color} {shape} on the {pcolor} {pad}") → 정규식. 틀의 글자는 그대로, {이름} 은 그 낱말 묶음."""
+    out, names, pos = "", [], 0
+    for m in re.finditer(r"\{(\w+)\}", tpl):
+        out += re.escape(tpl[pos:m.start()])
+        out += f"({groups[m.group(1)]})"
+        names.append(m.group(1))
+        pos = m.end()
+    return re.compile(out + re.escape(tpl[pos:])), names
+
+
 def parse_instruction(text):
-    """영어 지시문 → (옮길 물체 분류 이름, 놓을 곳 분류 이름). 설정의 지시문 틀을 거꾸로."""
+    """영어 지시문 → (옮길 물체 분류 이름, 놓을 곳 분류 이름). 설정의 지시문 틀(instruction.to_pad / to_obj)을 거꾸로 —
+    10/25: 예전에는 "put the … on the …" 문장을 여기에 다시 적어 두어, 설정의 틀을 바꾸면 못 읽었다."""
     C = W.CFG
-    ocol = "|".join(re.escape(v["en"]) for v in C["object_colors"].values())
-    pcol = "|".join(re.escape(v["en"]) for v in C["pad_colors"].values())
-    shp = "|".join(sorted((re.escape(v["en"]) for v in C["shapes"].values()), key=len, reverse=True))
+    alt = lambda vs: "|".join(sorted((re.escape(v) for v in vs), key=len, reverse=True))     # 긴 낱말부터 (hexagonal prism ⊃ prism)
+    ocol, pcol, shp = (alt(v["en"] for v in C[k].values()) for k in ("object_colors", "pad_colors", "shapes"))
+    groups = {"color": ocol, "tcolor": ocol, "shape": shp, "tshape": shp, "pcolor": pcol, "pad": re.escape(C["pad"]["en"])}
     en2c = {v["en"]: k for k, v in C["object_colors"].items()}
     en2p = {v["en"]: k for k, v in C["pad_colors"].items()}
     en2s = {v["en"]: k for k, v in C["shapes"].items()}
     t = text.lower().strip()
-    m = re.search(rf"put the ({ocol}) ({shp}) on the ({pcol}) {re.escape(C['pad']['en'])}", t)
-    if m:
-        return W.obj_cat(en2s[m.group(2)], en2c[m.group(1)]), W.pad_cat(en2p[m.group(3)])
-    m = re.search(rf"put the ({ocol}) ({shp}) on the ({ocol}) ({shp})", t)
-    if m:
-        return W.obj_cat(en2s[m.group(2)], en2c[m.group(1)]), W.obj_cat(en2s[m.group(4)], en2c[m.group(3)])
+    for kind, tpl in C["instruction"].items():
+        rx, names = _template_regex(tpl.lower(), groups)
+        m = rx.search(t)
+        if not m:
+            continue
+        g = dict(zip(names, m.groups()))
+        obj = W.obj_cat(en2s[g["shape"]], en2c[g["color"]])
+        if "pcolor" in g:
+            return obj, W.pad_cat(en2p[g["pcolor"]])
+        return obj, W.obj_cat(en2s[g["tshape"]], en2c[g["tcolor"]])
     return None, None
 
 
@@ -48,7 +64,8 @@ class WorldFeat:
         o, d = parse_instruction(instruction)
         z_of = {}
         q = obs["robot_state"].get("joints", {}).get("pos")                # 로봇 팔 자리를 가리고 찾는다
-        found = self.det.locate(np.asarray(obs["pixels"]["image"]), robot_q=q)   # 인스턴스 이름 → (x, y, 픽셀 수)
+        only = [W.inst(c) for c in (o, d) if c is not None]                  # 지시문의 두 물체 색만 찾는다 (빠르게)
+        found = self.det.locate(np.asarray(obs["pixels"]["image"]), robot_q=q, only=only)   # 인스턴스 이름 → (x, y, 픽셀 수)
         for k, (x, y, _n) in found.items():
             p = np.array([x, y])
             if k not in self.mem or np.linalg.norm(p - hand[:2]) > FAR:

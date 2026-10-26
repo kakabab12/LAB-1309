@@ -90,7 +90,12 @@ class WorldAssist(GA.GraspAssist):
     def __call__(self, ep, act, instruction):
         if ep is not self.ep:
             self._scene(ep)
-        return super().__call__(ep, act, instruction)
+            self.n_steps = self.n_changed = 0          # 10/26 개입률 (보조가 VLA 동작을 바꾼 스텝 수) — world_eval 이 장면마다 남김
+        out = super().__call__(ep, act, instruction)
+        self.n_steps = getattr(self, "n_steps", 0) + 1
+        if np.any(np.abs(np.asarray(out, dtype=np.float64) - np.asarray(act, dtype=np.float64)) > 1e-6):
+            self.n_changed = getattr(self, "n_changed", 0) + 1
+        return out
 
     # ---------- 지시문 ----------
     def _target(self, instruction):
