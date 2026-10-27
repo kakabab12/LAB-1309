@@ -648,14 +648,18 @@ class Trainer:
                     (d / "relfeat").write_text("물체 24개가 손 기준 위치 (relfeat.py, 10/15)\n")
                 elif (d / "relfeat").exists():
                     (d / "relfeat").unlink()
-                if FEAT in ("wfeat", "wfeat2"):          # 10/24 여러 모양·N개 장면: 지시문의 물체·놓을 곳만 (piper_sim/world_feat.py)
+                if FEAT in ("wfeat", "wfeat2", "wfeat3"):          # 10/24 여러 모양·N개 장면: 지시문의 물체·놓을 곳만 (piper_sim/world_feat.py)
                     (d / "worldfeat").write_text("물체 입력 = 지시문의 옮길 물체·놓을 곳 손 기준 위치 (world_feat.py, 10/24)\n")
                 elif (d / "worldfeat").exists():
                     (d / "worldfeat").unlink()
-                if FEAT == "wfeat2":                     # 10/26 2판: + 옮길 물체 방향 [8:11]
+                if FEAT in ("wfeat2", "wfeat3"):         # 10/26 2판: + 옮길 물체 방향 [8:11]
                     (d / "worldfeat_v2").write_text("world_feat 2판: [8:10] 옮길 물체 방향 sin·cos(kθ), [10] 방향 있음 (10/26)\n")
                 elif (d / "worldfeat_v2").exists():
                     (d / "worldfeat_v2").unlink()
+                if FEAT == "wfeat3":                     # 10/27 3판: + 가까이 보기 [11:15]
+                    (d / "worldfeat_v3").write_text("world_feat 3판: [11:15] tanh((물체·놓을 곳 − 손) / 판 크기 절반) (10/27)\n")
+                elif (d / "worldfeat_v3").exists():
+                    (d / "worldfeat_v3").unlink()
                 # 10/20: 아래 SUBTASK 블록을 위 if 와 elif 사이에 넣었더니 elif 가 SUBTASK 에 붙어, 단계 지시 없이 학습한 모델은
                 #   relfeat 표시가 저장 직후 지워졌다 (als3b: 평가가 화면 좌표를 넣어 한 번도 못 쥠). 순서를 되돌림
                 if SUBTASK:

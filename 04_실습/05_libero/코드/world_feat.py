@@ -8,6 +8,10 @@
   2판 (version=2, 10/26: 막대는 손목 방향을 맞춰야 쥔다 — 길이 9cm > 벌린 손가락 7cm, 위치만 주던 w2 는 막대를 거의 못 쥠):
     [8:10] 옮길 물체 방향 [sin kθ, cos kθ] (θ = 위 카메라 덩어리 긴 축, k = 360/대칭 주기 — 막대 2, 정육면체 4)
     [10] 방향을 맞춰야 하는 모양이고 방향을 잼 (1/0). 맞출 필요 없는 모양(원기둥·육각·삼각, 벌린 손가락 안에 들어감)은 0
+  3판 (version=3, 10/27: w4 는 놓을 판 위치 입력이 0.1~2cm 로 맞는데도 판 가운데에서 5~15cm 떨어진 곳에서 손을 폈다.
+       [0:4] 는 ±60cm 범위라 정규화하면 1cm 가 표준편차의 0.05 쯤 — 마지막 몇 cm 를 가르기 어렵다):
+    [11:13] tanh((옮길 물체 − 손) / s)   [13:15] tanh((놓을 곳 − 손) / s)   s = 판 크기의 절반 (설정 pad.size)
+    가까울 때만 크게 움직이는 '가까이 보기' 칸. [0:4] 에서 바로 계산하므로 학습 데이터도 2판 파일에서 만든다 (derive_v3)
 """
 import re
 
@@ -53,6 +57,17 @@ def parse_instruction(text):
     return None, None
 
 
+def near_scale():
+    return float(min(W.CFG["pad"]["size"][:2])) / 2
+
+
+def derive_v3(f):
+    """2판 입력 (… × 24) → 3판: [11:15] 에 가까이 보기 칸을 채운다 (보이지 않은 것은 [0:4] 가 0 이라 0)."""
+    f = np.array(f, dtype=np.float32, copy=True)
+    f[..., 11:15] = np.tanh(f[..., 0:4] / near_scale())
+    return f
+
+
 class WorldFeat:
     def __init__(self, detector=None, version=1):
         import piper_sim.world_detect as WD
@@ -92,4 +107,6 @@ class WorldFeat:
             if per and key in self.ymem:
                 th = np.radians(self.ymem[key]) * 360.0 / per
                 f[8], f[9], f[10] = np.sin(th), np.cos(th), 1.0
+        if self.version >= 3:
+            f = derive_v3(f)
         return f

@@ -987,7 +987,8 @@ class Runner:
         self.wf = None
         if (Path(args.policy) / "worldfeat").exists():
             import piper_sim.world_feat as WF
-            self.wf = WF.WorldFeat(version=2 if (Path(args.policy) / "worldfeat_v2").exists() else 1)   # 10/26 2판: 옮길 물체 방향
+            P = Path(args.policy)       # 10/26 2판: 옮길 물체 방향, 10/27 3판: + 가까이 보기
+            self.wf = WF.WorldFeat(version=3 if (P / "worldfeat_v3").exists() else 2 if (P / "worldfeat_v2").exists() else 1)
         # 10/17: 단계 지시로 학습한 모델 (train_lora --subtask 가 subtask 를 남김) — 지시문을 지금 단계 지시로 바꿔 준다
         self.seq = None
         if (Path(args.policy) / "subtask").exists() or getattr(args, "subtask", False):

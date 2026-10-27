@@ -60,21 +60,35 @@ class Track:
     """일마다 실패 나누기용 기록 (10/25, w1 0% 원인 찾기): 성공 판정(goal)을 감싸 스텝마다 그 물체를 쥐고 있었는지,
     손-물체 최소 거리(xy)를 잰다. run_policy 가 goal.loose 를 읽으므로 그대로 넘긴다."""
 
-    def __init__(self, ep, goal, obj):
-        self.ep, self.goal, self.obj, self.loose = ep, goal, obj, goal.loose
+    def __init__(self, ep, goal, obj, dest=None):
+        self.ep, self.goal, self.obj, self.dest, self.loose = ep, goal, obj, dest, goal.loose
+        self.ferr = {}                              # 10/27: VLA 위치 입력(기억)이 참 자리에서 몇 cm — 쥐러 갈 때(손 가장 가까울 때)·놓을 때
         self.held, self.dmin, self.other = 0, 9.0, {}
+        self.was, self.rel = False, []              # 10/27: 그 물체를 놓은 자리 (손 xy) — 놓기 실패가 판 고르기인지 마지막 몇 cm 인지
 
     def __call__(self, env):
         inner = env._env.env
         po = inner.sim.data.body_xpos[inner.obj_body_id[self.obj]]
         hand = np.asarray(self.ep.obs["robot_state"]["eef"]["pos"])
-        self.dmin = min(self.dmin, float(np.linalg.norm(po[:2] - hand[:2])))
+        d = float(np.linalg.norm(po[:2] - hand[:2]))
+        mem = getattr(getattr(self.ep.r, "wf", None), "mem", {})
+        if d < self.dmin and self.obj in mem and self.held == 0:       # 쥐기 전만 (든 뒤에는 물체가 손과 같이 움직인다)
+            self.ferr["obj"] = round(100 * float(np.linalg.norm(mem[self.obj] - po[:2])), 1)
+        self.dmin = min(self.dmin, d)
+        if self.dest in mem:
+            self._pe = round(100 * float(np.linalg.norm(mem[self.dest] - inner.sim.data.body_xpos[inner.obj_body_id[self.dest]][:2])), 1)
         if self.ep.holding():
             fo = self.ep.finger_object()
             if fo == self.obj:
                 self.held += 1
+                self.was = True
+                return self.goal(env)
             elif fo:                                      # 다른 물체를 쥠 (어느 것을 몇 스텝)
                 self.other[fo] = self.other.get(fo, 0) + 1
+        if self.was:
+            self.rel.append([round(float(v), 3) for v in hand[:2]])
+            self.ferr.setdefault("dest", []).append(getattr(self, "_pe", None))
+            self.was = False
         return self.goal(env)
 
 
@@ -92,7 +106,7 @@ def run_episode(r, sc, tasks, a, ep_idx):
         o, d, lang = tasks[i]
         goal = WE.Goal(o, d)
         goal.loose = Loose(o, d)
-        tr = Track(ep, goal, o)
+        tr = Track(ep, goal, o, d)
         held = {"n": 0}
 
         def trig(t):
@@ -117,6 +131,11 @@ def run_episode(r, sc, tasks, a, ep_idx):
         po, pd = (inner.sim.data.body_xpos[inner.obj_body_id[x]] for x in (o, d))
         res[i].update(held_steps=tr.held, held_other=tr.other, hand_min_cm=round(100 * tr.dmin, 1),
                       end_dist_cm=round(100 * float(np.linalg.norm(po[:2] - pd[:2])), 1), end_z_cm=round(100 * float(po[2] - W.TABLE_Z), 1))
+        # 끝난 물체 자리·놓은 손 자리에서 가장 가까운 판 (지시한 판이 아니면 판을 잘못 고른 것)
+        pads = {p: inner.sim.data.body_xpos[inner.obj_body_id[p]][:2] for p in sc.pads}
+        near = lambda xy: min(((p, float(np.linalg.norm(np.asarray(xy) - q))) for p, q in pads.items()), key=lambda t: t[1])  # noqa: E731
+        res[i].update(dest_xy=[round(float(v), 3) for v in pd[:2]], obj_xy=[round(float(v), 3) for v in po[:2]], end_pad=near(po[:2])[0], end_pad_cm=round(100 * near(po[:2])[1], 1), release=tr.rel[:5], feat_err_cm={**tr.ferr, "dest_end": getattr(tr, "_pe", None)},
+                      release_pad=[(lambda t: [t[0], round(100 * t[1], 1)])(near(x)) for x in tr.rel[:5]])
 
     if a.nested:
         run(0)
