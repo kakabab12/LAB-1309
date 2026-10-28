@@ -491,6 +491,7 @@ class Detector:
             lab[rm] = -1
         out = {}
         self.axis = {}                              # 인스턴스 이름 → 덩어리 긴 축 (locate 가 책상 위 방향으로 바꿈)
+        self.fallback = set()                       # 10/27: 짝을 못 얻어 '남은 덩어리 중 그럴듯한 것'으로 채운 지시문 물체 (덜 확실)
         used = np.zeros((h, w), bool)
         want = None if only is None else {f"{W.parse(n)[0]}:{W.parse(n)[2]}" for n in only if n}
         for i, k in enumerate(self.keys):
@@ -557,6 +558,7 @@ class Detector:
                     out[t] = (r, c, int(sizes[j]))
                     used |= cc == j + 1
                     self.axis[t] = _blob_axis(cc == j + 1)
+                    self.fallback.add(t)
         if scene is not None:                      # 장면을 알 때만 (모르면 안 본 색의 덩어리를 엉뚱하게 가져갔다: 가려진 남색 판 → 보라 판)
             miss = [n for n in scene.names if n not in out]
             if miss:

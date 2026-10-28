@@ -13,6 +13,7 @@
     [11:13] tanh((옮길 물체 − 손) / s)   [13:15] tanh((놓을 곳 − 손) / s)   s = 판 크기의 절반 (설정 pad.size)
     가까울 때만 크게 움직이는 '가까이 보기' 칸. [0:4] 에서 바로 계산하므로 학습 데이터도 2판 파일에서 만든다 (derive_v3)
 """
+import os
 import re
 
 import numpy as np
@@ -20,6 +21,10 @@ import numpy as np
 import piper_sim.world as W
 
 FAR = 0.10
+# 10/27 시험: w5 + 다듬기 물체 많음에서 못 쥔 17장면 중 11장면은 손이 가장 가까이 갔을 때 옮길 물체 기억이 17~57cm 틀렸다
+#   (첫 사진에서는 13/14 맞음). 팔이 옮길 물체를 가리면 짝을 못 얻어 같은 색 다른 모양 덩어리로 채우고 (world_detect fallback),
+#   그 덩어리가 손에서 멀어 기억을 덮어썼다. SURE 면 그렇게 채운 찾기는 이미 있는 기억을 덮지 않는다.
+SURE = os.environ.get("PIPER_WF_SURE", "0") == "1"      # 기본값 (WorldFeat(sure=…) 로 정함; 학습한 모델은 worldfeat_sure 표시)
 
 
 def _template_regex(tpl, groups):
@@ -69,10 +74,11 @@ def derive_v3(f):
 
 
 class WorldFeat:
-    def __init__(self, detector=None, version=1):
+    def __init__(self, detector=None, version=1, sure=None):
         import piper_sim.world_detect as WD
         self.det = detector or WD.Detector()
         self.version = version
+        self.sure = SURE if sure is None else bool(sure)
         self.reset()
 
     def reset(self):
@@ -85,8 +91,11 @@ class WorldFeat:
         q = obs["robot_state"].get("joints", {}).get("pos")                # 로봇 팔 자리를 가리고 찾는다
         only = [W.inst(c) for c in (o, d) if c is not None]                  # 지시문의 두 물체 색만 찾는다 (빠르게)
         found = self.det.locate(np.asarray(obs["pixels"]["image"]), robot_q=q, only=only)   # 인스턴스 이름 → (x, y, 픽셀 수)
+        unsure = getattr(self.det, "fallback", set()) if self.sure else set()
         for k, (x, y, _n) in found.items():
             p = np.array([x, y])
+            if k in self.mem and k in unsure:      # 덜 확실한 찾기는 확실히 찾았던 기억을 덮지 않는다 (SURE)
+                continue
             if k not in self.mem or np.linalg.norm(p - hand[:2]) > FAR:
                 self.mem[k] = p
                 if k in getattr(self.det, "yaw", {}):            # 방향도 같은 규칙으로 기억 (손이 가까우면 손에 가려 틀릴 수 있다)

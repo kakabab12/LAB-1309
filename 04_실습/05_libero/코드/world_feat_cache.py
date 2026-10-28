@@ -23,12 +23,14 @@ def main():
     p.add_argument("--shard", type=int, default=0)
     p.add_argument("--nshard", type=int, default=1)
     p.add_argument("--version", type=int, default=1, help="world_feat 판 (2: 옮길 물체 방향 [8:11], 3: + 가까이 보기 [11:15])")
+    p.add_argument("--sure", action="store_true", help="10/27: 덜 확실한 찾기(fallback)는 기억을 덮지 않음 → 파일 이름 끝에 s (*.wfeat2s.npy)")
     p.add_argument("--from-v2", action="store_true", help="3판을 사진 없이 *.wfeat2.npy 에서 바로 (world_feat.derive_v3, 평가와 같은 식)")
     p.add_argument("--reverse", action="store_true", help="뒤에서부터 (앞에서부터 도는 줄과 겹치지 않게 늦게 더 붙일 때)")
     p.add_argument("--stride", type=int, default=1, help="학습이 읽는 장만 계산 (train_lora --frame-stride 와 같게; 사이 장은 앞 값)")
     a = p.parse_args()
-    wf = WF.WorldFeat(version=a.version)
+    wf = WF.WorldFeat(version=a.version, sure=a.sure)
     suf = "wfeat" if a.version == 1 else f"wfeat{a.version}"      # 2판은 *.wfeat2.npy (학습 중인 1판 파일을 건드리지 않게)
+    suf += "s" if a.sure else ""
     files = sorted(f for d in a.data for f in Path(d, "episodes").glob("*.npz"))[a.shard::a.nshard]
     if a.reverse:
         files = files[::-1]
@@ -39,7 +41,7 @@ def main():
         if out.exists():
             continue
         if a.from_v2:
-            np.save(out, WF.derive_v3(np.load(f.parent / f"{f.stem}.wfeat2.npy")))
+            np.save(out, WF.derive_v3(np.load(f.parent / f"{f.stem}.wfeat2{'s' if a.sure else ''}.npy")))
             n += 1
             continue
         ep = np.load(f, allow_pickle=True)
