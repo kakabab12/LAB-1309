@@ -1,5 +1,6 @@
 """Weekly report of 10-29, built on the lab's weekly report file (title slide + one content slide).
-Story: SmolVLA on a PiPER digital twin with many shapes, VLA alone vs VLA + refinement (picture: fig_weekly_1029.py)."""
+Story: SmolVLA on a simulated PiPER arm with many shapes, model alone vs model + small fix (picture: fig_weekly_1029.py).
+The slide keeps to plain words (no VLA, digital twin, pick and place); names such as SmolVLA and PiPER stay, like π0.5 in the reference."""
 import sys
 from pathlib import Path
 
@@ -11,9 +12,9 @@ SRC, OUT = Path(sys.argv[1]), HERE / "주간보고_10_29_이지용.pptx"
 DATE, NAME = "2026. 10. 29", "Jiyong Lee"
 
 PREVIOUS = [
-    (1, "Task switching for a VLA robot arm (SmolVLA on PiPER)"),
-    (2, "I built a PiPER digital twin with up to 14 objects of 5 shapes"),
-    (2, "With a small correction step, pick and place success rose from 21% to 53%"),
+    (1, "Task switching for a robot arm (SmolVLA on PiPER)"),
+    (2, "I built a simulation of our PiPER arm with up to 14 objects of 5 shapes"),
+    (2, "With a small fix for the last few cm, the success rate rose from 21% to 53%"),
 ]
 NEXT = [
     (1, "I will train it to handle a new command in the middle of a task"),

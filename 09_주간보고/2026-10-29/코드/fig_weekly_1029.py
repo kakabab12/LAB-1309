@@ -1,4 +1,5 @@
-"""Weekly report 10-29 picture (simple): a 13-object scene (left) + one-task success over 150 scenes, VLA alone vs VLA + correction (right)."""
+"""Weekly report 10-29 picture (simple): a 13-object scene (left) + one-task success over 150 scenes, model alone vs model + small fix (right).
+Plain words only on the slide (no VLA, digital twin ...). FRAME: many_23.jpg, a frame of outputs/media/world_w3r_many_s1006.mp4"""
 import json, sys
 import numpy as np
 import matplotlib; matplotlib.use("Agg")
@@ -15,8 +16,8 @@ v = [100 * np.mean([e["all_ok"] for c in ("default", "random", "many") for e in 
 ax.bar([0, 1], v, 0.6, color=["#9aa5b1", "#2a6f97"], zorder=2)
 for x, y in zip([0, 1], v):
     ax.text(x, y + 2, f"{y:.0f}%", ha="center", va="bottom", fontsize=18, color="#222")
-ax.set_xticks([0, 1]); ax.set_xticklabels(["VLA alone", "VLA +\ncorrection"], fontsize=13)
+ax.set_xticks([0, 1]); ax.set_xticklabels(["Model alone", "Model +\nsmall fix"], fontsize=13)
 ax.set_ylim(0, 70); ax.set_yticks([]); ax.spines[["top", "right", "left"]].set_visible(False)
-ax.set_title("Success", fontsize=14)
+ax.set_title("Success rate", fontsize=14)
 fig.savefig(OUT, dpi=200)
 print(OUT, v)
