@@ -39,6 +39,7 @@ class GraspPlan:
                  follow=True):
         self.trig_r, self.trig_h, self.above, self.lift = trig_r, trig_h, above, lift
         self.follow = follow                  # 10/29 밤: 내려가기 전까지 기억 자리를 따라감 (wxy 가 고친 자리 — 처음 계획이 틀린 기억으로 '빈손')
+        self.wchk, self.wchk_deg = True, 12.0  # 10/30: 내려가기 전 손목 사진 방향 확인 (fmask 켰을 때만)
         self.max_try, self.max_steps, self.min_margin = max_try, max_steps, np.radians(min_margin_deg)
         self.finger_gap = finger_gap          # 벌린 손가락 끝과 옆 물체 사이 여유
         self.dwell = dwell
@@ -147,6 +148,14 @@ class GraspPlan:
         elif ph == "align":
             tgt, Mt, grip, vmax = g + [0, 0, self.above], M, -1.0, 0.4
             if self._near(hand, M_now, tgt, Mt, 0.005, 0.06) or P["pn"] > 50:
+                if self.wchk and getattr(R, "use_fmask", False) and not P.get("wchk"):
+                    P["wchk"] = True                  # 10/30: 내려가기 전 손목 사진으로 방향 확인 — 위 카메라 긴 축이 막대에서 90° 틀린 일 (기본 1024·1039)
+                    P2 = self._wrist_fix(R, ep, P, hand)
+                    if P2 is not None:                # 새 계획 (방향을 고친 물체 방향으로 기울기·대칭 후보부터 다시)
+                        P2["wchk"], P2["n"] = True, P["n"]
+                        self.plan = P = P2
+                        R.stat["gplan_wfix"] = R.stat.get("gplan_wfix", 0) + 1
+                        return self._act(hand, M_now, P2["g"] + [0, 0, self.above], P2["M"], -1.0, 0.4)
                 self._next(P, "down")
         elif ph == "down":
             tgt, Mt, grip, vmax = g, M, -1.0, 0.12
@@ -160,9 +169,33 @@ class GraspPlan:
             tgt, Mt, grip, vmax = g + [0, 0, self.lift], M, 1.0, 0.4
             if hand[2] >= g[2] + self.lift - 0.01 or P["pn"] > 30:
                 return self._finish(R, "쥠" if q < GA.Q_HELD and q > GA.Q_EMPTY else "빈손")
+        return self._act(hand, M_now, tgt, Mt, grip, vmax)
+
+    @staticmethod
+    def _act(hand, M_now, tgt, Mt, grip, vmax):
         dp = tgt - hand
         rerr = Rotation.from_matrix(Mt @ M_now.T).as_rotvec()
         return np.concatenate([np.clip(dp / POS_SCALE, -vmax, vmax), np.clip(rerr / ROT_SCALE, -vmax, vmax), [grip]]).astype(np.float32)
+
+    def _wrist_fix(self, R, ep, P, hand):
+        """손목 사진으로 잰 방향 어긋남 m (손을 세계 z 로 이만큼 돌리면 맞음) 이 wchk_deg 를 넘으면 위 카메라 물체 방향 기억을 m 만큼 고쳐
+        쥐는 자세를 처음부터 다시 계산한다 (계획만 돌리면 기울인 손 자세가 닿지 않는 일이 있어서). 못 하면 None."""
+        k = P["k"]
+        try:
+            m = R._wrist_angle(None, k)
+        except Exception:
+            return None
+        if m is None or abs(m) <= self.wchk_deg or k not in getattr(R, "ymem", {}):
+            return None
+        name = WA._name(ep.scene, k)
+        old = R.ymem[k]
+        R.ymem[k] = float(old) + float(m)
+        P2 = self._make_plan(R, ep, k, name, np.asarray(R.pos[k], dtype=np.float64), hand)
+        if P2 is None:
+            R.ymem[k] = old
+            return None
+        P2["phase"], P2["pn"] = "align", 0
+        return P2
 
     def _next(self, P, ph):
         P["phase"], P["pn"] = ph, 0

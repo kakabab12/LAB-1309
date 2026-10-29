@@ -30,7 +30,7 @@ VLA 의도를 따라 마지막 몇 cm 만 다듬기 (2026-10-26) — 사용자 "
     짧은 축 방향만. 위 카메라 기억이 팔에 가려 3.3~4.3cm 틀린 장면이 막대 실패 추적 9개 중 4개. VLA 없는 시험 (기억 3.5cm 틀리게):
     막대 쥠 켬 12/12, 끔 7/12 (기본·흔든 각 6).
   "pfine" (10/29 밤, 기본 꺼짐): 놓기 마무리 — 든 채 판 위에서 VLA 가 손을 펴려 하면 든 물체 가운데(objc 같이 켜면)·손을 판 가운데
-    0.8cm 안·판 윗면 0.8cm 안까지 맞춘 뒤 편다. w8 + 다듬기 '판 안 3cm 밖' 추적: 막대 끝을 쥐어 손은 판에서 2cm·막대는 5.9cm (기본 1039),
+    0.8cm 안·판 윗면 1.2cm 위까지 맞춘 뒤 편다 (닿기 전에 펴야 평가가 든 채 성공으로 보지 않음). w8 + 다듬기 '판 안 3cm 밖' 추적: 막대 끝을 쥐어 손은 판에서 2cm·막대는 5.9cm (기본 1039),
     판 위 0.9cm 에서 놓아 막대가 1.3cm 밀림 (기본 1009, 끝 3.1cm). 지금 놓기 다듬기는 VLA 가 펴는 순간에야 붙고 손이 3cm 안이면 그대로 편다.
 """
 import numpy as np
@@ -63,6 +63,7 @@ class WorldRefine(WA.WorldAssist):
             self.fmask = WD.WristFingerMask()
         self.settle, self.settle_max, self._st_n, self._st_q = "settle" in self.parts, 10, 0, []
         self.pfine, self._pf = "pfine" in self.parts, None
+        self.ymem_aspect = 1.8                                # 막대 위 카메라 방향이 기억과 30° 넘게 다를 때 믿을 길쭉함 (긴 변/짧은 변, 9×4 → 2.25)
         self._off_key, self._off_h = None, None
 
     def __call__(self, ep, act, instruction):
@@ -89,7 +90,7 @@ class WorldRefine(WA.WorldAssist):
 
     def _pfine_step(self, ep, act, out):
         """pfine: 든 채 판 위에서 VLA 가 손을 펴려 하면 (놓을 곳 lock) 든 물체 가운데(objc 면)·손을 판 가운데 0.8cm 안으로 맞추고
-        물체 바닥을 판 윗면 0.8cm 안까지 내린 뒤 편다 (6스텝), 1.5cm 들고 돌려준다. 맞추기는 최대 30스텝."""
+        물체 바닥을 판 윗면 1.2cm 위까지 내린 뒤 편다 (6스텝), 1.5cm 들고 돌려준다. 맞추기는 최대 30스텝."""
         P = self._pf
         if P is None:
             if self.lock is None or getattr(self, "held", None) is None or act[6] >= 0 or self.lock not in self.pos:
@@ -105,9 +106,9 @@ class WorldRefine(WA.WorldAssist):
             e = self.pos[P["dst"]] - cxy
             above = float(hand[2] - P["off_z"] - self._top(P["dst"]))
             new[:2] = np.clip(e / 0.05, -self.vmax, self.vmax)
-            new[2] = float(np.clip(-(above - 0.004) / 0.05, -0.2, 0.1))
-            new[6] = 1.0
-            if (np.linalg.norm(e) < 0.008 and above < 0.008) or P["n"] > 30:
+            new[2] = float(np.clip(-(above - 0.012) / 0.05, -0.2, 0.1))     # 판에 닿기 전(1.2cm 위)에서 편다: 닿으면 평가가 든 채로 성공을
+            new[6] = 1.0                                                     # 보고 VLA 혼자 '펴기 기다리기' 로 넘어가 물체를 다시 든다 (기본 1024·1039)
+            if (np.linalg.norm(e) < 0.008 and above < 0.016) or P["n"] > 30:
                 P["phase"], P["n"] = "open", 0
         elif P["phase"] == "open":
             new[6] = -1.0
@@ -279,7 +280,12 @@ class WorldRefine(WA.WorldAssist):
         hand = self._hand
         for c, xy in self.fresh.items():                  # 위 카메라 긴 축 방향도 기억 (손이 8cm 넘게 멀 때만 — 가까우면 손에 가려 틀림)
             if c in WA._Shim.BLOCKS and c in self.det.yaw and np.linalg.norm(xy - hand[:2]) > 0.08:
-                self.ymem[c] = float(self.det.yaw[c][0])
+                nm = WA._name(self.ep.scene, c)
+                y, asp = float(self.det.yaw[c][0]), float(self.det.yaw[c][1])
+                if nm and WA.yaw_period(nm) == 180 and c in self.ymem and asp < self.ymem_aspect \
+                        and abs(((y - self.ymem[c] + 90) % 180) - 90) > 30:
+                    continue          # 10/30: 팔이 다가와 막대를 반쯤 가리면 긴 축이 90° 뒤집힌다 (기본 1024·1039: 처음 사진은 2.5° 안) — 덜 길쭉한 뒤집힘은 안 믿음
+                self.ymem[c] = y
         if self.use_wxy:
             self._wxy(ep)
 
