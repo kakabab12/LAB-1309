@@ -13,6 +13,11 @@ VLA 의도를 따라 마지막 몇 cm 만 다듬기 (2026-10-26) — 사용자 "
 
   기록 (논문 표): n_steps 중 n_changed 스텝에서 VLA 동작을 바꿈 (개입률), first_intent = VLA 가 처음 쥐러 내려간 물체.
   parts: "grasp", "place" 를 골라 켤 수 있다 (빼보기).
+  "objc" (10/29, 기본 꺼짐): 놓기 다듬기가 손이 아니라 든 물체 가운데를 판 가운데로 맞춘다. 쥔 순간 위 카메라 기억의 물체 자리 −
+    손 자리를 손 방향 기준으로 적어 두고, 놓을 때 지금 손 방향으로 돌려 더한다 (5cm 넘으면 기억이 틀린 것으로 보고 안 씀).
+    w8 + 다듬기의 '판 안, 3cm 밖' 8장면은 물체가 판 가운데에서 3.1~6.9cm — 막대를 한쪽으로 치우쳐 쥐면 손을 맞춰도 물체는 비껴 놓인다 (가설).
+  "gplan" (10/29, 기본 꺼짐): 쥐는 자세 계산 (world_gplan.GraspPlan) — VLA 가 빈손으로 고른 물체 3cm 안까지 내려오면 위 카메라 자리·방향과
+    역기구학으로 쥐는 자세를 정해 쥐고 조금 든 뒤 돌려준다. 원래 쥐기 다듬기(grasp)는 그대로 켜 두고 그 위에 얹는다.
 """
 import numpy as np
 
@@ -31,14 +36,49 @@ class WorldRefine(WA.WorldAssist):
         self.lock, self.lock_n, self._act = None, 0, None
         self.first_intent, self.first_dest = None, None
         self._hand = np.zeros(3)
+        self.obj_center = "objc" in self.parts
+        self.ymem, self._k_now = {}, None
+        self.gplan = None
+        if "gplan" in self.parts:
+            import piper_sim.world_gplan as WG
+            self.gplan = WG.GraspPlan()
+        self._off_key, self._off_h = None, None
 
     def __call__(self, ep, act, instruction):
         if ep is not getattr(self, "ep", None):
             self.first_intent, self.first_dest = None, None
             self.lock, self.lock_n = None, 0
+            self._off_key, self._off_h = None, None
+            self.ymem, self._k_now = {}, None
+            if self.gplan is not None:
+                self.gplan.reset()
+        if getattr(self, "held", None) is None:              # 앞 스텝에 빈손이면 다음에 쥘 때 물체 − 손 을 새로 잰다
+            self._off_key = None
         self._hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
         self._act = np.asarray(act, dtype=np.float64)
-        return super().__call__(ep, act, instruction)          # 개입률은 WorldAssist 가 센다
+        out = super().__call__(ep, act, instruction)          # 개입률은 WorldAssist 가 센다
+        if self.gplan is not None:
+            out = self._gplan_step(ep, act, out)
+        return out
+
+    def _gplan_step(self, ep, act, out):
+        q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
+        if self.gplan.plan is None and not self.gplan.maybe_start(self, ep, act, self._k_now, self._hand, q, WA.GA.Q_WIDE):
+            return out
+        a = self.gplan.step(self, ep, self._hand)
+        if a is None:
+            return out
+        same = not np.any(np.abs(np.asarray(out, dtype=np.float64) - np.asarray(act, dtype=np.float64)) > 1e-6)
+        if same and np.any(np.abs(a.astype(np.float64) - np.asarray(act, dtype=np.float64)) > 1e-6):
+            self.n_changed = getattr(self, "n_changed", 0) + 1     # 원래 다듬기가 안 바꾼 스텝을 쥐는 자세 계산이 바꿈
+        return a
+
+    def _update(self, ep):
+        super()._update(ep)
+        hand = self._hand
+        for c, xy in self.fresh.items():                  # 위 카메라 긴 축 방향도 기억 (손이 8cm 넘게 멀 때만 — 가까우면 손에 가려 틀림)
+            if c in WA._Shim.BLOCKS and c in self.det.yaw and np.linalg.norm(xy - hand[:2]) > 0.08:
+                self.ymem[c] = float(self.det.yaw[c][0])
 
     def _top(self, key):
         """그 물체·판 윗면 높이 (책상 기준 아님, 세계 z)."""
@@ -46,6 +86,13 @@ class WorldRefine(WA.WorldAssist):
         return W.TABLE_Z + (W.height(name) if name else 0.0)
 
     def _target(self, instruction):
+        self._k_now = None
+        k = self._target_inner(instruction)
+        if self.held is None:
+            self._k_now = k
+        return k
+
+    def _target_inner(self, instruction):
         if self.held is not None:                 # 들고 있으면 그 물체 (놓기 다듬기가 씀)
             return self.held if "place" in self.parts else None
         if "grasp" not in self.parts:
@@ -99,7 +146,33 @@ class WorldRefine(WA.WorldAssist):
             self.lock_n += 1
             if self.lock_n > self.hold_max:
                 return act
+        if self.obj_center:
+            hand = self._held_center(hand)
         return super()._place(act, instruction, c, hand)
+
+    def _hand_yaw(self):
+        M = np.asarray(self.ep.obs["robot_state"]["eef"]["mat"], dtype=np.float64).reshape(3, 3)
+        return float(np.arctan2(M[1, 0], M[0, 0]))          # 손가락이 벌어지는 축의 책상 위 방향
+
+    def _held_center(self, hand):
+        """objc: 손 대신 든 물체 가운데 (x, y) 를 돌려준다 (높이는 손 그대로)."""
+        if self.held is None or self.held not in self.pos:
+            return hand
+        if self._off_key != self.held:                      # 새로 쥠 → 쥔 순간의 물체 − 손 을 손 방향 기준으로
+            ga = getattr(self, "grasp_at", None)
+            h0 = ga[0][:2] if ga is not None else hand[:2]
+            off = np.asarray(self.pos[self.held], dtype=np.float64) - h0
+            y = self._hand_yaw()
+            c, s = np.cos(-y), np.sin(-y)
+            self._off_key = self.held
+            self._off_h = np.array([c * off[0] - s * off[1], s * off[0] + c * off[1]]) if np.linalg.norm(off) <= 0.05 else None
+        if self._off_h is None:
+            return hand
+        y = self._hand_yaw()
+        c, s = np.cos(y), np.sin(y)
+        out = np.array(hand, dtype=np.float64, copy=True)
+        out[:2] += [c * self._off_h[0] - s * self._off_h[1], s * self._off_h[0] + c * self._off_h[1]]
+        return out
 
 
 def make(parts=("grasp", "place")):

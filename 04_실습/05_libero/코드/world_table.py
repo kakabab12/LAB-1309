@@ -32,30 +32,33 @@ def row(d, k=1):
     loose = sum(e["all_loose"] for e in E)
     st = sum(e.get("assist_steps", 0) for e in E)
     ch = sum(e.get("assist_changed", 0) for e in E)
-    tgt_ok = held = 0
+    tgt_ok = held = fi_ok = fi_n = 0
     for e in E:
         t = e["tasks"][0]
         target = W.inst(WF.parse_instruction(t["task"])[0])
         fi = e.get("first_intent")
+        # 10/29: 예전에는 다듬기 결과만 first_intent(다듬기가 처음 붙은 물체 — 물체 많은 장면에서는 지나가며 붙은 물체일 때가 많음)로,
+        #   혼자 결과는 '손이 3cm 안·쥠' 으로 세어 두 줄을 비교할 수 없었다 → 둘 다 '손이 3cm 안까지 갔거나 쥠', first_intent 는 따로
+        tgt_ok += t.get("held_steps", 0) > 0 or (t.get("hand_min_cm", 99) <= 3.0)
         if fi is not None:
-            tgt_ok += fi == target
-        else:
-            tgt_ok += t.get("held_steps", 0) > 0 or (t.get("hand_min_cm", 99) <= 3.0)
+            fi_n += 1
+            fi_ok += fi == target
         held += t.get("held_steps", 0) > 0
     lo, hi = wilson(ok, n)
-    return {"n": n, "ok": ok, "lo": lo, "hi": hi, "loose": loose, "assist": (100 * ch / st) if st else None, "target": tgt_ok, "held": held}
+    return {"n": n, "ok": ok, "lo": lo, "hi": hi, "loose": loose, "assist": (100 * ch / st) if st else None, "target": tgt_ok, "held": held,
+            "fi": f"{fi_ok}/{fi_n}" if fi_n else "–"}
 
 
 def main(dirs):
-    print("| 설정 | 장면 | 성공 3cm (95% 구간) | 판 안 | 보조 개입률 | 지시한 물체로 감 | 지시한 물체를 쥠 |")
-    print("|---|---|---|---|---|---|---|")
+    print("| 설정 | 장면 | 성공 3cm (95% 구간) | 판 안 | 보조 개입률 | 지시한 물체로 감 (손 3cm 안·쥠) | 지시한 물체를 쥠 | 다듬기가 처음 붙은 물체 = 지시 |")
+    print("|---|---|---|---|---|---|---|---|")
     for d in dirs:
         r = row(d)
         if r is None:
             continue
         a = "–" if r["assist"] is None else f"{r['assist']:.1f}%"
         print(f"| {Path(d).name} | {r['n']} | {r['ok']} ({100 * r['ok'] / r['n']:.0f}%, {100 * r['lo']:.0f}~{100 * r['hi']:.0f}%) | {r['loose']} | {a} | "
-              f"{r['target']}/{r['n']} | {r['held']}/{r['n']} |")
+              f"{r['target']}/{r['n']} | {r['held']}/{r['n']} | {r['fi']} |")
 
 
 if __name__ == "__main__":
