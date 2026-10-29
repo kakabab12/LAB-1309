@@ -4,13 +4,15 @@
 각 일지에서 읽는 것
   - 제목        : 첫 번째 `# ` 줄
   - 한 줄 요약  : `> 한 줄 요약: ...` 줄 (예전 형식 `> **한 줄 요약**:` 도 읽는다)
-  - 핵심 수치   : `## 측정한 수치` 표의 앞 세 줄
-  - 남은 할 일  : `## 다음에 할 것` 의 체크 안 된 항목 수
+  - 핵심 수치   : `## 측정한 수치` 표의 앞 세 줄 (9월 ~ 10/1 일지에만 있다)
+
+연구 일지는 달마다 표 하나로 나눠 싣는다.
 
 사용법:  python 03_일지/make_index.py
 """
 
 import re
+from itertools import groupby
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -25,6 +27,14 @@ HEAD = """# 일지
 
 일지를 쓰는 이유는 세 가지입니다. 막혔던 것과 해결 방법이 남아 있으면 같은 문제로 두 번 고생하지 않고,
 측정한 수치가 쌓이면 그대로 논문 재료가 되고, 교수님이나 선배에게 진행 상황을 설명할 때 바로 쓸 수 있습니다.
+
+## 시기별로 보기
+
+| 시기 | 실험 무대 | 무엇을 했나 |
+|---|---|---|
+| 9/14 ~ 10/3 | LIBERO 시뮬레이터, Franka Panda 팔 | 일을 바꾸면 왜 실패하는지 찾기, 시범 프로그램, 실제 로봇과 같은 지연 넣기 |
+| 10/4 ~ 10/24 | PiPER 디지털 트윈, 색 블록 4개 · 색 판 4개 | 28개 항목 (혼자 10, 일 바꾸기 12, 돌아오기 6), VLA + 보조, 옮기는 도중 끼어들기 |
+| 10/24 ~ | PiPER 디지털 트윈, 모양 5가지 · 물체 최대 14개 · 로봇 둘레 | 설정 파일로 만드는 장면, 물체 찾기, DAgger, 지시문을 읽지 않는 다듬기 |
 """
 
 
@@ -46,23 +56,14 @@ def parse(path):
             last_label = label
             cond = f" ({cells[2]})" if len(cells) > 2 and cells[2] else ""
             nums.append(f"{label}: {cells[1]}{cond}".replace("**", ""))
-    todo = len(re.findall(r"- \[ \]", re.search(r"## 다음에 할 것\n(.*?)(?=\n## |\Z)", t, re.S).group(1))) \
-        if "## 다음에 할 것" in t else 0
-    return {"date": path.stem, "file": path.name, "title": title, "summary": summary,
-            "nums": nums[:3], "todo": todo}
+    return {"date": path.stem, "file": path.name, "title": title, "summary": summary, "nums": nums[:3]}
 
 
 def table(rows, base=""):
-    out = []
-    if not rows:
-        return ["_아직 없습니다._"]
-    span = f"{rows[-1]['date']} ~ {rows[0]['date']}"
-    out.append(f"{len(rows)}개 ({span})\n")
-    out.append("| 날짜 | 제목 | 한 줄 요약 | 남은 할 일 |")
-    out.append("|---|---|---|---|")
+    out = ["| 날짜 | 제목 | 한 줄 요약 |", "|---|---|---|"]
     for r in rows:
         title = r["title"].replace("[공부] ", "")
-        out.append(f"| [{r['date']}]({base}{r['file']}) | {title} | {r['summary']} | {r['todo']}개 |")
+        out.append(f"| [{r['date'][5:].replace('-', '/')}]({base}{r['file']}) | {title} | {r['summary']} |")
     return out
 
 
@@ -74,16 +75,25 @@ def collect(folder):
 def main():
     research = collect(HERE)
     study = collect(HERE / "공부")
-    out = [HEAD, "\n## 연구 일지 (최신순)\n"]
-    out += table(research)
-    out.append("\n## 공부 일지 (코랩 실습, 최신순)\n")
+    out = [HEAD, f"\n## 연구 일지 (최신순, {len(research)}개)"]
+    for month, rows in groupby(research, key=lambda r: r["date"][:7]):
+        rows = list(rows)
+        y, m = month.split("-")
+        out.append(f"\n### {y}년 {int(m)}월 ({len(rows)}개)\n")
+        out += table(rows)
+    out.append(f"\n## 공부 일지 (코랩 실습, 최신순, {len(study)}개)\n")
     out += table(study, base="공부/")
+    out.append("\n## 핵심 수치 모음\n")
+    out.append("9월 ~ 10/1 일지의 `## 측정한 수치` 표에서 앞 세 줄씩 모았습니다.\n")
     for name, rows in (("연구", research), ("공부", study)):
-        out.append(f"\n## 핵심 수치 모음 ({name})\n")
+        rows = [r for r in rows if r["nums"]]
+        if not rows:
+            continue
+        out.append(f"<details>\n<summary>{name} 일지 ({len(rows)}개)</summary>\n")
         for r in rows:
-            if r["nums"]:
-                out.append(f"- {r['date']}")
-                out += [f"  - {n}" for n in r["nums"]]
+            out.append(f"- {r['date']}")
+            out += [f"  - {n}" for n in r["nums"]]
+        out.append("\n</details>\n")
     (HERE / "README.md").write_text("\n".join(out) + "\n")
     print(f"연구 일지 {len(research)}개, 공부 일지 {len(study)}개로 README.md 갱신")
 

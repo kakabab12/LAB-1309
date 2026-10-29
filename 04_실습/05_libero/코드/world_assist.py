@@ -110,8 +110,15 @@ class WorldAssist(GA.GraspAssist):
         sc = ep.scene
         found = self.det.locate(np.asarray(ep.obs["pixels"]["image"]), sc, robot_q=ep.obs["robot_state"]["joints"]["pos"])
         self.fresh = {}
+        if not hasattr(self, "max_n") or getattr(self, "_max_n_ep", None) is not ep:
+            self.max_n, self._max_n_ep = {}, ep
         for c, (x, y, _n) in found.items():
             xy = np.array([x, y])
+            # 10/27: 손 가까이에서 팔에 일부가 가린 덩어리는 가운데가 틀어진다 (흔든 환경 1011: 기억이 1.7~4cm 틀려 다듬기가 엉뚱한 자리에
+            #   손을 맞춤). 이 장면에서 그 물체가 가장 크게 보인 픽셀 수의 85% 보다 작고 손이 10cm 안이면 가린 것으로 보고 기억에 안 쓴다.
+            self.max_n[c] = max(self.max_n.get(c, 0), int(_n))
+            if c in _Shim.BLOCKS and _n < 0.85 * self.max_n[c] and np.linalg.norm(xy - hand[:2]) < 0.10:
+                continue
             self.fresh[c] = xy
             if c in _Shim.PADS:
                 self.pos.setdefault(c, xy)
