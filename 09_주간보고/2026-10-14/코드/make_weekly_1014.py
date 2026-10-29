@@ -64,6 +64,12 @@ prev.left, prev.top, prev.width, prev.height = Inches(0.25), Inches(0.85), W - I
 pic_w = W - Inches(0.5)
 pic = s2.shapes.add_picture(str(HERE / "weekly_1014_envs.png"), Inches(2.1), Inches(2.75), width=Inches(5.8))
 nxt.left, nxt.top, nxt.width, nxt.height = Inches(0.25), pic.top + pic.height + Inches(0.02), W - Inches(0.45), Inches(1.0)
+# The removed reference picture and the fallback pictures of its text boxes stay in the file through the
+# slide's relationships; drop every picture the slide no longer shows
+used = set(s2._element.xpath(".//@r:embed | .//@r:id | .//@r:link"))
+for rId in [k for k, rel in s2.part.rels.items() if rel.reltype.endswith("/image") and k not in used]:
+    s2.part.drop_rel(rId)
+prs.core_properties.title = "Weekly Report " + DATE
 prs.core_properties.author = ""
 prs.core_properties.last_modified_by = ""
 prs.save(OUT)
