@@ -146,6 +146,103 @@ class RobotMask:
         return m.astype(bool)
 
 
+class WristFingerMask:
+    """손목 카메라 사진에서 그리퍼 손가락 자리 (그리퍼 벌림 q → 손가락 메시 정기구학 + 손목 카메라 투영). 손가락과 카메라가 모두 손에
+    붙어 있어 팔 관절은 상관없고 q 만 본다. 실물도 같은 길 (그리퍼 값 + 손목 카메라 보정).
+    10/29: 검은 막대가 사진에서 검은 손가락과 한 덩어리로 붙어 손목 맞추기가 방향을 −90° 로 읽었다 (w8 + 다듬기, 기본 1004)."""
+
+    def __init__(self, camera="eye_in_hand", dilate=3):
+        import mujoco
+        import xml.etree.ElementTree as ET
+        from scipy.spatial.transform import Rotation as R
+        import piper_sim.piper_robot as pr
+        self.m = mujoco.MjModel.from_xml_path(pr.GRIP_XML)        # 그리퍼 파일만: 세계 틀 = 손(right_hand) 틀
+        self.d = mujoco.MjData(self.m)
+        rh = next(b for b in ET.parse(pr.ROBOT_XML).iter("body") if b.get("name") == "right_hand")
+        cam = next(c for c in rh.iter("camera") if c.get("name") == camera)
+        self.cpos = np.array(list(map(float, cam.get("pos").split())))
+        qw, qx, qy, qz = map(float, cam.get("quat").split())
+        self.Rc = R.from_quat([qx, qy, qz, qw]).as_matrix()
+        self.fovy = float(cam.get("fovy", 45))
+        self.j = [self.m.joint(n).qposadr[0] for n in ("finger_joint1", "finger_joint2")]
+        self.dilate = dilate
+        self._cache = {}
+
+    def mask(self, q, h, w):
+        """손가락 픽셀 (h, w) bool. 사진은 OpenGL 처럼 위아래가 뒤집혀 있다 (저장한 손목 사진과 겹침 99%)."""
+        import cv2
+        import mujoco
+        key = (round(float(q) / 0.0005), h, w)
+        if key in self._cache:
+            return self._cache[key]
+        self.d.qpos[self.j[0]], self.d.qpos[self.j[1]] = float(q), -float(q)
+        mujoco.mj_kinematics(self.m, self.d)
+        f = (h / 2) / np.tan(np.radians(self.fovy) / 2)
+        out = np.zeros((h, w), np.uint8)
+        for g in range(self.m.ngeom):
+            if self.m.geom_type[g] != mujoco.mjtGeom.mjGEOM_MESH:
+                continue
+            mid = self.m.geom_dataid[g]
+            V = self.m.mesh_vert[self.m.mesh_vertadr[mid]: self.m.mesh_vertadr[mid] + self.m.mesh_vertnum[mid]]
+            F = self.m.mesh_face[self.m.mesh_faceadr[mid]: self.m.mesh_faceadr[mid] + self.m.mesh_facenum[mid]]
+            pc = (self.d.geom_xpos[g] + V @ self.d.geom_xmat[g].reshape(3, 3).T - self.cpos) @ self.Rc   # 카메라 틀 (−z 로 봄)
+            depth = np.maximum(-pc[:, 2], 1e-3)
+            uv = np.stack([f * pc[:, 0] / depth + w / 2 - 0.5, h - 1 - (-f * pc[:, 1] / depth + h / 2 - 0.5)], 1)
+            ok = -pc[:, 2] > 1e-3
+            for tri in F:
+                if ok[tri].all():
+                    cv2.fillConvexPoly(out, np.round(uv[tri]).astype(np.int32), 1)
+        if self.dilate:
+            out = cv2.dilate(out, np.ones((2 * self.dilate + 1, 2 * self.dilate + 1), np.uint8))
+        res = out.astype(bool)
+        cols = np.flatnonzero(res.any(0))
+        mid = w / 2
+        left, right = cols[cols < mid], cols[cols >= mid]
+        self._cache[key] = res
+        self._cache[key + ("band",)] = (int(left.max()) + 1 if len(left) else 0, int(right.min()) if len(right) else w)
+        return res
+
+    def band(self, q, h, w):
+        """두 손가락 안쪽 사이의 열 범위 [a, b) — 쥘 물체가 보이는 띠."""
+        self.mask(q, h, w)
+        return self._cache[(round(float(q) / 0.0005), h, w, "band")]
+
+    def cam_pose(self, M_eef, p_eef):
+        """로봇 상태의 손(eef) 자세 → 손목 카메라 세계 자리·방향 (그리퍼 파일의 eef·카메라 자리로). 시뮬 카메라와 0.00cm."""
+        import mujoco
+        mujoco.mj_kinematics(self.m, self.d)
+        e = self.m.body("eef").id
+        R_rh = np.asarray(M_eef, dtype=np.float64).reshape(3, 3) @ self.d.xmat[e].reshape(3, 3).T
+        p_rh = np.asarray(p_eef, dtype=np.float64) - R_rh @ self.d.xpos[e]
+        return p_rh + R_rh @ self.cpos, R_rh @ self.Rc
+
+    def project(self, P, cam, h, w):
+        """세계 점 → 손목 사진 (행, 열). 카메라 뒤면 None."""
+        f = (h / 2) / np.tan(np.radians(self.fovy) / 2)
+        pc = cam[1].T @ (np.asarray(P, dtype=np.float64) - cam[0])
+        if -pc[2] < 1e-3:
+            return None
+        return h - 1 - (-f * pc[1] / -pc[2] + h / 2 - 0.5), f * pc[0] / -pc[2] + w / 2 - 0.5
+
+    def backproject(self, r, c, z, cam, h, w):
+        """손목 사진 (행, 열) → 높이 z 평면 위 세계 점."""
+        f = (h / 2) / np.tan(np.radians(self.fovy) / 2)
+        v = h - 1 - r
+        d = cam[1] @ np.array([(c - w / 2 + 0.5) / f, -(v - h / 2 + 0.5) / f, -1.0])
+        return cam[0] + (z - cam[0][2]) / d[2] * d
+
+    def expected_pixel(self, below, h, w):
+        """손 축 위, 손(eef) 에서 below [m] 더 나간 점이 사진 어디에 찍히나 (행, 열) — 손 바로 아래 물체 윗면이 보일 자리."""
+        import mujoco
+        mujoco.mj_kinematics(self.m, self.d)
+        e = self.m.body("eef").id
+        p = self.d.xpos[e] + self.d.xmat[e].reshape(3, 3)[:, 2] * float(below)
+        pc = (p - self.cpos) @ self.Rc
+        f = (h / 2) / np.tan(np.radians(self.fovy) / 2)
+        depth = max(-pc[2], 1e-3)
+        return h - 1 - (-f * pc[1] / depth + h / 2 - 0.5), f * pc[0] / depth + w / 2 - 0.5
+
+
 def color_classes():
     return [("obj", c) for c in W.CFG["object_colors"]] + [("pad", c) for c in W.CFG["pad_colors"]]
 

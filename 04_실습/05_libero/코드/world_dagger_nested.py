@@ -99,11 +99,15 @@ def main():
                 WE.place(ep, oA, spot, record=rec)
             stage = "B"
             if not WE.Goal(oB, dB)(ep.env):
-                if held != oB and not WE.grasp(ep, oB, dest=WE.target(ep, dB), record=rec):
+                stage = "B 판 비우기"
+                st["cleared"] = st.get("cleared", 0) + WE.clear_dest(ep, dB, oB, tasks, record=rec)   # 10/29 밤: A 를 B 판에 내려놓았으면 먼저 치움
+                stage = "B"
+                if (ep.finger_object() if ep.holding() else None) != oB and not WE.grasp(ep, oB, dest=WE.target(ep, dB), record=rec):
                     raise RuntimeError("B 못 쥠")
                 WE.place(ep, oB, WE.target(ep, dB), record=rec)
             stage = "A 돌아오기"
             rec.say(langA)
+            st["cleared"] = st.get("cleared", 0) + WE.clear_dest(ep, dA, oA, tasks, record=rec)
             if not WE.grasp(ep, oA, dest=WE.target(ep, dA), record=rec):
                 raise RuntimeError("A 다시 못 쥠")
             WE.place(ep, oA, WE.target(ep, dA), record=rec)

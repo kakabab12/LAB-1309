@@ -43,7 +43,7 @@ def main():
     out = Path(a.out) / "episodes"
     out.mkdir(parents=True, exist_ok=True)
     K = a.depth
-    st = {"tried": 0, "no_switch": [0] * (K - 1), "vla_done": 0, "wrong_held": 0, "ok": 0, "fail": 0, "skip": 0, "frames": 0}
+    st = {"tried": 0, "no_switch": [0] * (K - 1), "vla_done": 0, "wrong_held": 0, "ok": 0, "fail": 0, "skip": 0, "frames": 0, "cleared": 0}
     t0 = time.time()
     for seed in rng_list(a.seeds):
         if list(out.glob(f"K{seed}_*.npz")):
@@ -127,6 +127,7 @@ def main():
                     if held is not None and held != oL:
                         put_down(held)
                     if not WE.Goal(oL, dL)(ep.env):
+                        st["cleared"] += WE.clear_dest(ep, dL, oL, tasks, record=rec)    # 10/29 밤: 놓을 판에 앞 물체가 있으면 먼저 치움
                         if held_now() != oL and not WE.grasp(ep, oL, dest=WE.target(ep, dL), record=rec):
                             raise RuntimeError(f"마지막 물체를 못 쥠 ({WE.why(ep, oL)})")
                         WE.place(ep, oL, WE.target(ep, dL), record=rec)
@@ -136,6 +137,7 @@ def main():
                         rec.say(lj)
                         if WE.Goal(oj, dj)(ep.env):
                             continue
+                        st["cleared"] += WE.clear_dest(ep, dj, oj, tasks, record=rec)
                         if held_now() != oj and not WE.grasp(ep, oj, dest=WE.target(ep, dj), record=rec):
                             raise RuntimeError(f"일 {j} 다시 못 쥠 ({WE.why(ep, oj)})")
                         WE.place(ep, oj, WE.target(ep, dj), record=rec)

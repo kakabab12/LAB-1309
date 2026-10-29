@@ -18,6 +18,20 @@ VLA 의도를 따라 마지막 몇 cm 만 다듬기 (2026-10-26) — 사용자 "
     w8 + 다듬기의 '판 안, 3cm 밖' 8장면은 물체가 판 가운데에서 3.1~6.9cm — 막대를 한쪽으로 치우쳐 쥐면 손을 맞춰도 물체는 비껴 놓인다 (가설).
   "gplan" (10/29, 기본 꺼짐): 쥐는 자세 계산 (world_gplan.GraspPlan) — VLA 가 빈손으로 고른 물체 3cm 안까지 내려오면 위 카메라 자리·방향과
     역기구학으로 쥐는 자세를 정해 쥐고 조금 든 뒤 돌려준다. 원래 쥐기 다듬기(grasp)는 그대로 켜 두고 그 위에 얹는다.
+  "fmask" (10/29 밤, 기본 꺼짐): 손목 맞추기가 방향을 잴 때 손목 사진에서 그리퍼 손가락 자리(world_detect.WristFingerMask, 그리퍼 값 →
+    손가락 메시 투영)를 지우고, 손가락 끝 사이 기대 자리(손 축 위 물체 윗면 높이의 투영)에 가장 가까운 그 색 덩어리로 잰다.
+    w8 + 다듬기 기본 1004 (검은 막대): 막대가 검은 손가락과 한 덩어리로 붙어 −90° 로 읽고 손목을 반대로 돌리며 내려가기를 막았다.
+    저장한 손목 사진 24장에서 예전 −90° 18장 → 새로 재면 실제와 2~4° 안.
+  "settle" (10/29 밤, 기본 꺼짐): 빈손으로 쥘 물체 바로 위(1.5cm 안)·쥐는 높이 1.5cm 안에서 오므리기 시작하면 그리퍼가 다 닫힐 때까지
+    (최대 10스텝, 닫히는 게 멈추면 끝) 손을 그 자리(쥐는 높이까지는 내림)에 둔다. 기본 1024: 막대 바로 위·방향 0.8° 로 내려와
+    VLA 가 오므리며 같은 스텝에 손을 들어 (그리퍼는 다 닫히는 데 5~6스텝) 손가락이 막대 위 허공에서 닫혔다.
+  "wxy" (10/29 밤, 기본 꺼짐): 빈손으로 물체 위(옆 4cm·윗면 위 2.5~12cm)에 오면 손목 사진의 그 물체 덩어리를 윗면 높이 평면으로
+    되쏘아(손목 카메라 자리 = 로봇 상태 손 자세 + 그리퍼 파일) 기억 자리를 반씩 고친다. 덩어리가 사진 가장자리에 닿으면 막대는 긴 축 선으로
+    짧은 축 방향만. 위 카메라 기억이 팔에 가려 3.3~4.3cm 틀린 장면이 막대 실패 추적 9개 중 4개. VLA 없는 시험 (기억 3.5cm 틀리게):
+    막대 쥠 켬 12/12, 끔 7/12 (기본·흔든 각 6).
+  "pfine" (10/29 밤, 기본 꺼짐): 놓기 마무리 — 든 채 판 위에서 VLA 가 손을 펴려 하면 든 물체 가운데(objc 같이 켜면)·손을 판 가운데
+    0.8cm 안·판 윗면 0.8cm 안까지 맞춘 뒤 편다. w8 + 다듬기 '판 안 3cm 밖' 추적: 막대 끝을 쥐어 손은 판에서 2cm·막대는 5.9cm (기본 1039),
+    판 위 0.9cm 에서 놓아 막대가 1.3cm 밀림 (기본 1009, 끝 3.1cm). 지금 놓기 다듬기는 VLA 가 펴는 순간에야 붙고 손이 3cm 안이면 그대로 편다.
 """
 import numpy as np
 
@@ -42,6 +56,13 @@ class WorldRefine(WA.WorldAssist):
         if "gplan" in self.parts:
             import piper_sim.world_gplan as WG
             self.gplan = WG.GraspPlan()
+        self.fmask = None                                     # 손목 카메라 모델 (손가락 자리·투영) — fmask·wxy 가 같이 쓴다
+        self.use_fmask, self.use_wxy = "fmask" in self.parts, "wxy" in self.parts
+        if self.use_fmask or self.use_wxy:
+            import piper_sim.world_detect as WD
+            self.fmask = WD.WristFingerMask()
+        self.settle, self.settle_max, self._st_n, self._st_q = "settle" in self.parts, 10, 0, []
+        self.pfine, self._pf = "pfine" in self.parts, None
         self._off_key, self._off_h = None, None
 
     def __call__(self, ep, act, instruction):
@@ -50,6 +71,7 @@ class WorldRefine(WA.WorldAssist):
             self.lock, self.lock_n = None, 0
             self._off_key, self._off_h = None, None
             self.ymem, self._k_now = {}, None
+            self._st_n, self._st_q, self._pf = 0, [], None
             if self.gplan is not None:
                 self.gplan.reset()
         if getattr(self, "held", None) is None:              # 앞 스텝에 빈손이면 다음에 쥘 때 물체 − 손 을 새로 잰다
@@ -59,7 +81,186 @@ class WorldRefine(WA.WorldAssist):
         out = super().__call__(ep, act, instruction)          # 개입률은 WorldAssist 가 센다
         if self.gplan is not None:
             out = self._gplan_step(ep, act, out)
+        if self.settle and (self.gplan is None or self.gplan.plan is None):
+            out = self._settle_step(ep, act, out)
+        if self.pfine:
+            out = self._pfine_step(ep, act, out)
         return out
+
+    def _pfine_step(self, ep, act, out):
+        """pfine: 든 채 판 위에서 VLA 가 손을 펴려 하면 (놓을 곳 lock) 든 물체 가운데(objc 면)·손을 판 가운데 0.8cm 안으로 맞추고
+        물체 바닥을 판 윗면 0.8cm 안까지 내린 뒤 편다 (6스텝), 1.5cm 들고 돌려준다. 맞추기는 최대 30스텝."""
+        P = self._pf
+        if P is None:
+            if self.lock is None or getattr(self, "held", None) is None or act[6] >= 0 or self.lock not in self.pos:
+                return out
+            ga = getattr(self, "grasp_at", None)
+            P = self._pf = {"phase": "center", "n": 0, "dst": self.lock, "off_z": float(ga[0][2] - W.TABLE_Z) if ga is not None else 0.03}
+            self.stat["pfine_n"] = self.stat.get("pfine_n", 0) + 1
+        P["n"] += 1
+        hand = self._hand
+        new = np.zeros(7, dtype=np.float32)
+        if P["phase"] == "center":
+            cxy = (self._held_center(hand) if self.obj_center else hand)[:2]
+            e = self.pos[P["dst"]] - cxy
+            above = float(hand[2] - P["off_z"] - self._top(P["dst"]))
+            new[:2] = np.clip(e / 0.05, -self.vmax, self.vmax)
+            new[2] = float(np.clip(-(above - 0.004) / 0.05, -0.2, 0.1))
+            new[6] = 1.0
+            if (np.linalg.norm(e) < 0.008 and above < 0.008) or P["n"] > 30:
+                P["phase"], P["n"] = "open", 0
+        elif P["phase"] == "open":
+            new[6] = -1.0
+            if P["n"] >= 6:
+                P["phase"], P["n"] = "up", 0
+        else:
+            new[2], new[6] = 0.3, -1.0
+            if P["n"] >= 5:
+                self._pf = None
+        self.stat["pfine"] = self.stat.get("pfine", 0) + 1
+        self._changed(act, out, new)
+        return new
+
+    def _changed(self, act, out, new):
+        """원래 다듬기가 안 바꾼 스텝을 새 부품이 바꿨으면 개입으로 센다."""
+        same = not np.any(np.abs(np.asarray(out, dtype=np.float64) - np.asarray(act, dtype=np.float64)) > 1e-6)
+        if same and np.any(np.abs(np.asarray(new, dtype=np.float64) - np.asarray(act, dtype=np.float64)) > 1e-6):
+            self.n_changed = getattr(self, "n_changed", 0) + 1
+
+    def _settle_step(self, ep, act, out):
+        q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
+        k = self._k_now
+        name = WA._name(self.ep.scene, k) if k is not None else None
+        dz = None
+        if name is not None and k in self.pos:
+            import piper_sim.world_expert as WE
+            dz = float(self._hand[2] - (W.TABLE_Z + WE.grasp_z(name)))
+        if self._st_n > 0:                                      # 붙잡는 중: 닫히는 게 멈추거나 10스텝이면 끝
+            self._st_n += 1
+            self._st_q.append(q)
+            moving = len(self._st_q) < 3 or self._st_q[-3] - self._st_q[-1] > 0.0005
+            if self._st_n > self.settle_max or not moving:
+                self._st_n, self._st_q = 0, []
+                return out
+        else:
+            if getattr(self, "held", None) is not None or out[6] <= 0 or q < WA.GA.Q_WIDE or dz is None:
+                return out
+            if np.linalg.norm(self._hand[:2] - self.pos[k]) > 0.015 or not (-0.005 < dz < 0.015):
+                return out
+            self._st_n, self._st_q = 1, [q]
+            self.stat["settle_n"] = self.stat.get("settle_n", 0) + 1
+        new = np.array(out, dtype=np.float32, copy=True)
+        new[:6] = 0.0
+        if dz is not None and dz > 0.003:
+            new[2] = float(np.clip(-dz / 0.05, -0.2, 0.0))
+        new[6] = 1.0
+        self.stat["settle"] = self.stat.get("settle", 0) + 1
+        self._changed(act, out, new)
+        return new
+
+    def _cam(self, ep):
+        return self.fmask.cam_pose(np.asarray(ep.obs["robot_state"]["eef"]["mat"], dtype=np.float64).reshape(3, 3), self._hand)
+
+    def _wrist_blob(self, ep, c):
+        """손목 사진에서 물체 c 색 덩어리 (손가락 자리 지움) 중 기억 자리(윗면 높이)를 투영한 곳에 가장 가까운 것. 없으면 None."""
+        from scipy import ndimage
+        img = np.asarray(ep.obs["pixels"]["image2"])
+        lab = self.wrist_det.classify(img, own_table=False)
+        ck = f"obj:{W.parse(c)[2]}"
+        i = self.wrist_det.keys.index(ck) if ck in self.wrist_det.keys else None
+        if i is None:
+            return None
+        h, w = lab.shape
+        q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
+        m = (lab == i) & ~self.fmask.mask(q, h, w)
+        cc, n = ndimage.label(m)
+        if n == 0:
+            return None
+        rc = self.fmask.project([*self.pos[c], self._top(c)], self._cam(ep), h, w) if c in self.pos else None
+        if rc is None:
+            rc = self.fmask.expected_pixel(max(float(self._hand[2] - self._top(c)), 0.0), h, w)
+        sizes = ndimage.sum(m, cc, range(1, n + 1))
+        best, bd = None, np.inf
+        for k in range(1, n + 1):
+            if sizes[k - 1] < 1500 * h * w / (256 * 256):
+                continue
+            ys, xs = np.nonzero(cc == k)
+            dd = float(np.min((ys - rc[0]) ** 2 + (xs - rc[1]) ** 2))
+            if dd < bd:
+                best, bd = k, dd
+        return None if best is None else cc == best
+
+    def _wxy(self, ep):
+        """wxy: 빈손으로 물체 위(옆 4cm·윗면 위 2.5~12cm)에 오면 손목 사진 덩어리를 윗면 높이로 되쏘아 기억 자리를 반씩 고친다.
+        덩어리가 사진 가장자리에 닿으면 긴 물체(막대)는 긴 축 선만 믿고 짧은 축 방향만, 다른 모양은 고치지 않는다."""
+        import cv2
+        if getattr(self, "held", None) is not None:
+            return
+        hand = self._hand
+        objs = [k for k in self.pos if k in WA._Shim.BLOCKS]
+        if not objs:
+            return
+        k = min(objs, key=lambda b: float(np.linalg.norm(self.pos[b] - hand[:2])))
+        top = self._top(k)
+        if np.linalg.norm(self.pos[k] - hand[:2]) > 0.04 or not (0.025 < hand[2] - top < 0.12):
+            return
+        blob = self._wrist_blob(ep, k)
+        if blob is None:
+            return
+        h, w = blob.shape
+        cam = self._cam(ep)
+        ys, xs = np.nonzero(blob)
+        edge = bool(blob[0].any() or blob[-1].any() or blob[:, 0].any() or blob[:, -1].any())
+        name = WA._name(self.ep.scene, k)
+        per = WA.yaw_period(name) if name else None
+        if not edge:
+            est = self.fmask.backproject(ys.mean(), xs.mean(), top, cam, h, w)[:2]
+        elif per is not None and per >= 180:
+            (cx, cy), (bw, bh), ang = cv2.minAreaRect(np.column_stack([xs, ys]).astype(np.float32))
+            t = np.radians(ang if bw >= bh else ang + 90.0)
+            L = max(bw, bh) / 2
+            p1 = self.fmask.backproject(cy - L * np.sin(t), cx - L * np.cos(t), top, cam, h, w)[:2]
+            p2 = self.fmask.backproject(cy + L * np.sin(t), cx + L * np.cos(t), top, cam, h, w)[:2]
+            u = p2 - p1
+            if np.linalg.norm(u) < 1e-3:
+                return
+            u /= np.linalg.norm(u)
+            est = p1 + u * float(np.dot(self.pos[k] - p1, u))
+        else:
+            return
+        d = est - self.pos[k]
+        if np.linalg.norm(d) > 0.05:
+            return
+        self.pos[k] = self.pos[k] + 0.5 * d
+        self.stat["wxy"] = self.stat.get("wxy", 0) + 1
+
+    def _wrist_angle(self, img, c):
+        """fmask 면 손가락 자리를 지우고 기대 자리에 가장 가까운 덩어리로. 아니면 WorldAssist 그대로."""
+        if not self.use_fmask:
+            return super()._wrist_angle(img, c)
+        import cv2
+        name = WA._name(self.ep.scene, c)
+        per = WA.yaw_period(name) if name else 90.0
+        if per is None:
+            return 0.0
+        blob = self._wrist_blob(self.ep, c)
+        if blob is None:
+            return None
+        cnts, _ = cv2.findContours(blob.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        cnt = max(cnts, key=cv2.contourArea)
+        if per >= 90:                       # 상자: 최소 넓이 사각형 (WorldAssist 와 같음)
+            (_, _), (bw, bh), ang = cv2.minAreaRect(cnt.astype(np.float32))
+            if per >= 180:
+                longang = ang if bw >= bh else ang + 90
+                return ((longang - 90 + 90) % 180) - 90
+            return ((ang + 45) % 90) - 45
+        poly = cv2.approxPolyDP(cnt, 0.04 * cv2.arcLength(cnt, True), True).reshape(-1, 2).astype(float)
+        if len(poly) < 3:
+            return None
+        e = np.roll(poly, -1, 0) - poly
+        j = int(np.argmax(np.linalg.norm(e, axis=1)))
+        ang = np.degrees(np.arctan2(e[j, 1], e[j, 0]))
+        return ((ang - 90 + per / 2) % per) - per / 2
 
     def _gplan_step(self, ep, act, out):
         q = float(ep.obs["robot_state"]["gripper"]["qpos"][0])
@@ -79,6 +280,8 @@ class WorldRefine(WA.WorldAssist):
         for c, xy in self.fresh.items():                  # 위 카메라 긴 축 방향도 기억 (손이 8cm 넘게 멀 때만 — 가까우면 손에 가려 틀림)
             if c in WA._Shim.BLOCKS and c in self.det.yaw and np.linalg.norm(xy - hand[:2]) > 0.08:
                 self.ymem[c] = float(self.det.yaw[c][0])
+        if self.use_wxy:
+            self._wxy(ep)
 
     def _top(self, key):
         """그 물체·판 윗면 높이 (책상 기준 아님, 세계 z)."""

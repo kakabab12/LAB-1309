@@ -35,8 +35,10 @@ _RZ = lambda d: Rotation.from_euler("z", d, degrees=True).as_matrix()  # noqa: E
 
 
 class GraspPlan:
-    def __init__(self, trig_r=0.03, trig_h=0.08, above=0.05, lift=0.06, max_try=2, max_steps=150, min_margin_deg=8.0, finger_gap=0.012, dwell=4):
+    def __init__(self, trig_r=0.03, trig_h=0.08, above=0.05, lift=0.06, max_try=2, max_steps=150, min_margin_deg=8.0, finger_gap=0.012, dwell=4,
+                 follow=True):
         self.trig_r, self.trig_h, self.above, self.lift = trig_r, trig_h, above, lift
+        self.follow = follow                  # 10/29 밤: 내려가기 전까지 기억 자리를 따라감 (wxy 가 고친 자리 — 처음 계획이 틀린 기억으로 '빈손')
         self.max_try, self.max_steps, self.min_margin = max_try, max_steps, np.radians(min_margin_deg)
         self.finger_gap = finger_gap          # 벌린 손가락 끝과 옆 물체 사이 여유
         self.dwell = dwell
@@ -134,6 +136,10 @@ class GraspPlan:
         if P["n"] > self.max_steps or np.linalg.norm(hand[:2] - P["p0"]) > 0.05:
             return self._finish(R, "그만둠")
         ph = P["phase"]
+        if self.follow and ph in ("up", "align") and P["k"] in R.pos:   # 내려가기 전까지는 기억 자리(손목 사진 wxy 로 고쳐짐)를 따라간다
+            nxy = np.asarray(R.pos[P["k"]], dtype=np.float64)
+            if 0.003 < np.linalg.norm(nxy - g[:2]) < 0.05:
+                g[:2] = nxy
         if ph == "up":
             tgt, Mt, grip, vmax = np.array([hand[0], hand[1], g[2] + self.above]), M_now, -1.0, 0.4
             if hand[2] >= g[2] + self.above - 0.008 or P["pn"] > 30:

@@ -187,6 +187,41 @@ def place(ep, obj, P, record=None):
     se.carry_place(ep, P, record=record, above=0.06, obj=obj, z_safe=z_safe(ep, obj))
 
 
+def blockers(ep, dst, keep, tasks):
+    """판 dst 위(가운데에서 판 반 폭 + 물체 반지름의 반 안)에 놓인 다른 물체 — keep 과, 그 판이 제 놓을 곳이고 이미 놓인 물체는 뺀다.
+    판이 아닌 곳(쌓기 받침)은 비우지 않는다."""
+    if W.parse(dst)[0] != "pad":
+        return []
+    c = ep.obj_pos(dst)[:2]
+    half = W.CFG["pad"]["size"][0] / 2
+    own = {t[0] for t in tasks if t[1] == dst}
+    return [n for n in ep.scene.objects if n != keep and np.linalg.norm(ep.obj_pos(n)[:2] - c) < half + 0.5 * W.footprint(n)
+            and not (n in own and Goal(n, dst)(ep.env))]
+
+
+def clear_dest(ep, dst, keep, tasks, record=None):
+    """10/29 밤: 놓을 판 위에 다른 물체가 있으면 먼저 손 가까운 빈 자리로 옮긴다 (기록). VLA 가 끼어들기에서 A 를 B 의 판 위에
+    내려놓는 일이 잦다 (w8 + 다듬기 일 2개: 넘긴 43번 중 22번) — 예전 시범은 그 위에 B 를 그대로 놓았다. 손에 든 것이 있으면 먼저 내려놓는다.
+    옮긴 물체 수를 돌려준다."""
+    n_moved = 0
+    for n in blockers(ep, dst, keep, tasks):
+        held = ep.finger_object() if ep.holding() else None
+        avoid = [(target(ep, t[1])[:2], W.footprint(t[1])) for t in tasks]
+        if held is not None and held != n:
+            spot = free_spot(ep, held, avoid=avoid, near=sx.eef_pos(ep.obs))
+            if spot is None:
+                raise RuntimeError("빈 자리 없음")
+            place(ep, held, spot, record=record)
+        if (ep.finger_object() if ep.holding() else None) != n and not grasp(ep, n, record=record):
+            raise RuntimeError(f"판 비우기: {n} 못 쥠 ({why(ep, n)})")
+        spot = free_spot(ep, n, avoid=avoid, near=sx.eef_pos(ep.obs))
+        if spot is None:
+            raise RuntimeError("빈 자리 없음")
+        place(ep, n, spot, record=record)
+        n_moved += 1
+    return n_moved
+
+
 def free_spot(ep, obj, avoid=(), near=None, rng=None, tries=3000):
     """책상에서 다른 물체·판·앞으로 쓸 자리에서 떨어진 빈 자리 (손이 닿는 범위 안). near 가 있으면 가까운 쪽부터."""
     rng = rng or np.random.default_rng(len(ep.acts))
