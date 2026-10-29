@@ -649,7 +649,11 @@ class Trainer:
                     (d / "relfeat").write_text("물체 24개가 손 기준 위치 (relfeat.py, 10/15)\n")
                 elif (d / "relfeat").exists():
                     (d / "relfeat").unlink()
-                WV = re.fullmatch(r"wfeat(\d?)(s?)", FEAT)          # wfeat / wfeat2 / wfeat3 / wfeat3s (10/27 확실한 찾기만 기억)
+                WV = re.fullmatch(r"wfeat(\d?)(s?)(c?)", FEAT)      # wfeat / wfeat2 / wfeat3 / wfeat3s (10/27 확실한 찾기만 기억) / wfeat3sc (10/29 손목 카메라 가림)
+                if WV and WV.group(3):                   # 평가는 지금 코드(가리개에 손목 카메라 포함)로 하므로 기록용 표시
+                    (d / "worldfeat_cammask").write_text("world_feat: 로봇 가리개가 손목 카메라 몸체까지 가린 위치 입력으로 학습 (10/29)\n")
+                elif (d / "worldfeat_cammask").exists():
+                    (d / "worldfeat_cammask").unlink()
                 WVER = int(WV.group(1) or 1) if WV else 0
                 if WV:                                   # 10/24 여러 모양·N개 장면: 지시문의 물체·놓을 곳만 (piper_sim/world_feat.py)
                     (d / "worldfeat").write_text("물체 입력 = 지시문의 옮길 물체·놓을 곳 손 기준 위치 (world_feat.py, 10/24)\n")

@@ -27,10 +27,11 @@ def main():
     p.add_argument("--from-v2", action="store_true", help="3판을 사진 없이 *.wfeat2.npy 에서 바로 (world_feat.derive_v3, 평가와 같은 식)")
     p.add_argument("--reverse", action="store_true", help="뒤에서부터 (앞에서부터 도는 줄과 겹치지 않게 늦게 더 붙일 때)")
     p.add_argument("--stride", type=int, default=1, help="학습이 읽는 장만 계산 (train_lora --frame-stride 와 같게; 사이 장은 앞 값)")
+    p.add_argument("--tag", default="", help="파일 이름 끝에 붙임 (10/29: c = 손목 카메라까지 가린 로봇 가리개, *.wfeat2sc.npy — 예전 파일을 덮지 않게)")
     a = p.parse_args()
     wf = WF.WorldFeat(version=a.version, sure=a.sure)
     suf = "wfeat" if a.version == 1 else f"wfeat{a.version}"      # 2판은 *.wfeat2.npy (학습 중인 1판 파일을 건드리지 않게)
-    suf += "s" if a.sure else ""
+    suf += ("s" if a.sure else "") + a.tag
     files = sorted(f for d in a.data for f in Path(d, "episodes").glob("*.npz"))[a.shard::a.nshard]
     if a.reverse:
         files = files[::-1]
@@ -41,7 +42,7 @@ def main():
         if out.exists():
             continue
         if a.from_v2:
-            np.save(out, WF.derive_v3(np.load(f.parent / f"{f.stem}.wfeat2{'s' if a.sure else ''}.npy")))
+            np.save(out, WF.derive_v3(np.load(f.parent / f"{f.stem}.wfeat2{'s' if a.sure else ''}{a.tag}.npy")))
             n += 1
             continue
         ep = np.load(f, allow_pickle=True)

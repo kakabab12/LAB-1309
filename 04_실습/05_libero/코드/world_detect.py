@@ -95,6 +95,8 @@ class RobotMask:
         import xml.etree.ElementTree as ET
         import piper_sim.piper_robot as pr
         self.m = mujoco.MjModel.from_xml_path(pr.ROBOT_XML)
+        if W.CFG.get("wrist_camera") and not any((self.m.geom(g).name or "").startswith("wrist_cam") for g in range(self.m.ngeom)):
+            self.m = mujoco.MjModel.from_xml_path(W.make_cam_robot())     # 10/29: install() 없이 부를 때 (world_feat_cache) 도 평가와 같은 로봇
         xr = {j.get("name"): list(map(float, j.get("range").split())) for j in ET.parse(pr.ROBOT_XML).iter("joint") if j.get("range")}
         for i in range(self.m.njnt):
             if self.m.joint(i).name in xr:
@@ -104,6 +106,9 @@ class RobotMask:
         self.l6 = next(i for i in range(self.m.nbody) if self.m.body(i).name == "link6")
         self.base = np.array([*W.CFG.get("robot_base", [0, 0]), W.TABLE_Z])
         self.radius = radius
+        # 10/29: 손목 카메라 몸체·고정대 (10/24 make_cam_robot 이 right_hand 에 붙임) 도 가린다. 손 중심선에서 옆으로 나와
+        #   가리개 밖의 검은 상자가 '검은 물체'로 잡혀 VLA 의 물체 기억이 10cm 틀어졌다 (w8 + 다듬기, 기본 1000 검은 막대)
+        self.extra = [g for g in range(self.m.ngeom) if (self.m.geom(g).name or "").startswith("wrist_cam")]
 
     def points(self, q):
         import mujoco
@@ -116,6 +121,11 @@ class RobotMask:
         for a, b in zip(P[:-1], P[1:]):
             n = max(2, int(np.linalg.norm(b - a) / 0.01))
             pts += [a + (b - a) * t for t in np.linspace(0, 1, n)]
+        for g in self.extra:                                          # 상자는 모서리 8개까지, 나머지는 가운데
+            c, Rg, s = self.d.geom_xpos[g], self.d.geom_xmat[g].reshape(3, 3), self.m.geom_size[g]
+            pts.append(c.copy())
+            if self.m.geom_type[g] == mujoco.mjtGeom.mjGEOM_BOX:
+                pts += [c + Rg @ (s * np.array([i, j, k])) for i in (-1, 1) for j in (-1, 1) for k in (-1, 1)]
         return np.array(pts) + self.base
 
     def mask(self, q, h, w):
