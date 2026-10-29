@@ -87,7 +87,8 @@ def main():
                    "yaw_bad": bool(getattr(self, "yaw_bad", False)), "dmode": bool(getattr(self, "dmode", False)),
                    "prim": (self.prim or {}).get("phase") if getattr(self, "prim", None) else None,
                    "held": getattr(self, "held", None), "mem_err": None if mem is None else round(float(np.linalg.norm(mem - po[:2])) * 100, 1),
-                   "obj_moved": round(float(np.linalg.norm(po[:2] - st["p0"][:2])) * 100, 1), "obj_z": round((po[2] - st["p0"][2]) * 100, 1)}
+                   "obj_moved": round(float(np.linalg.norm(po[:2] - st["p0"][:2])) * 100, 1), "obj_z": round((po[2] - st["p0"][2]) * 100, 1),
+                   "obj_tilt": round(WE.tilt_deg(ep, o), 1)}
             rows.append(row)
             if float(out_a[6]) > 0 and st["prev_grip"] <= 0:          # 오므리기 시작
                 closes.append({k: row[k] for k in ("t", "dz", "lat", "yaw", "tilt", "q", "mem_err", "obj_moved")} | {"by": "vla" if float(act[6]) > 0 else "보조"})

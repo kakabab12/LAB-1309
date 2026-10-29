@@ -65,12 +65,16 @@ class Track:
         self.ferr = {}                              # 10/27: VLA 위치 입력(기억)이 참 자리에서 몇 cm — 쥐러 갈 때(손 가장 가까울 때)·놓을 때
         self.held, self.dmin, self.other = 0, 9.0, {}
         self.was, self.rel = False, []              # 10/27: 그 물체를 놓은 자리 (손 xy) — 놓기 실패가 판 고르기인지 마지막 몇 cm 인지
+        self.tilt_max = 0.0                         # 10/29: 쥐지 않은 동안 그 물체가 가장 많이 기운 각도 (넘어뜨림 — DAgger 6차 이어받기 실패 대부분)
 
     def __call__(self, env):
         inner = env._env.env
         po = inner.sim.data.body_xpos[inner.obj_body_id[self.obj]]
         hand = np.asarray(self.ep.obs["robot_state"]["eef"]["pos"])
         d = float(np.linalg.norm(po[:2] - hand[:2]))
+        if not (self.ep.holding() and self.ep.finger_object() == self.obj):
+            qq = inner.sim.data.body_xquat[inner.obj_body_id[self.obj]]
+            self.tilt_max = max(self.tilt_max, float(np.degrees(np.arccos(np.clip(1 - 2 * (qq[1] ** 2 + qq[2] ** 2), -1, 1)))))
         mem = getattr(getattr(self.ep.r, "wf", None), "mem", {})
         if d < self.dmin and self.obj in mem and self.held == 0:       # 쥐기 전만 (든 뒤에는 물체가 손과 같이 움직인다)
             self.ferr["obj"] = round(100 * float(np.linalg.norm(mem[self.obj] - po[:2])), 1)
@@ -129,7 +133,7 @@ def run_episode(r, sc, tasks, a, ep_idx):
         res[i]["loose"] = bool(ep.loose_hit.get(f"T{i}") or ep.loose_hit.get(f"R{i}") or goal.loose(ep.env))
         inner = ep.env._env.env
         po, pd = (inner.sim.data.body_xpos[inner.obj_body_id[x]] for x in (o, d))
-        res[i].update(held_steps=tr.held, held_other=tr.other, hand_min_cm=round(100 * tr.dmin, 1),
+        res[i].update(held_steps=tr.held, held_other=tr.other, hand_min_cm=round(100 * tr.dmin, 1), tilt_max_deg=round(tr.tilt_max, 1),
                       end_dist_cm=round(100 * float(np.linalg.norm(po[:2] - pd[:2])), 1), end_z_cm=round(100 * float(po[2] - W.TABLE_Z), 1))
         # 끝난 물체 자리·놓은 손 자리에서 가장 가까운 판 (지시한 판이 아니면 판을 잘못 고른 것)
         pads = {p: inner.sim.data.body_xpos[inner.obj_body_id[p]][:2] for p in sc.pads}

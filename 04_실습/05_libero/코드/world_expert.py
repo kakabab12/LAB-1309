@@ -33,7 +33,60 @@ def grasp_z(obj):
     return G["z_short"] if te.NOPED and h < G["short_below"] else min(G["z_max"], h / 2)
 
 
+TOPPLE_DEG = 20.0      # 10/29: 이보다 기운 물체는 넘어진 것으로 보고 toppled_candidates 로 쥔다
+
+
+def shape_points(obj):
+    """그 물체 겉의 꼭짓점·둘레 점 (물체 좌표, 바닥 가운데가 원점 — world._xml 과 같음)."""
+    s = W.CFG["shapes"][W.parse(obj)[1]]
+    h = W.height(obj)
+    if s["type"] == "box":
+        a, b, _ = s["size"]
+        return np.array([[x, y, z] for x in (-a / 2, a / 2) for y in (-b / 2, b / 2) for z in (0.0, h)])
+    if s["type"] == "cylinder":
+        r, t = s["radius"], np.linspace(0, 2 * np.pi, 24, endpoint=False)
+    else:
+        r, t = s["radius"], 2 * np.pi * np.arange(int(s["sides"])) / int(s["sides"])
+    ring = np.stack([r * np.cos(t), r * np.sin(t)], 1)
+    return np.concatenate([np.c_[ring, np.zeros(len(ring))], np.c_[ring, np.full(len(ring), h)]])
+
+
+def tilt_deg(ep, obj):
+    return float(np.degrees(np.arccos(np.clip(se.obj_rot(ep, obj).apply([0, 0, 1.0])[2], -1, 1))))
+
+
+def lowest_offset(ep, obj):
+    """물체 원점(바닥 가운데) 높이 − 지금 자세에서 가장 낮은 겉 점 높이. 똑바로 서 있으면 0."""
+    P = se.obj_rot(ep, obj).apply(shape_points(obj))
+    return float(-P[:, 2].min())
+
+
+def toppled_candidates(ep, obj):
+    """넘어진 물체 (10/29): DAgger 6차 이어받기 실패 15장면 중 12장면이 VLA 가 넘어뜨린 목표(기울기 90°)였고, 원래 후보는 물체의
+    기운 축을 그대로 따라 손을 옆으로 눕혀 쥐려 해 길을 못 찾았다 (정육면체·막대는 옆으로 누워도 같은 모양인데도).
+    지금 자세의 겉 점으로 높이 H 와 수평 방향별 폭을 재, 폭이 그리퍼보다 좁은 방향으로 위에서 내려와 쥔다 (좁은 폭부터).
+    쥐는 높이 = 설정 grasp 규칙을 H 에 (min(max(H/2, z_min), H − top_margin))."""
+    G = W.CFG["grasp"]
+    P = se.obj_rot(ep, obj).apply(shape_points(obj)) + ep.obj_pos(obj)
+    zlo, zhi = float(P[:, 2].min()), float(P[:, 2].max())
+    H = zhi - zlo
+    c = 0.5 * (P.min(axis=0) + P.max(axis=0))
+    zg = min(max(H / 2, G.get("z_min", 0.028)), H - G.get("top_margin", 0.012))
+    g = np.array([c[0], c[1], zlo + zg])
+    ref = float(np.degrees(np.arctan2(te.DOWN_REF[1, 0], te.DOWN_REF[0, 0])))     # 손가락이 벌어지는 축의 처음 방향
+    out = []
+    for phi in range(0, 180, 15):
+        u = np.array([np.cos(np.radians(phi)), np.sin(np.radians(phi)), 0.0])
+        w = float((P @ u).max() - (P @ u).min())
+        if w < G["gripper_max_width"]:
+            out.append((w, g, _RZ(phi - ref) @ te.DOWN_REF))
+    out.sort(key=lambda x: x[0])
+    return [(gg, M) for _, gg, M in out]
+
+
 def grasp_candidates(ep, obj):
+    if tilt_deg(ep, obj) > TOPPLE_DEG:
+        return toppled_candidates(ep, obj)
     o = ep.obj_pos(obj)
     h = W.height(obj)
     R = se.obj_rot(ep, obj)
@@ -129,6 +182,8 @@ def grasp(ep, obj, dest=None, record=None):
 
 
 def place(ep, obj, P, record=None):
+    if tilt_deg(ep, obj) > TOPPLE_DEG:                 # 10/29: 누운 물체는 원점(바닥 가운데)이 옆에 있어 가장 낮은 점이 판에 닿게
+        P = np.asarray(P, dtype=float) + [0, 0, lowest_offset(ep, obj)]
     se.carry_place(ep, P, record=record, above=0.06, obj=obj, z_safe=z_safe(ep, obj))
 
 
