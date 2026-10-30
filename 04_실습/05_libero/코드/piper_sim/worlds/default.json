@@ -1,0 +1,456 @@
+{
+ "note": "10/24 여러 모양·N개 장면 (사용자 '객체도 여러모양으로 n개씩 늘리고 싹다 n개로', 'piper 360도 다 쓸수있게', '하드코딩 아닌걸로'). 여기만 고치면 장면이 바뀐다. 길이 m, 각도 도",
+ "shapes": {
+  "cube": {
+   "type": "box",
+   "size": [
+    0.045,
+    0.045,
+    0.045
+   ],
+   "sym": 90,
+   "stack_on": true,
+   "en": "cube",
+   "ko": [
+    "정육면체",
+    "큐브",
+    "네모 블록",
+    "블록",
+    "상자"
+   ]
+  },
+  "bar": {
+   "type": "box",
+   "size": [
+    0.09,
+    0.04,
+    0.04
+   ],
+   "sym": 180,
+   "stack_on": false,
+   "en": "bar",
+   "ko": [
+    "막대",
+    "긴 블록"
+   ]
+  },
+  "cylinder": {
+   "type": "cylinder",
+   "radius": 0.0225,
+   "height": 0.05,
+   "sym": 0,
+   "stack_on": true,
+   "en": "cylinder",
+   "ko": [
+    "원기둥",
+    "기둥",
+    "원통",
+    "통"
+   ]
+  },
+  "hexprism": {
+   "type": "prism",
+   "sides": 6,
+   "radius": 0.026,
+   "height": 0.05,
+   "sym": 60,
+   "stack_on": true,
+   "en": "hexagonal prism",
+   "ko": [
+    "육각기둥",
+    "육각"
+   ]
+  },
+  "triprism": {
+   "type": "prism",
+   "sides": 3,
+   "radius": 0.028,
+   "height": 0.045,
+   "sym": 120,
+   "stack_on": false,
+   "en": "triangular prism",
+   "ko": [
+    "삼각기둥",
+    "삼각"
+   ]
+  }
+ },
+ "object_colors": {
+  "red": {
+   "rgba": [
+    0.85,
+    0.1,
+    0.1,
+    1
+   ],
+   "en": "red",
+   "ko": [
+    "빨간",
+    "빨강",
+    "붉은"
+   ]
+  },
+  "green": {
+   "rgba": [
+    0.1,
+    0.7,
+    0.2,
+    1
+   ],
+   "en": "green",
+   "ko": [
+    "초록",
+    "녹색"
+   ]
+  },
+  "blue": {
+   "rgba": [
+    0.1,
+    0.3,
+    0.9,
+    1
+   ],
+   "en": "blue",
+   "ko": [
+    "파란",
+    "파랑"
+   ]
+  },
+  "yellow": {
+   "rgba": [
+    0.95,
+    0.8,
+    0.1,
+    1
+   ],
+   "en": "yellow",
+   "ko": [
+    "노란",
+    "노랑"
+   ]
+  },
+  "cyan": {
+   "rgba": [
+    0.1,
+    0.8,
+    0.85,
+    1
+   ],
+   "en": "cyan",
+   "ko": [
+    "하늘색",
+    "청록"
+   ]
+  },
+  "pink": {
+   "rgba": [
+    0.95,
+    0.45,
+    0.7,
+    1
+   ],
+   "en": "pink",
+   "ko": [
+    "분홍",
+    "핑크"
+   ]
+  },
+  "black": {
+   "rgba": [
+    0.08,
+    0.08,
+    0.08,
+    1
+   ],
+   "en": "black",
+   "ko": [
+    "검은",
+    "검정"
+   ]
+  },
+  "brown": {
+   "rgba": [
+    0.5,
+    0.3,
+    0.12,
+    1
+   ],
+   "en": "brown",
+   "ko": [
+    "갈색"
+   ]
+  }
+ },
+ "pad": {
+  "size": [
+   0.09,
+   0.09,
+   0.005
+  ],
+  "density": 3000,
+  "en": "square",
+  "ko": [
+   "판",
+   "사각형",
+   "네모",
+   "자리",
+   "패드"
+  ]
+ },
+ "pad_colors": {
+  "purple": {
+   "rgba": [
+    0.55,
+    0.2,
+    0.75,
+    1
+   ],
+   "en": "purple",
+   "ko": [
+    "보라"
+   ]
+  },
+  "gray": {
+   "rgba": [
+    0.45,
+    0.45,
+    0.45,
+    1
+   ],
+   "en": "gray",
+   "ko": [
+    "회색"
+   ]
+  },
+  "orange": {
+   "rgba": [
+    0.95,
+    0.5,
+    0.1,
+    1
+   ],
+   "en": "orange",
+   "ko": [
+    "주황"
+   ]
+  },
+  "white": {
+   "rgba": [
+    0.95,
+    0.95,
+    0.95,
+    1
+   ],
+   "en": "white",
+   "ko": [
+    "흰",
+    "하얀",
+    "흰색"
+   ]
+  },
+  "navy": {
+   "rgba": [
+    0.12,
+    0.15,
+    0.4,
+    1
+   ],
+   "en": "navy",
+   "ko": [
+    "남색"
+   ]
+  },
+  "lime": {
+   "rgba": [
+    0.65,
+    0.9,
+    0.25,
+    1
+   ],
+   "en": "lime",
+   "ko": [
+    "연두"
+   ]
+  }
+ },
+ "object_density": 400,
+ "unique_object_colors": true,
+ "n_objects": [
+  2,
+  8
+ ],
+ "n_pads": [
+  2,
+  5
+ ],
+ "spacing": 0.035,
+ "workspace": {
+  "r_search": [
+   0.15,
+   0.45
+  ],
+  "angle_margin": 12,
+  "reach_file": "piper_sim/worlds/reach_{robot}.json"
+ },
+ "robot_base": [
+  0.0,
+  0.0
+ ],
+ "camera": {
+  "name": "agentview",
+  "pos": [
+   0.0,
+   0.0,
+   1.75
+  ],
+  "lookat": [
+   0.0,
+   0.0,
+   0.9
+  ],
+  "up": [
+   1.0,
+   0.0,
+   0.0
+  ],
+  "fovy": 75
+ },
+ "instruction": {
+  "to_pad": [
+   "put the {color} {shape} on the {pcolor} {pad}",
+   "place the {color} {shape} on the {pcolor} {pad}",
+   "move the {color} {shape} onto the {pcolor} {pad}",
+   "pick up the {color} {shape} and put it on the {pcolor} {pad}",
+   "set the {color} {shape} down on the {pcolor} {pad}"
+  ],
+  "to_obj": [
+   "put the {color} {shape} on the {tcolor} {tshape}",
+   "stack the {color} {shape} on the {tcolor} {tshape}",
+   "place the {color} {shape} on top of the {tcolor} {tshape}",
+   "pick up the {color} {shape} and put it on the {tcolor} {tshape}"
+  ],
+  "note": "10/30: 틀 여러 개 — 장면마다 하나를 뽑는다 (첫 틀 = 예전 데이터의 틀). world_feat.parse_instruction 이 모두 거꾸로 읽는다"
+ },
+ "table": {
+  "size": [
+   1.0,
+   1.2
+  ],
+  "margin": 0.05,
+  "note": "LIBERO Libero_Tabletop_Manipulation 기본 책상 (1.0 x 1.2, 가운데 원점). 물체는 가장자리에서 margin 안쪽"
+ },
+ "grasp": {
+  "z_max": 0.025,
+  "short_below": 0.045,
+  "z_short": 0.028,
+  "gripper_max_width": 0.065,
+  "note": "쥐는 높이 = min(max(높이/2, z_min), 높이 − top_margin). 기울인 손(로봇 옆·뒤)으로 2.25cm 에서 쥐면 손가락 끝이 책상을 파고들어 후보가 다 빠졌다 (10/24 장면 2300). 손가락 방향 폭이 gripper_max_width 보다 좁은 방향만",
+  "z_min": 0.028,
+  "top_margin": 0.012,
+  "gripper_open": 0.07,
+  "yaw_free_margin": 0.01
+ },
+ "putdown_gap": 0.05,
+ "wrist_camera": {
+  "model": "Intel RealSense D405 크기 (실물 손목 카메라 후보)",
+  "size": [
+   0.042,
+   0.042,
+   0.023
+  ],
+  "rgba": [
+   0.15,
+   0.15,
+   0.17,
+   1
+  ],
+  "collide": true,
+  "bracket": true,
+  "camera": "eye_in_hand",
+  "note": "자리·방향은 robot.xml 의 eye_in_hand, 몸체는 렌즈 뒤로"
+ },
+ "randomize": {
+  "enabled": false,
+  "light": {
+   "diffuse": [
+    0.45,
+    1.0
+   ],
+   "ambient": [
+    0.0,
+    0.3
+   ],
+   "dir_sigma": 0.3
+  },
+  "rgba_sigma": 0.05,
+  "table_rgb": [
+   0.55,
+   1.0
+  ],
+  "camera": {
+   "pos_sigma": 0.01,
+   "deg_sigma": 1.5
+  },
+  "note": "켜면 장면마다 조명 세기·방향, 물체 색 ±0.05, 책상 색, 위 카메라 자리 ±1cm·±1.5° 를 흔든다 (world.randomize). 끈 설정과 켠 설정 둘 다 잰다"
+ },
+ "obs_size": 512,
+ "motion": {
+  "enabled": true,
+  "note": "10/30 사용자 '동작을 여러 변수로' (끼어드는 때·일 종류·지시문·지연·속도, 그리고 '더 좋은 게 있으면' → 물체 마찰·무게, 손가락 마찰, 제어 잡음). 평가·시범·DAgger 가 장면마다 여기서 뽑는다 (world.sample_motion, world.vary_physics). 끄면 예전 고정값: 쥔 채 30스텝·판 먼저·첫 지시문 틀·지연은 명령줄·속도 1. 1스텝 = 0.05초",
+  "switch": {
+   "phase_p": {
+    "reach": 0.2,
+    "grasp": 0.2,
+    "carry": 0.4,
+    "place": 0.2
+   },
+   "reach_cm": [
+    3,
+    10
+   ],
+   "grasp_steps": [
+    1,
+    10
+   ],
+   "carry_steps": [
+    20,
+    80
+   ],
+   "place_cm": [
+    3,
+    8
+   ],
+   "fallback": true,
+   "note": "다음 지시가 오는 때. reach: 아직 안 쥐고 손이 A 에서 옆으로 이만큼(cm) 안 / grasp: 쥔 지 이만큼(스텝) / carry: 쥔 채 이만큼 (예전 고정 30) / place: 든 A 가 놓을 곳에서 이만큼(cm) 안. 그때가 안 오면(빨리 놓음·못 쥠) 그 일이 끝난 뒤 다음 지시 (fallback). 성공 장면 중앙: 다가가 쥐기 ~110, 쥔 채 옮기기 ~100스텝"
+  },
+  "task_p": {
+   "to_pad": 0.75,
+   "to_obj": 0.25
+  },
+  "latency_steps": [
+   6,
+   12
+  ],
+  "speed": [
+   0.8,
+   1.2
+  ],
+  "action_noise": [
+   0.015,
+   0.0075
+  ],
+  "friction": [
+   0.6,
+   1.4
+  ],
+  "grip_friction": [
+   0.6,
+   1.0
+  ],
+  "mass": [
+   0.5,
+   2.0
+  ],
+  "note2": "task_p: 판에 놓기·물체 위에 쌓기 비율 (쌓을 받침이 없으면 판). latency_steps: 추론 지연 (스텝). speed: 명령 대비 실제 움직임 배율. action_noise: 제어 잡음 표준편차 [위치, 회전] (동작 범위 ±1 기준, 시범 평균 |동작| 위치 0.18·회전 0.03). friction·mass: 물체 미끄럼 마찰·무게 배율. grip_friction: 손가락 패드 마찰 배율 (기본 2.0)"
+ }
+}

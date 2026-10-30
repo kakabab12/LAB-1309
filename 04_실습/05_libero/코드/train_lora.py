@@ -560,6 +560,10 @@ class Trainer:
                     weights = torch.where(isobj, weights * (f / m_obj), weights * ((1 - f) / m_pad))
                     print(f"쌓기 일 몫 {100 * m_obj / (m_obj + m_pad):.1f}% → {100 * f:.0f}% (쌓기 일 {sum(kind.values())}가지, "
                           f"프레임 {int(isobj.sum())} / {len(tasks)})", flush=True)
+                    Path(a.out).mkdir(parents=True, exist_ok=True)     # 파이프라인이 학습 출력을 걸러 내므로 파일로도 남긴다
+                    (Path(a.out) / "balance.json").write_text(json.dumps({
+                        "obj_frac": f, "obj_share_before": round(m_obj / (m_obj + m_pad), 4), "obj_tasks": int(sum(kind.values())),
+                        "obj_frames": int(isobj.sum()), "frames": len(tasks), "instr_aug": INSTR_AUG}, ensure_ascii=False))
             sampler = WeightedRandomSampler(weights, num_samples=len(tasks), replacement=True)
         dl = DataLoader(train_ds, batch_size=a.batch_size, shuffle=sampler is None, sampler=sampler,
                         collate_fn=collate, num_workers=a.workers, drop_last=True, persistent_workers=a.workers > 0)

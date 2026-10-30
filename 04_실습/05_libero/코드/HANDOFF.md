@@ -1,6 +1,23 @@
-# 인계 메모 — 10/30 11:20 절이 최신
+# 인계 메모 — 10/30 22:50 절이 최신
 
-## 10/30 11:20 (가장 최신, 이것부터)
+## 10/30 22:50 (가장 최신, 이것부터)
+
+- w10m 학습 (piper-w10m ③): 5000스텝 검증 손실 0.0896 → 10000스텝 0.0847 (w9 의 0.0806 과는 검증 묶음이 달라 바로 못 견줌). 23:30쯤 끝나면 ④ 평가 12개가 저절로.
+  그 뒤 piper-w10mamb (같은 장면 RA+amb, outputs/world_w10mrabM_*).
+- 새 기준 w9 + 다 켬 일 2개 0/20 을 일별로: 첫 일 낯선 꼴 1/11·쌓기 0/5·익숙 2/4, 둘째 일 낯선 4/13·쌓기 0/4·익숙 1/3 → 일 1개와 같은 원인 (지시문 꼴·쌓기).
+  스크립트 scratchpad/motion/k2_fail.py. 새 기준 일 1개 실패 중 '지시한 물체 안 쥠' 은 대부분 아무것도 안 쥔 경우 (다른 물체를 쥔 것은 많음 설정에서 8번).
+- world_dagger.py (일 1개 DAgger) 를 새 기준으로: sample_motion (지연·속도·잡음) + pad_lang + --fix-wrong (다른 물체를 쥐고 있으면 손 가까운 빈 자리에
+  내려놓고 지시한 물체로, 기록). 백업 outputs/piper/world_dagger_before_motion.py. 아직 GPU 로 안 돌려 봄 (학습 중이라).
+- world_dagger_nested·world_dagger_deep 에 --ret-p (B 를 마친 뒤 그 비율만큼 VLA 가 돌아오기를 먼저 T2 스텝 해 보고 시범이 이어받음, 기록)
+  + 돌아오다 다른 물체를 쥐었으면 내려놓기. 백업 outputs/piper/world_dagger_nested_before_ret.py, world_dagger_deep_before_ret.py. 역시 GPU 로 아직 안 돌림.
+- 22:37 piper-co11 (run_collect_w11.sh): ④ 시작 10분 뒤 시범 세 설정 × 80 (24000~, PIPER_STACK_P=0.5) → data/world_motion2_*.
+- 22:45 piper-w11m (run_world11m.sh, 기록 outputs/piper/world11m.log): ④ 시작 15분 뒤부터 w10m 으로 DAgger (일 1개 --fix-wrong 21000~ ×100,
+  깊이 2 --ret-p 0.6 22000~ ×60, 깊이 3 23000~ ×20 — 세 설정, w10m 평가와 자물쇠를 나눔) → co11 기다림 → w10m 파이프라인 '끝' 뒤 ② → ③ w11m (w10m 에서 15000,
+  train_override obj_frac 0.15) → ④ (다듬기는 outputs/piper/ra_choice.txt 가 있으면 그 내용 — amb 비교 뒤 써 둘 것). claim 폴더 outputs/piper/claim_w11m.
+  w10m 이 w9 보다 나쁘면: systemctl --user stop piper-w11m → claim_w11m 지우고 CD=outputs/piper_w9_model/merged 로 다시.
+  첫 DAgger 항목 로그 (outputs/piper/w11m_d1_*.log) 에서 '예외' 가 줄줄이 나오면 바로 멈추고 고칠 것.
+
+## 10/30 11:20
 
 - w9 결과 (판 2개, 예전 기준): 일 1개 3cm 혼자 34·28·32%, 예전 다듬기 74·50·66%, 다 켬(w9ra) 88%·(흔든 28장면 46%)·74%. 일 2개 35·5·10%, 일 3개 10·0·5%.
 - 사용자 10:50~11:10: '판도 n개로 해서 하는거 맞지?' → 아니었다 (평가가 판을 max(2,k) 로 고정, 설정 n_pads 를 안 읽음). '동작을 여러 변수를 추가해줘'
@@ -34,6 +51,15 @@
   분석 스크립트: scratchpad/motion/by_var.py, fail_kind.py.
 - 12:35 새 기준 w9 + 다 켬 기본 19장면 10/19: 쌓기 0/4 (VLA 가 지시한 물체를 아예 안 쥠 — 쌓기·새 지시문 꼴을 못 배움), 판 10/15.
   → train_lora --obj-frac (balance 와 함께 쌓기 일 몫), outputs/train_override.json 에 piper_w10m_model: obj_frac 0.15 (파이프라인은 그대로, 학습 때 덮어씀).
+- 20:14 ③ w10m 학습 시작 (23:20쯤 끝). balance.json: 쌓기 몫 46.8% → 15% (쌓기 일 211가지·프레임 10087/424448), 지시문 바꿔 쓰기 0.5. 학습 13185구간.
+  w9 일 3개 새 기준(2장면에서 멈춤)은 ④ 뒤 GPU 가 비면 이어서.
+- 19:00 ② 진행: vis_cache 2줄 (GPU 100%, 665/1647 → 20:15쯤 끝). run_world10m.sh 의 wf2c 안 'wait' 가 인자가 없어 vis_cache 까지 기다림 → 위치 입력이
+  첫 폴더 뒤로 밀림 (고장은 아님). 남은 9폴더는 piper-wf2c (scratchpad/wf2c_rest.sh) 로 미리 계산 — 파이프라인은 있는 파일을 건너뜀.
+  다음 파이프라인을 만들 때 wf2c 의 wait 를 그 셋의 PID 로 고칠 것 (run_world10.sh 도 같은 버릇). train_lora 가 balance.json (쌓기 몫) 을 모델 폴더에 남김.
+- 18:00 새 기준 w9 + 다 켬 일 2개 기본 0/20 (일별 8/40; 끼어드는 때 reach 7·grasp 3·carry 9·place 1, 실제로 끼어듦 13/20).
+  w9 일 3개 새 기준 평가는 2장면에서 PID 로 멈춤 (w10m 학습을 2시간 앞당기려고) — 나중에 이어서 재기 (끝난 장면은 건너뜀).
+- 17:10 새 기준 w9 혼자 많음 7/50 (다 켬 22, 다듬기만 15·혼자만 0). 1044·1048 은 혼자일 때 지시한 물체를 쥠 → 다듬기가 옆 물체로 끌고 감 (amb 대상).
+  piper-w10mamb (run_w10m_amb.sh): 파이프라인이 '끝' 을 찍으면 w10m + RA+amb 일 1개 세 설정 (outputs/world_w10mrabM_*). 일지 6절에 새 기준 표 (e9ed15a).
 - 16:20 쌓기 수집 2줄 끝 (기본 47/50·많음 44/50). 새 데이터 1429구간 중 쌓기 323. 새 기준 w9 혼자: 기본 9/50·흔든 10/50 (다 켬 27·24).
 - 15:50 다듬기 새 부품 "amb" (기본 꺼짐): 손 아래 두 물체가 1.5cm 안으로 비슷하면 쥐기 다듬기를 안 붙임. 근거: 새 기준 w9 기본·흔든에서 '지시한 것은 안 쥐고
   다른 것만 쥠' 이 다 켬 때만 5번 (혼자 0), 흔든 1014 는 혼자 성공·다 켬 실패 (다듬기가 옆 파란 정육면체에 붙음), 많음 1044·1048 도 다듬기가 처음 붙은 물체 = 잘못 쥔 물체.
