@@ -39,6 +39,7 @@ def main():
     args = sx.fill_defaults(sx.build_parser().parse_args(["--task-a", "0", "--policy", a.policy] + rest))
     args.task_a, args.task_b, args.strategy = 0, None, "none"
     r = sx.Runner(args)
+    WEv.pad_lang(r)
     WE.install()
     out = Path(a.out) / "episodes"
     out.mkdir(parents=True, exist_ok=True)
@@ -51,12 +52,16 @@ def main():
         rng = np.random.default_rng(seed)
         se._rng = np.random.default_rng(seed + 7)
         lo, hi = W.CFG["n_objects"]
-        sc = W.sample_scene(seed, n_objects=int(rng.integers(max(lo, K), max(hi, K) + 1)), n_pads=int(rng.integers(2, len(W.CFG["pad_colors"]) + 1)))
+        sc = W.sample_scene(seed, n_objects=int(rng.integers(max(lo, K), max(hi, K) + 1)), n_pads=W.pick_n_pads(rng, K))
         tasks = W.chain(sc, K, rng)
         movers = [t[0] for t in tasks]
         r.suite = W.Suite(sc, tasks[0][:2], tasks[0][2])
         r.chk_a = WE.Goal(*tasks[0][:2])
+        mv = W.sample_motion(seed, K)                  # 10/30 동작 변수: 끼어드는 때·지연·속도·잡음 (설정 motion)
+        if mv is not None and mv.get("latency") is not None:
+            r.args.latency_steps = mv["latency"]
         ep = sx.Episode(r, seed)
+        ep.motion = mv
         ep.inner.horizon = 100000
         ep.obs = W.place(ep.env, sc)
         ep.scene = sc
@@ -81,11 +86,9 @@ def main():
             for j in range(K - 1):
                 stage = str(j)
                 oj, dj, lj = tasks[j]
-                n = {"n": 0}
-
-                def trig(t, oj=oj):
-                    n["n"] = n["n"] + 1 if (ep.holding() and ep.finger_object() == oj) else 0
-                    return n["n"] >= a.switch_hold
+                spec = mv["switch"][j] if (mv is not None and j < len(mv["switch"])) else None
+                reach = spec is not None and spec[0] == "reach"
+                trig = WEv.make_trigger(ep, oj, dj, spec, a.switch_hold)
                 why, _ = ep.run_policy(lj, f"T{j}", a.max_a, success_fn=WE.Goal(oj, dj), trigger_fn=trig)
                 if why == "trigger":
                     continue
@@ -95,18 +98,14 @@ def main():
                     st["wrong_held"] += 1
                     skip = True
                     break
-                if j == 0:                                    # 처음 일은 기록 없이 시범 프로그램이 쥐어 옮기는 도중까지
-                    ok = held == oj or WE.grasp(ep, oj, dest=WE.target(ep, dj))
-                    if ok:
-                        WE.carry_toward(ep, WE.target(ep, dj))
+                if j == 0:                                    # 처음 일은 기록 없이 시범 프로그램이 그 때까지 (10/30: 끼어드는 때 변수)
+                    ok = WE.to_switch(ep, oj, dj, spec)
                 else:                                         # 앞 물체를 든 채 새 지시 — 이어받아 바로잡기 (기록)
                     rec.say(lj)
                     if held is not None and held != oj:
                         put_down(held)
-                    ok = (ep.holding() and ep.finger_object() == oj) or WE.grasp(ep, oj, dest=WE.target(ep, dj), record=rec)
-                    if ok:
-                        WE.carry_toward(ep, WE.target(ep, dj), record=rec)
-                if not (ok and ep.holding() and ep.finger_object() == oj):
+                    ok = WE.to_switch(ep, oj, dj, spec, record=rec)
+                if not (ok and (reach or ep.holding() and ep.finger_object() == oj)):
                     if j == 0:
                         skip = True                           # 처음 물체를 못 쥔 장면은 버림 (보려는 것은 넘긴 뒤)
                         break
@@ -157,7 +156,7 @@ def main():
                     continue
                 seg.save(out / f"K{seed}_t{T}_s{i}.npz", lang, source="world_dagger_deep",
                          scene=json.dumps({"seed": seed, "objects": sc.objects, "pads": sc.pads, "env_info": getattr(sc, "env_info", {}),
-                                           "depth": K, "vla_steps_last": T, "tasks": [t[2] for t in tasks]}), seg=i)
+                                           "depth": K, "vla_steps_last": T, "tasks": [t[2] for t in tasks], "motion": mv}), seg=i)
                 n_fr += len(seg)
             st["ok"] += 1
             st["frames"] += n_fr

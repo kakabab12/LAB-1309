@@ -49,9 +49,15 @@ def parse_instruction(text):
     en2p = {v["en"]: k for k, v in C["pad_colors"].items()}
     en2s = {v["en"]: k for k, v in C["shapes"].items()}
     t = text.lower().strip()
-    for kind, tpl in C["instruction"].items():
-        rx, names = _template_regex(tpl.lower(), groups)
-        m = rx.search(t)
+    for kind, tpls in C["instruction"].items():
+        if kind not in ("to_pad", "to_obj"):
+            continue
+        m = None
+        for tpl in (tpls if isinstance(tpls, list) else [tpls]):        # 10/30: 틀 여러 개 (설정)
+            rx, names = _template_regex(tpl.lower(), groups)
+            m = rx.search(t)
+            if m:
+                break
         if not m:
             continue
         g = dict(zip(names, m.groups()))

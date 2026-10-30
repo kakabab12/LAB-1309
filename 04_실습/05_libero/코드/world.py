@@ -351,6 +351,12 @@ def _ws_sample(rng, reach, rad, shrink):
         return np.array([r * np.cos(t), r * np.sin(t)])
 
 
+def pick_n_pads(rng, k=1):
+    """판 개수: 설정 n_pads 범위에서 뽑되 일 개수 k 이상·판 색 수 이하. 10/30 전 평가는 max(2, k) 로 고정돼 설정을 안 읽었다 (사용자 '판도 n개로')."""
+    lo, hi = CFG["n_pads"]
+    return min(int(rng.integers(max(lo, k), max(hi, k) + 1)), len(CFG["pad_colors"]))
+
+
 def sample_scene(seed, n_objects=None, n_pads=None, tries=4000):
     """설정의 개수 범위에서 물체·판을 뽑아 손이 닿는 범위 안에 겹치지 않게 놓는다. 같은 seed 면 같은 장면."""
     rng = np.random.default_rng(seed)
@@ -398,15 +404,107 @@ def describe(name):
     return f"{CFG['object_colors'][color]['en']} {CFG['shapes'][shape]['en']}"
 
 
-def instruction(obj, dst):
+def templates(kind):
+    """설정의 지시문 틀 목록 (kind = to_pad / to_obj). 첫 틀 = 예전 데이터의 틀."""
+    T = CFG["instruction"][kind]
+    return T if isinstance(T, list) else [T]
+
+
+def instruction(obj, dst, rng=None):
+    """지시문. rng 를 주고 동작 변수(motion)가 켜져 있으면 설정의 틀 중 하나를 뽑는다 (없으면 첫 틀)."""
     _, shape, color = parse(obj)
     kind, tshape, tcolor = parse(dst)
-    T = CFG["instruction"]
+    tp = templates("to_pad" if kind == "pad" else "to_obj")
+    tpl = tp[int(rng.integers(len(tp)))] if (rng is not None and motion() is not None) else tp[0]
     if kind == "pad":
-        return T["to_pad"].format(color=CFG["object_colors"][color]["en"], shape=CFG["shapes"][shape]["en"],
-                                  pcolor=CFG["pad_colors"][tcolor]["en"], pad=CFG["pad"]["en"])
-    return T["to_obj"].format(color=CFG["object_colors"][color]["en"], shape=CFG["shapes"][shape]["en"],
-                              tcolor=CFG["object_colors"][tcolor]["en"], tshape=CFG["shapes"][tshape]["en"])
+        return tpl.format(color=CFG["object_colors"][color]["en"], shape=CFG["shapes"][shape]["en"],
+                          pcolor=CFG["pad_colors"][tcolor]["en"], pad=CFG["pad"]["en"])
+    return tpl.format(color=CFG["object_colors"][color]["en"], shape=CFG["shapes"][shape]["en"],
+                      tcolor=CFG["object_colors"][tcolor]["en"], tshape=CFG["shapes"][tshape]["en"])
+
+
+def rephrase(text, rng):
+    """학습용: 첫 틀로 쓴 지시문을 설정의 다른 틀로 바꿔 쓴다 (못 읽으면 그대로)."""
+    import piper_sim.world_feat as WF
+    o, d = WF.parse_instruction(text)
+    if o is None or d is None:
+        return text
+    tp = templates("to_pad" if parse(inst(d))[0] == "pad" else "to_obj")
+    _, shape, color = parse(inst(o))
+    kind, tshape, tcolor = parse(inst(d))
+    tpl = tp[int(rng.integers(len(tp)))]
+    if kind == "pad":
+        return tpl.format(color=CFG["object_colors"][color]["en"], shape=CFG["shapes"][shape]["en"],
+                          pcolor=CFG["pad_colors"][tcolor]["en"], pad=CFG["pad"]["en"])
+    return tpl.format(color=CFG["object_colors"][color]["en"], shape=CFG["shapes"][shape]["en"],
+                      tcolor=CFG["object_colors"][tcolor]["en"], tshape=CFG["shapes"][tshape]["en"])
+
+
+def motion():
+    """설정의 동작 변수 (10/30 사용자 '동작을 여러 변수로'). 없거나 꺼져 있으면 None = 예전 고정값."""
+    import os
+    if os.environ.get("PIPER_MOTION") == "0":     # 예전 고정값으로 다시 재기 (10/30 전 숫자와 같은 장면)
+        return None
+    M = CFG.get("motion")
+    return M if M and M.get("enabled") else None
+
+
+SWITCH_KEY = {"reach": "reach_cm", "grasp": "grasp_steps", "carry": "carry_steps", "place": "place_cm"}
+
+
+def sample_motion(seed, k):
+    """장면 하나의 동작 변수: 끼어드는 때 k-1 개 [단계, 값], 지연(스텝)·속도 배율·제어 잡음. 같은 seed·k 면 같은 값.
+    꺼져 있으면 None (예전: 쥔 채 30스텝·지연은 명령줄·속도 1·잡음 0)."""
+    M = motion()
+    if M is None:
+        return None
+    rng = np.random.default_rng([int(seed), int(k), 3])
+    S = M.get("switch", {})
+    ph = S.get("phase_p", {"carry": 1.0})
+    names, p = list(ph), np.array(list(ph.values()), dtype=float)
+    sw = []
+    for _ in range(max(int(k) - 1, 0)):
+        n = names[int(rng.choice(len(names), p=p / p.sum()))]
+        lo, hi = S[SWITCH_KEY[n]]
+        sw.append([n, round(float(rng.uniform(lo, hi)), 1) if n in ("reach", "place") else int(rng.integers(lo, hi + 1))])
+    lat = M.get("latency_steps")
+    return {"switch": sw, "fallback": bool(S.get("fallback", True)),
+            "latency": int(rng.integers(lat[0], lat[1] + 1)) if lat else None,
+            "speed": round(float(rng.uniform(*M["speed"])), 3) if M.get("speed") else 1.0,
+            "noise": (lambda v: [float(v), float(v)] if np.isscalar(v) else [float(x) for x in v])(M.get("action_noise", 0.0)),
+            "noise_seed": int(rng.integers(1 << 30))}
+
+
+def vary_physics(env, sc):
+    """동작 변수의 물리: 물체마다 미끄럼 마찰·무게 배율, 손가락 패드 마찰 배율 (설정 motion). 바꾼 값을 돌려준다."""
+    M = motion()
+    if M is None or not any(M.get(k) for k in ("friction", "mass", "grip_friction")):
+        return {}
+    import mujoco
+    inner = env._env.env
+    m = inner.sim.model._model
+    rng = np.random.default_rng([int(sc.seed), 5])
+    info = {}
+    for name in sc.objects:
+        b = inner.obj_body_id[name]
+        f = float(rng.uniform(*M["friction"])) if M.get("friction") else 1.0
+        s = float(rng.uniform(*M["mass"])) if M.get("mass") else 1.0
+        kids = [j for j in range(m.nbody) if j == b or m.body_rootid[j] == m.body_rootid[b]]
+        for j in kids:
+            m.body_mass[j] *= s
+            m.body_inertia[j] *= s
+        for gi in range(m.ngeom):
+            if m.geom_bodyid[gi] in kids:
+                m.geom_friction[gi, 0] *= f
+        info[name] = [round(f, 2), round(s, 2)]
+    if M.get("grip_friction"):
+        gf = float(rng.uniform(*M["grip_friction"]))
+        for gi in range(m.ngeom):
+            if (mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_GEOM, gi) or "").endswith(("_pad_collision", "1_collision", "2_collision")) \
+                    and "finger" in (mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_GEOM, gi) or ""):
+                m.geom_friction[gi, 0] *= gf
+        info["grip"] = round(gf, 2)
+    return info
 
 
 def tasks_for(sc):
@@ -432,12 +530,17 @@ def chain(sc, k, rng, pads_first=True):
         cands = [p for p in free_pads if p not in used_dst]
         stack = [t for t in sc.objects if t not in movers and t not in used_dst
                  and CFG["shapes"][parse(t)[1]].get("stack_on")]
-        pool = cands if (cands and (pads_first or not stack)) else (stack or cands)
+        M = motion()
+        if M is not None and M.get("task_p"):      # 10/30 동작 변수: 일 종류 비율 (받침이 없으면 판, 판이 없으면 받침)
+            want_obj = bool(stack) and rng.random() < M["task_p"].get("to_obj", 0.0) / max(sum(M["task_p"].values()), 1e-9)
+            pool = (stack if want_obj else cands) or cands or stack
+        else:
+            pool = cands if (cands and (pads_first or not stack)) else (stack or cands)
         if not pool:
             continue
         d = pool[rng.integers(len(pool))]
         used_dst.add(d)
-        out.append((o, d, instruction(o, d)))
+        out.append((o, d, instruction(o, d, rng)))
     return out
 
 
@@ -523,6 +626,9 @@ def place(env, sc, settle=20):
     global CAMERA_CALIB
     CAMERA_CALIB = None
     sc.env_info = randomize(env, np.random.default_rng(sc.seed + 104729))
+    ph = vary_physics(env, sc)                    # 10/30 동작 변수: 마찰·무게 (설정 motion)
+    if ph:
+        sc.env_info["physics"] = ph
     for name in sc.names:
         o = inner.objects_dict[name]
         x, y, yaw = sc.pose[name]

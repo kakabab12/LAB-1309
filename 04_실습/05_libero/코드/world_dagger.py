@@ -44,7 +44,7 @@ def main():
         rng = np.random.default_rng(seed)
         se._rng = np.random.default_rng(seed + 7)
         lo, hi = W.CFG["n_objects"]
-        sc = W.sample_scene(seed, n_objects=int(rng.integers(lo, hi + 1)), n_pads=int(rng.integers(2, len(W.CFG["pad_colors"]) + 1)))
+        sc = W.sample_scene(seed, n_objects=int(rng.integers(lo, hi + 1)), n_pads=W.pick_n_pads(rng, 1))
         tasks = W.chain(sc, 1, rng)
         o, d, lang = tasks[0]
         r.suite = W.Suite(sc, (o, d), lang)

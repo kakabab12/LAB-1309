@@ -86,6 +86,8 @@ def parse_args():
                    help="동작 정규화 통계(평균·표준편차)를 학습 데이터에서 다시 잰다. 원래 값은 LIBERO 사람 시범 기준이라 "
                         "선생 데이터에서는 위치 동작이 0.6배로 작고 손목 회전이 2배(최대 12.8배)로 커서, 학습이 위치 정밀도를 덜 본다")
     p.add_argument("--vis-cache", default=None, help="vis_cache.py 로 미리 계산한 사진 특징 폴더 (학습 약 3배 빠름, 증강 없음)")
+    p.add_argument("--instr-aug", type=float, default=0.0,
+                   help="10/30 동작 변수: 학습 표본의 지시문을 이 비율로 설정(PIPER_WORLD)의 다른 틀로 바꿔 쓴다 (world.rephrase). 0 = 그대로")
     p.add_argument("--frame-stride", type=int, default=1,
                    help="학습 시작 프레임을 N 개마다 하나만 쓴다 (이웃 프레임은 거의 같다). 안 쓰는 사진은 메모리에서 지워 "
                         "메모리를 약 1/N 로 줄인다 (31GB PC 에서 데이터가 늘어 필요, 10/2)")
@@ -119,9 +121,10 @@ def parse_args():
         for k, v in _json.loads(ov.read_text()).get(a.out, {}).items():
             print(f"설정 덮어쓰기 ({ov}): {k} {getattr(a, k, None)} → {v}", flush=True)
             setattr(a, k, v)
-    global FEAT, SUBTASK
+    global FEAT, SUBTASK, INSTR_AUG
     FEAT = a.feat
     SUBTASK = getattr(a, "subtask", None) or False
+    INSTR_AUG = float(getattr(a, "instr_aug", 0.0) or 0.0)
     return a
 
 
@@ -163,6 +166,41 @@ def augment(img, rng):
 
 
 SUBTASK = False       # 10/17: --subtask 이면 지시문 대신 프레임마다 단계 지시 (subtask.py)
+INSTR_AUG = 0.0       # 10/30: --instr-aug 비율로 지시문 틀 바꿔 쓰기 (학습 표본만)
+_PARSED = {}
+
+
+def canon(text):
+    """균형 맞춤용: 지시문 → 첫 틀로 쓴 같은 일 (10/30 틀이 여러 개 — 글자로 세면 새 틀 지시문이 저마다 다른 일로 세어져 몇 배로 뽑힌다)."""
+    import piper_sim.world as W
+    import piper_sim.world_feat as WF
+    key = ("canon", text)
+    if key not in _PARSED:
+        o, d = WF.parse_instruction(text)
+        _PARSED[key] = W.instruction(W.inst(o), W.inst(d)) if (o is not None and d is not None) else text
+    return _PARSED[key]
+
+
+def rephrase(text, rng):
+    """설정의 다른 지시문 틀로 (world.rephrase). 같은 글은 한 번만 읽는다."""
+    import piper_sim.world as W
+    import piper_sim.world_feat as WF
+    if text not in _PARSED:
+        o, d = WF.parse_instruction(text)
+        _PARSED[text] = (W.inst(o), W.inst(d)) if (o is not None and d is not None) else None
+    od = _PARSED[text]
+    if od is None:
+        return text
+    tp = W.templates("to_pad" if W.parse(od[1])[0] == "pad" else "to_obj")
+    _, shape, color = W.parse(od[0])
+    kind, tshape, tcolor = W.parse(od[1])
+    C = W.CFG
+    tpl = tp[int(rng.integers(len(tp)))]
+    if kind == "pad":
+        return tpl.format(color=C["object_colors"][color]["en"], shape=C["shapes"][shape]["en"],
+                          pcolor=C["pad_colors"][tcolor]["en"], pad=C["pad"]["en"])
+    return tpl.format(color=C["object_colors"][color]["en"], shape=C["shapes"][shape]["en"],
+                      tcolor=C["object_colors"][tcolor]["en"], tshape=C["shapes"][tshape]["en"])
 FEAT = "objfeat"      # 10/15: --feat relfeat 이면 손 기준 물체 위치 (relfeat.py)
 
 
@@ -175,11 +213,19 @@ def vis_offset(f, stride):
 class ChunkDataset(Dataset):
     """(에피소드, 시점) → 이미지 2장 + 로봇 상태 + 앞으로 chunk_size 스텝의 동작."""
 
+    def _task(self, ep, t):
+        if "sub" in ep:
+            return str(ep["sub"][t])
+        if self.instr_aug and INSTR_AUG > 0 and np.random.random() < INSTR_AUG:
+            return rephrase(ep["task"], np.random.default_rng())
+        return ep["task"]
+
     def __init__(self, files, chunk_size, aug=False, vis_cache=None, frame_stride=1, abs_pos=False, objfeat=False):
         if vis_cache and (Path(vis_cache) / "stride.txt").exists():
             cs = int((Path(vis_cache) / "stride.txt").read_text())
             assert frame_stride % cs == 0, f"사진 특징을 {cs}장마다 계산해 두었는데 --frame-stride {frame_stride} — 빈 특징을 읽게 된다"
         self.aug = aug
+        self.instr_aug = False          # 학습 표본만 켠다 (main)
         self.objfeat = objfeat
         self.chunk = chunk_size
         self.vis_cache = vis_cache
@@ -231,7 +277,7 @@ class ChunkDataset(Dataset):
             dummy = np.zeros((8, 8, 3), dtype=np.uint8)
             item = {"img": dummy, "wrist": dummy, "feats": feats,
                     "eef_pos": ep["eef_pos"][t], "eef_quat": ep["eef_quat"][t], "grip": ep["grip"][t],
-                    "action": actions.astype(np.float32), "is_pad": is_pad, "task": (str(ep["sub"][t]) if "sub" in ep else ep["task"])}
+                    "action": actions.astype(np.float32), "is_pad": is_pad, "task": self._task(ep, t)}
             if self.objfeat:        # 10/14: 미리 계산본을 쓸 때도 물체 위치 24개를 붙인다 (빠져서 상태 8칸으로 들어가 멈췄다)
                 item["objfeat"] = ep["objfeat"][t]
             return item
@@ -243,7 +289,7 @@ class ChunkDataset(Dataset):
             "img": img,
             "wrist": wrist,
             "eef_pos": ep["eef_pos"][t], "eef_quat": ep["eef_quat"][t], "grip": ep["grip"][t],
-            "action": actions.astype(np.float32), "is_pad": is_pad, "task": (str(ep["sub"][t]) if "sub" in ep else ep["task"]),
+            "action": actions.astype(np.float32), "is_pad": is_pad, "task": self._task(ep, t),
         }
         if self.objfeat:
             item["objfeat"] = ep["objfeat"][t]
@@ -464,6 +510,7 @@ class Trainer:
         of = getattr(a, "objfeat", False)
         train_ds = ChunkDataset(train_files, chunk, aug=a.aug and not vcache, vis_cache=vcache, frame_stride=fs, abs_pos=ab, objfeat=of)
         val_ds = ChunkDataset(val_files, chunk, vis_cache=vcache, frame_stride=fs, abs_pos=ab, objfeat=of)
+        train_ds.instr_aug = INSTR_AUG > 0
         if of:
             self.setup_objfeat(train_ds)
         print(f"에피소드 학습 {len(train_files)} / 검증 {len(val_files)}, "
@@ -475,7 +522,7 @@ class Trainer:
         if a.balance:
             from collections import Counter
             from torch.utils.data import WeightedRandomSampler
-            tasks = [train_ds.eps[e]["task"] for e, _ in train_ds.index]
+            tasks = [canon(train_ds.eps[e]["task"]) for e, _ in train_ds.index]
             cnt = Counter(tasks)
             print("태스크별 프레임:", dict(cnt), flush=True)
             weights = torch.tensor([1.0 / cnt[x] for x in tasks], dtype=torch.double)

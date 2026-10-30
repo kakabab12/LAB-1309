@@ -26,6 +26,7 @@ def main():
     p.add_argument("--k", type=int, default=1)
     p.add_argument("--nested", action="store_true")
     p.add_argument("--n-objects", type=int, default=None)
+    p.add_argument("--n-pads", type=int, default=None, help="world_eval 과 같게 (안 주면 설정 범위)")
     p.add_argument("--switch-hold", type=int, default=30)
     p.add_argument("--release-wait", type=int, default=40)
     p.add_argument("--max-steps", type=int, default=600)
@@ -48,7 +49,7 @@ def main():
     rng = np.random.default_rng(a.seed * 31 + a.k)
     lo, hi = W.CFG["n_objects"]
     n = a.n_objects or int(rng.integers(max(lo, a.k), max(hi, a.k) + 1))
-    sc = W.sample_scene(a.seed, n_objects=n, n_pads=min(len(W.CFG["pad_colors"]), max(2, a.k)))
+    sc = W.sample_scene(a.seed, n_objects=n, n_pads=a.n_pads or W.pick_n_pads(rng, a.k))
     tasks = W.chain(sc, a.k, rng)
     ko = {t[2]: f"{WC.ko(t[0])}{WC.kc.josa(WC.ko(t[0]), '을', '를')} {WC.ko(t[1])}{'' if W.parse(t[1])[0] == 'pad' else ' 위'}에" for t in tasks}
     out = Path("outputs/media") / f"{a.name}.mp4"

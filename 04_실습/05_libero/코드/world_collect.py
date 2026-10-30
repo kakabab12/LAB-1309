@@ -71,8 +71,10 @@ def main():
         tasks = W.chain(sc, k, rng)
         rec = SegRec()
         ep = WE.make_episode(sc, seed, tasks)
+        mv = W.sample_motion(seed, k)                 # 10/30 동작 변수 (설정 motion): 끼어드는 때·속도·잡음
+        ep.motion = mv
         try:
-            ok, each = WE.run_chain(ep, tasks, nested=nested, record=rec, say=rec.say)
+            ok, each = WE.run_chain(ep, tasks, nested=nested, record=rec, say=rec.say, switch=mv["switch"] if mv else None)
         except Exception as e:
             ok, each = False, []
             print(f"  예외 {seed}: {type(e).__name__}: {e}"[:200], flush=True)
@@ -87,7 +89,7 @@ def main():
                     continue
                 r.save(out / f"W{seed}_k{k}{'n' if nested else 's'}_s{j}.npz", lang, source="world_expert",
                        scene=json.dumps({"seed": seed, "objects": sc.objects, "pads": sc.pads,
-                                         "env_info": getattr(sc, "env_info", {})}), seg=j)
+                                         "env_info": getattr(sc, "env_info", {}), "motion": mv}), seg=j)
                 st["segs"] += 1
                 st["frames"] += len(r)
         print(f"{seed} k={k} {'겹침' if nested else '차례'} 물체 {len(sc.objects)} 판 {len(sc.pads)}: {'성공' if ok else '실패'} "

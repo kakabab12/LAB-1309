@@ -28,6 +28,7 @@ import ttrtc
 _CONST = {}
 _GRAPHS = {}
 MAX_GRAPHS = 3          # 녹화해 두는 그래프 수 (보통 앞부분 길이 0 과 지연 길이 둘이면 충분)
+EVICT = True            # 10/30: 장면마다 지연이 다르면(동작 변수 6~12) 길이가 여러 가지 — 넘치면 가장 오래 안 쓴 것을 지우고 새로 녹화
 STATE = {"installed": False, "pool": None, "orig_sample": None}
 
 
@@ -202,6 +203,12 @@ def sample_actions(self, images, img_masks, lang_tokens, lang_masks, state, nois
     key = (id(self), d, num_steps, tuple(tuple(t.shape) for t in images), tuple(lang_tokens.shape),
            tuple(state.shape), tuple(noise.shape))
     g = _GRAPHS.get(key)
+    if g is not None:
+        _GRAPHS[key] = _GRAPHS.pop(key)            # 최근에 쓴 것을 뒤로 (지울 때 앞에서부터)
+    if g is None and EVICT and len(_GRAPHS) >= MAX_GRAPHS:
+        old = _GRAPHS.pop(next(iter(_GRAPHS)))
+        del old
+        torch.cuda.synchronize()
     if g is None:
         if len(_GRAPHS) >= MAX_GRAPHS:
             # 10/16: 드문 앞부분 길이마다 그래프를 새로 녹화하면 메모리가 쌓인다 (교정 시범 하나가 3.9GB 까지 커져

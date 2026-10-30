@@ -44,7 +44,7 @@ def main():
         for i, seed in enumerate(rng_list(a.seeds)):
             rng = np.random.default_rng(seed * 31 + k)
             n = a.n_objects or max(k, int(rng.integers(*W.CFG["n_objects"]) + 1))
-            sc = W.sample_scene(seed, n_objects=n, n_pads=min(len(W.CFG["pad_colors"]), max(2, k)))
+            sc = W.sample_scene(seed, n_objects=n, n_pads=W.pick_n_pads(rng, k))
             tasks = W.chain(sc, k, rng)
             args = sx.fill_defaults(sx.default_args())
             args.video = bool(a.video and i == 0 and k == a.k[-1])

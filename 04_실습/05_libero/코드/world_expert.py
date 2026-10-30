@@ -256,10 +256,60 @@ def carry_toward(ep, P, steps=30, record=None):
     se.servo(ep, tgt, M, 1.0, max_steps=steps, tol=0.02, record=record)
 
 
-def run_chain(ep, tasks, nested=True, record=None, log=None, say=None):
+def approach_until(ep, obj, cm, record=None):
+    """쥐러 가다가 손이 obj 위로 옆 cm 안에 오면 멈춘다 (끼어들기 '다가가는 중'). 높이는 지금·안전 높이 중 높은 쪽."""
+    p, h = ep.obj_pos(obj), sx.eef_pos(ep.obs)
+    M = ep.obs["robot_state"]["eef"]["mat"].copy()
+    tgt = np.array([p[0], p[1], max(h[2], z_safe(ep, obj) + 0.03)])
+    se.servo(ep, tgt, M, -1.0, max_steps=150, tol=max(cm / 100, 0.015), record=record)
+
+
+def carry_for(ep, P, steps, keep=0.08, record=None):
+    """쥔 채 놓을 곳 P 쪽으로 steps 스텝 (P 앞 keep m 에서 멈춤) — 끼어들기 '옮기는 중' (예전 carry_toward = 35%·30스텝)."""
+    h = sx.eef_pos(ep.obs)
+    M = ep.obs["robot_state"]["eef"]["mat"].copy()
+    v = np.array([P[0], P[1], h[2]]) - h
+    dist = float(np.linalg.norm(v))
+    tgt = h + v * max(0.0, (dist - keep) / dist) if dist > 1e-6 else h
+    tgt[2] = max(tgt[2], h[2])
+    se.servo(ep, tgt, M, 1.0, max_steps=int(steps), tol=0.01, record=record)
+
+
+def carry_until(ep, obj, P, cm, record=None):
+    """든 obj 가 놓을 곳 P 에서 옆 cm 안에 올 때까지 옮긴다 — 끼어들기 '놓기 직전'."""
+    h = sx.eef_pos(ep.obs)
+    off = h[:2] - ep.obj_pos(obj)[:2]
+    M = ep.obs["robot_state"]["eef"]["mat"].copy()
+    tgt = np.array([P[0] + off[0], P[1] + off[1], max(h[2], z_safe(ep, obj))])
+    se.servo(ep, tgt, M, 1.0, max_steps=200, tol=max(cm / 100, 0.015), record=record)
+
+
+def to_switch(ep, obj, dst, spec=None, record=None):
+    """끼어들기 바로 전까지 (10/30 동작 변수 [단계, 값], world.sample_motion. None = 예전: 쥐고 판 쪽으로 조금).
+    reach: 쥐러 가다가 손이 obj 위 옆 값 cm 안 / grasp: 쥐고 들자마자 / carry: 쥔 채 값 스텝 옮김 / place: 든 obj 가 놓을 곳 값 cm 안.
+    돌려줌: 그 때에 닿았는가 (reach 는 안 쥔 채, 나머지는 obj 를 쥔 채)."""
+    P = target(ep, dst)
+    ph, v = spec if spec is not None else ("old", None)
+    if ph == "reach":
+        if not (ep.holding() and ep.finger_object() == obj):
+            approach_until(ep, obj, v, record=record)
+        return True
+    if not (ep.holding() and ep.finger_object() == obj) and not grasp(ep, obj, dest=P, record=record):
+        return False
+    if ph == "old":
+        carry_toward(ep, P, record=record)
+    elif ph == "carry":
+        carry_for(ep, P, v, record=record)
+    elif ph == "place":
+        carry_until(ep, obj, P, v, record=record)
+    return bool(ep.holding() and ep.finger_object() == obj)
+
+
+def run_chain(ep, tasks, nested=True, record=None, log=None, say=None, switch=None):
     """tasks = [(물체, 놓을 곳, 지시문), …]. nested=True 면 i 번째 일을 들고 가는 도중 i+1 번째가 끼어든다 (깊이 = len-1).
     nested=False 면 차례로. say(지시문): 지금 로봇이 따르는 지시가 바뀔 때마다 (학습 데이터를 지시문별 구간으로 나눔).
     끼어든 순간부터 A 를 내려놓는 것까지는 새 지시(B) 구간이고, B 가 끝나 A 를 다시 집는 것부터는 다시 A 구간이다.
+    switch: 끼어드는 때 [[단계, 값], …] (10/30 동작 변수, to_switch). None 이면 예전 (쥐고 판 쪽으로 조금 옮긴 뒤).
     돌려줌: 끝났을 때 모든 일이 되어 있는가, 일별 결과"""
     log = log if log is not None else []
     say = say or (lambda lang: None)
@@ -268,25 +318,31 @@ def run_chain(ep, tasks, nested=True, record=None, log=None, say=None):
         o, d, lang = tasks[i]
         say(lang)
         P = target(ep, d)
-        if not grasp(ep, o, dest=P, record=record):
-            log.append((i, "못 쥠", str(o), why(ep, o)))
-            return False
         if nested and i + 1 < len(tasks):
-            carry_toward(ep, P, record=record)
-            spot = free_spot(ep, o, avoid=[(target(ep, t[1])[:2], W.footprint(t[1])) for t in tasks],
-                             near=sx.eef_pos(ep.obs))
-            if spot is None:
-                log.append((i, "빈 자리 없음"))
+            spec = switch[i] if (switch and i < len(switch)) else None
+            if not to_switch(ep, o, d, spec, record=record):
+                log.append((i, "못 쥠", str(o), why(ep, o)))
                 return False
             say(tasks[i + 1][2])                       # 끼어들기: 여기부터 새 지시 (A 내려놓기 포함)
-            place(ep, o, spot, record=record)
-            log.append((i, "내려놓음", why(ep, o)))
+            if ep.holding() and ep.finger_object() == o:
+                spot = free_spot(ep, o, avoid=[(target(ep, t[1])[:2], W.footprint(t[1])) for t in tasks],
+                                 near=sx.eef_pos(ep.obs))
+                if spot is None:
+                    log.append((i, "빈 자리 없음"))
+                    return False
+                place(ep, o, spot, record=record)
+                log.append((i, "내려놓음", why(ep, o)))
+            else:
+                log.append((i, "다가가다 끼어듦"))
             do(i + 1)                                   # 끼어든 일 (그 안에서 또 끼어들 수 있음)
             say(lang)                                   # 돌아오기
             P = target(ep, d)
             if not grasp(ep, o, dest=P, record=record):
                 log.append((i, "다시 못 쥠", str(o), why(ep, o)))
                 return False
+        elif not grasp(ep, o, dest=P, record=record):
+            log.append((i, "못 쥠", str(o), why(ep, o)))
+            return False
         place(ep, o, target(ep, d), record=record)
         log.append((i, "놓음"))
         return True

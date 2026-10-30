@@ -724,7 +724,16 @@ class Episode:
         # 그래야 "스크립트로 만든 좋은 동작"을 정책에 증류할 수 있다.
         if self.record is not None:
             self.record(self.obs, action, phase)
-        raw, _, _, _ = self.env._env.step(np.asarray(action, dtype=np.float64))
+        sent = np.asarray(action, dtype=np.float64)
+        mv = getattr(self, "motion", None)
+        if mv is not None and (mv.get("speed", 1.0) != 1.0 or max(mv.get("noise", [0.0, 0.0])) > 0):
+            # 10/30 동작 변수 (world.sample_motion): 명령 대비 실제 움직임 배율·제어 잡음. 기록은 명령 그대로 (실물: 로봇마다 응답이 다르다)
+            if getattr(self, "_mrng", None) is None:
+                self._mrng = np.random.default_rng(mv.get("noise_seed", 0))
+            sent = sent.copy()
+            sig = np.repeat(np.asarray(mv.get("noise", [0.0, 0.0]), dtype=np.float64), 3)       # [위치 ×3, 회전 ×3]
+            sent[:6] = np.clip(sent[:6] * mv.get("speed", 1.0) + self._mrng.normal(0.0, 1.0, 6) * sig, -1, 1)
+        raw, _, _, _ = self.env._env.step(sent)
         self.obs = self.env._format_raw_obs(raw)
         self.acts.append(np.asarray(action, dtype=np.float32))
         closed = gripper_closed(self.obs)

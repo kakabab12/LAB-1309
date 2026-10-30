@@ -66,6 +66,8 @@ class Track:
         self.held, self.dmin, self.other = 0, 9.0, {}
         self.was, self.rel = False, []              # 10/27: 그 물체를 놓은 자리 (손 xy) — 놓기 실패가 판 고르기인지 마지막 몇 cm 인지
         self.tilt_max = 0.0                         # 10/29: 쥐지 않은 동안 그 물체가 가장 많이 기운 각도 (넘어뜨림 — DAgger 6차 이어받기 실패 대부분)
+        self.ev, self._ev = [], {"near": False, "lift": False, "arrive": False, "z0": None}   # 10/30: 동작 단계 사건 [이름, 스텝]
+        self.t0 = 0
 
     def __call__(self, env):
         inner = env._env.env
@@ -79,6 +81,27 @@ class Track:
         if d < self.dmin and self.obj in mem and self.held == 0:       # 쥐기 전만 (든 뒤에는 물체가 손과 같이 움직인다)
             self.ferr["obj"] = round(100 * float(np.linalg.norm(mem[self.obj] - po[:2])), 1)
         self.dmin = min(self.dmin, d)
+        t_now, S = len(self.ep.acts), self._ev
+        held_me = self.ep.holding() and self.ep.finger_object() == self.obj
+        if S["z0"] is None:
+            S["z0"] = float(po[2])
+        if not held_me and not S["near"] and d < 0.03:
+            S["near"] = True
+            self.ev.append(["near", t_now])                 # 손이 물체 위 3cm 안 (다가가기 끝)
+        if held_me and not self.was:
+            self.ev.append(["held", t_now])                 # 쥠 (내려가기·오므리기 끝)
+            S["lift"] = S["arrive"] = False
+        if held_me and not S["lift"] and float(po[2]) > S["z0"] + 0.03:
+            S["lift"] = True
+            self.ev.append(["lift", t_now])                 # 3cm 들림 (들기 끝)
+        if held_me and not S["arrive"] and self.dest is not None:
+            pdx = inner.sim.data.body_xpos[inner.obj_body_id[self.dest]][:2]
+            if float(np.linalg.norm(po[:2] - pdx)) < 0.03:
+                S["arrive"] = True
+                self.ev.append(["arrive", t_now])           # 든 물체가 놓을 곳 3cm 안 (옮기기 끝)
+        if self.was and not held_me:
+            self.ev.append(["release", t_now])              # 놓음 (내려놓기·펴기 끝)
+            S["near"], S["z0"] = False, float(po[2])
         if self.dest in mem:
             self._pe = round(100 * float(np.linalg.norm(mem[self.dest] - inner.sim.data.body_xpos[inner.obj_body_id[self.dest]][:2])), 1)
         if self.ep.holding():
@@ -96,10 +119,45 @@ class Track:
         return self.goal(env)
 
 
+def pad_lang(r):
+    """동작 변수(지시문 틀 여러 개)가 켜져 있으면 지시문을 토크나이저 최대 길이로 채운다 — CUDA 그래프가 지시문 길이마다
+    따로 녹화되지 않게 (채운 토큰은 주의 마스크로 가려진다, 단계 지시 모델과 같은 방법)."""
+    if W.motion() is None:
+        return
+    for st in getattr(r, "pre", None).steps if hasattr(getattr(r, "pre", None), "steps") else []:
+        if hasattr(st, "padding") and hasattr(st, "max_length"):
+            st.padding = "max_length"
+
+
+def make_trigger(ep, o, d, spec, hold=30):
+    """다음 지시가 오는 때 (10/30 동작 변수, world.sample_motion 의 [단계, 값]). spec 이 None 이면 예전: o 를 쥔 채 hold 스텝.
+    reach: 아직 안 쥐고 손이 o 에서 옆으로 값 cm 안 (그 전에 쥐면 바로) / grasp·carry: o 를 쥔 채 값 스텝 / place: 든 o 가 d 에서 옆으로 값 cm 안."""
+    ph, v = spec if spec is not None else ("carry", hold)
+    n = {"n": 0}
+    inner = ep.env._env.env
+
+    def xy(name):
+        return np.asarray(inner.sim.data.body_xpos[inner.obj_body_id[name]][:2], dtype=np.float64)
+
+    def trig(t):
+        held = ep.holding() and ep.finger_object() == o
+        if ph == "reach":
+            return held or float(np.linalg.norm(np.asarray(ep.obs["robot_state"]["eef"]["pos"])[:2] - xy(o))) < v / 100
+        if ph == "place":
+            return held and float(np.linalg.norm(xy(o) - xy(d))) < v / 100
+        n["n"] = n["n"] + 1 if held else 0
+        return n["n"] >= v
+    return trig
+
+
 def run_episode(r, sc, tasks, a, ep_idx):
     r.suite = W.Suite(sc, tasks[0][:2], tasks[0][2])
     r.chk_a = WE.Goal(*tasks[0][:2])
+    mv = W.sample_motion(ep_idx, len(tasks))         # 10/30 동작 변수 (설정 motion, 꺼져 있으면 None)
+    if mv is not None and mv.get("latency") is not None:
+        r.args.latency_steps = mv["latency"]
     ep = sx.Episode(r, ep_idx)
+    ep.motion = mv
     ep.inner.horizon = 100000
     ep.obs = W.place(ep.env, sc)
     ep.scene = sc
@@ -111,13 +169,12 @@ def run_episode(r, sc, tasks, a, ep_idx):
         goal = WE.Goal(o, d)
         goal.loose = Loose(o, d)
         tr = Track(ep, goal, o, d)
-        held = {"n": 0}
+        tr.t0 = len(ep.acts)
+        swi = mv["switch"][i] if (mv is not None and i < len(mv["switch"])) else None
+        trig0 = make_trigger(ep, o, d, swi, a.switch_hold)
 
         def trig(t):
-            if not (a.nested and i + 1 < len(tasks)):
-                return False
-            held["n"] = held["n"] + 1 if (ep.holding() and ep.finger_object() == o) else 0
-            return held["n"] >= a.switch_hold
+            return bool(a.nested and i + 1 < len(tasks)) and trig0(t)
         why, n = ep.run_policy(lang, f"T{i}", a.max_steps, success_fn=tr, trigger_fn=trig)
         if why == "trigger":
             res[i]["switched"] = True
@@ -129,7 +186,10 @@ def run_episode(r, sc, tasks, a, ep_idx):
             for _ in range(a.release_wait):
                 if not ep.holding():
                     break
-                ep.step(ep.policy_action(lang), f"T{i}")
+                act = ep.policy_action(lang)
+                if a.release_refine and getattr(r, "assist", None) is not None:      # 10/30: 다듬기도 시스템의 일부 — 예전에는 여기서 빠져
+                    act = r.assist(ep, act, lang)                                     # 판에 닿아 성공한 뒤 VLA 혼자 물체를 다시 들었다 (기본 1024·1039)
+                ep.step(act, f"T{i}")
         res[i]["loose"] = bool(ep.loose_hit.get(f"T{i}") or ep.loose_hit.get(f"R{i}") or goal.loose(ep.env))
         inner = ep.env._env.env
         po, pd = (inner.sim.data.body_xpos[inner.obj_body_id[x]] for x in (o, d))
@@ -139,7 +199,10 @@ def run_episode(r, sc, tasks, a, ep_idx):
         pads = {p: inner.sim.data.body_xpos[inner.obj_body_id[p]][:2] for p in sc.pads}
         near = lambda xy: min(((p, float(np.linalg.norm(np.asarray(xy) - q))) for p, q in pads.items()), key=lambda t: t[1])  # noqa: E731
         res[i].update(dest_xy=[round(float(v), 3) for v in pd[:2]], obj_xy=[round(float(v), 3) for v in po[:2]], end_pad=near(po[:2])[0], end_pad_cm=round(100 * near(po[:2])[1], 1), release=tr.rel[:5], feat_err_cm={**tr.ferr, "dest_end": getattr(tr, "_pe", None)},
-                      release_pad=[(lambda t: [t[0], round(100 * t[1], 1)])(near(x)) for x in tr.rel[:5]])
+                      release_pad=[(lambda t: [t[0], round(100 * t[1], 1)])(near(x)) for x in tr.rel[:5]],
+                      start_step=tr.t0, events=tr.ev[:40], switch=swi)
+        if a.nested and not res[i]["switched"] and i + 1 < len(tasks) and mv is not None and mv.get("fallback"):
+            run(i + 1)          # 끼어들 때가 오지 않았다 (빨리 놓음·못 쥠) → 이 일이 끝난 뒤 다음 지시 (10/30 동작 변수)
 
     if a.nested:
         run(0)
@@ -158,7 +221,8 @@ def run_episode(r, sc, tasks, a, ep_idx):
         extra = {"assist_steps": A.n_steps, "assist_changed": A.n_changed,
                  "first_intent": getattr(A, "first_intent", None), "first_dest": getattr(A, "first_dest", None),
                  "assist_stat": {k: v for k, v in getattr(A, "stat", {}).items() if v}}
-    return {"seed": ep_idx, "k": len(tasks), "nested": a.nested, "n_objects": len(sc.objects), "n_pads": len(sc.pads),
+    return {"seed": ep_idx, "k": len(tasks), "nested": a.nested, "n_objects": len(sc.objects), "n_pads": len(sc.pads), "motion": mv,
+            "latency_steps": r.args.latency_steps, "release_refine": bool(a.release_refine),
             "tasks": res, "all_ok": all(final), "all_loose": all(final_loose), "final": final, "final_loose": final_loose,
             "steps": steps, "env_info": getattr(sc, "env_info", {}), **extra}
 
@@ -170,8 +234,11 @@ def main():
     p.add_argument("--k", type=int, default=1)
     p.add_argument("--nested", action="store_true")
     p.add_argument("--n-objects", type=int, default=None)
+    p.add_argument("--n-pads", type=int, default=None, help="판 개수 (안 주면 설정 n_pads 범위, 일 개수 이상). 10/30 전 평가 = 판 2개 (일 3개는 3개)")
     p.add_argument("--switch-hold", type=int, default=30, help="쥔 채 몇 스텝 뒤 다음 지시 (새 기준 grasp:30)")
     p.add_argument("--release-wait", type=int, default=40)
+    p.add_argument("--no-release-refine", dest="release_refine", action="store_false",
+                   help="놓은 뒤 기다리는 동안 다듬기를 빼기 (10/30 전 평가와 같게)")
     p.add_argument("--max-steps", type=int, default=600)
     p.add_argument("--out", required=True)
     p.add_argument("--refine", default=None, help="grasp,place: VLA 의도를 따라 마지막 몇 cm 만 다듬기 (world_refine, 지시문 안 읽음)")
@@ -180,6 +247,7 @@ def main():
     args = sx.fill_defaults(sx.build_parser().parse_args(["--task-a", "0", "--policy", a.policy] + rest))
     args.task_a, args.task_b, args.strategy = 0, None, "none"
     r = sx.Runner(args)
+    pad_lang(r)
     if r.assist is not None:                 # 보조를 켰으면 여러 모양·N개 장면용으로 (같은 켜기 옵션)
         import piper_sim.world_assist as WA
         r.assist = WA.from_args(args)
@@ -196,7 +264,7 @@ def main():
         rng = np.random.default_rng(seed * 31 + a.k)
         lo, hi = W.CFG["n_objects"]
         n = a.n_objects or int(rng.integers(max(lo, a.k), max(hi, a.k) + 1))
-        sc = W.sample_scene(seed, n_objects=n, n_pads=min(len(W.CFG["pad_colors"]), max(2, a.k)))
+        sc = W.sample_scene(seed, n_objects=n, n_pads=a.n_pads or W.pick_n_pads(rng, a.k))
         tasks = W.chain(sc, a.k, rng)
         t0 = time.time()
         d = run_episode(r, sc, tasks, a, seed)

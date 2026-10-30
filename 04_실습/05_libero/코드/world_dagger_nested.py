@@ -35,6 +35,7 @@ def main():
     args = sx.fill_defaults(sx.build_parser().parse_args(["--task-a", "0", "--policy", a.policy] + rest))
     args.task_a, args.task_b, args.strategy = 0, None, "none"
     r = sx.Runner(args)
+    WEv.pad_lang(r)
     WE.install()
     out = Path(a.out) / "episodes"
     out.mkdir(parents=True, exist_ok=True)
@@ -46,35 +47,34 @@ def main():
         rng = np.random.default_rng(seed)
         se._rng = np.random.default_rng(seed + 7)
         lo, hi = W.CFG["n_objects"]
-        sc = W.sample_scene(seed, n_objects=int(rng.integers(max(lo, 2), hi + 1)), n_pads=int(rng.integers(2, len(W.CFG["pad_colors"]) + 1)))
+        sc = W.sample_scene(seed, n_objects=int(rng.integers(max(lo, 2), hi + 1)), n_pads=W.pick_n_pads(rng, 2))
         tasks = W.chain(sc, 2, rng)
         (oA, dA, langA), (oB, dB, langB) = tasks
         r.suite = W.Suite(sc, (oA, dA), langA)
         r.chk_a = WE.Goal(oA, dA)
+        mv = W.sample_motion(seed, 2)                  # 10/30 동작 변수: 끼어드는 때·지연·속도·잡음 (설정 motion)
+        if mv is not None and mv.get("latency") is not None:
+            r.args.latency_steps = mv["latency"]
         ep = sx.Episode(r, seed)
+        ep.motion = mv
         ep.inner.horizon = 100000
         ep.obs = W.place(ep.env, sc)
         ep.scene = sc
         WE.STATE["objs"] = tuple(sc.objects)
         st["tried"] += 1
-        held_n = {"n": 0}
-
-        def trig(t):
-            held_n["n"] = held_n["n"] + 1 if (ep.holding() and ep.finger_object() == oA) else 0
-            return held_n["n"] >= a.switch_hold
+        spec = mv["switch"][0] if mv is not None and mv["switch"] else None
+        trig = WEv.make_trigger(ep, oA, dA, spec, a.switch_hold)
         why, _ = ep.run_policy(langA, "T0", a.max_a, success_fn=WE.Goal(oA, dA), trigger_fn=trig)
-        if why != "trigger":                # VLA 가 A 를 못 쥐면 시범 프로그램이 쥐어 옮기는 도중까지 (기록 안 함) — 보려는 것은 넘긴 뒤
+        if why != "trigger":                # VLA 가 그 때에 못 닿으면 시범 프로그램이 그 때까지 (기록 안 함) — 보려는 것은 넘긴 뒤
             st["no_switch"] += 1
             ok_a = False
             try:
                 if ep.holding() and ep.finger_object() not in (None, oA):
                     raise RuntimeError("다른 물체 쥠")
-                ok_a = (ep.holding() and ep.finger_object() == oA) or WE.grasp(ep, oA, dest=WE.target(ep, dA))
-                if ok_a:
-                    WE.carry_toward(ep, WE.target(ep, dA))
+                ok_a = WE.to_switch(ep, oA, dA, spec)
             except Exception as e:
                 print(f"  예외 {seed} (A 쥐기): {type(e).__name__}: {e}"[:200], flush=True)
-            if not ok_a or not (ep.holding() and ep.finger_object() == oA):
+            if not ok_a or (spec is None or spec[0] != "reach") and not (ep.holding() and ep.finger_object() == oA):
                 print(f"{seed}: A 를 쥐지 못함 ({why}) ({time.time() - t0:.0f}초)", flush=True)
                 ep.env.close()
                 continue
@@ -124,7 +124,7 @@ def main():
                     continue
                 seg.save(out / f"N{seed}_t{T}_s{i}.npz", lang, source="world_dagger_nested",
                          scene=json.dumps({"seed": seed, "objects": sc.objects, "pads": sc.pads, "env_info": getattr(sc, "env_info", {}),
-                                           "vla_steps_b": T, "held_at_handover": held, "tasks": [t[2] for t in tasks]}), seg=i)
+                                           "vla_steps_b": T, "held_at_handover": held, "tasks": [t[2] for t in tasks], "motion": mv}), seg=i)
                 n_fr += len(seg)
             st["ok"] += 1
             st["frames"] += n_fr

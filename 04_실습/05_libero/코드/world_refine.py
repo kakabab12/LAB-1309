@@ -90,7 +90,8 @@ class WorldRefine(WA.WorldAssist):
 
     def _pfine_step(self, ep, act, out):
         """pfine: 든 채 판 위에서 VLA 가 손을 펴려 하면 (놓을 곳 lock) 든 물체 가운데(objc 면)·손을 판 가운데 0.8cm 안으로 맞추고
-        물체 바닥을 판 윗면 1.2cm 위까지 내린 뒤 편다 (6스텝), 1.5cm 들고 돌려준다. 맞추기는 최대 30스텝."""
+        물체 바닥을 판 윗면 1.2cm 위까지 내린 뒤, 10/30 부터는 천천히 내려 판에 닿아 손이 멈추면 편다 (6스텝), 1.5cm 들고 돌려준다.
+    맞추기는 최대 30스텝, 내리기 20스텝. 막대가 아니면 든 물체 가운데 = 손 (_slide_lim)."""
         P = self._pf
         if P is None:
             if self.lock is None or getattr(self, "held", None) is None or act[6] >= 0 or self.lock not in self.pos:
@@ -109,7 +110,17 @@ class WorldRefine(WA.WorldAssist):
             new[2] = float(np.clip(-(above - 0.012) / 0.05, -0.2, 0.1))     # 판에 닿기 전(1.2cm 위)에서 편다: 닿으면 평가가 든 채로 성공을
             new[6] = 1.0                                                     # 보고 VLA 혼자 '펴기 기다리기' 로 넘어가 물체를 다시 든다 (기본 1024·1039)
             if (np.linalg.norm(e) < 0.008 and above < 0.016) or P["n"] > 30:
+                P["phase"], P["n"], P["zh"] = "lower", 0, []
+        elif P["phase"] == "lower":                     # 10/30: 판에 닿을 때까지 천천히 (쥔 높이로 잰 물체 바닥이 틀려도 — 흔든 1023 은 몇 cm 위에서 놓아 굴렀다)
+            cxy = (self._held_center(hand) if self.obj_center else hand)[:2]
+            e = self.pos[P["dst"]] - cxy
+            new[:2] = np.clip(e / 0.05, -0.3, 0.3)
+            new[2], new[6] = -0.12, 1.0
+            P["zh"].append(float(hand[2]))
+            stalled = P["n"] >= 3 and len(P["zh"]) >= 3 and P["zh"][-3] - P["zh"][-1] < 0.005    # 명령(2스텝 ~1.2cm)의 절반도 못 내려감 = 닿음
+            if stalled or P["n"] > 20:          # 높이 추정으로는 멈추지 않는다 (쥔 높이가 몇 cm 틀리면 바로 펴서 떨어뜨림 — 놓기 시험 3101~3106)
                 P["phase"], P["n"] = "open", 0
+                self.stat["pfine_stall" if stalled else "pfine_nostall"] = self.stat.get("pfine_stall" if stalled else "pfine_nostall", 0) + 1
         elif P["phase"] == "open":
             new[6] = -1.0
             if P["n"] >= 6:
@@ -363,6 +374,16 @@ class WorldRefine(WA.WorldAssist):
         M = np.asarray(self.ep.obs["robot_state"]["eef"]["mat"], dtype=np.float64).reshape(3, 3)
         return float(np.arctan2(M[1, 0], M[0, 0]))          # 손가락이 벌어지는 축의 책상 위 방향
 
+    @staticmethod
+    def _slide_lim(name):
+        """쥔 물체가 손가락 사이에서 옆으로 밀려 있을 수 있는 최대 거리: 막대(설정 대칭 180)만 긴 축 반 − 1cm, 나머지 0."""
+        if name is None or W.parse(name)[0] == "pad":
+            return 0.0
+        s = W.CFG["shapes"][W.parse(name)[1]]
+        if s.get("type") != "box" or WA.yaw_period(name) != 180:
+            return 0.0
+        return max(0.0, float(max(s["size"][:2])) / 2 - 0.01)
+
     def _held_center(self, hand):
         """objc: 손 대신 든 물체 가운데 (x, y) 를 돌려준다 (높이는 손 그대로)."""
         if self.held is None or self.held not in self.pos:
@@ -371,6 +392,18 @@ class WorldRefine(WA.WorldAssist):
             ga = getattr(self, "grasp_at", None)
             h0 = ga[0][:2] if ga is not None else hand[:2]
             off = np.asarray(self.pos[self.held], dtype=np.float64) - h0
+            # 10/30: 손가락이 오므리면 물체는 그 방향으로 가운데에 온다 → 오므리는 방향 어긋남은 0, 남은 방향은 막대만 (긴 축 반 − 1cm 까지).
+            #   흔든 설정 1006·1019: 조명 탓에 든 물체를 다른 물체로 읽어 가운데를 4cm 틀리게 잡고 판 밖에 놓았다
+            name = WA._name(self.ep.scene, self.held)
+            lim = self._slide_lim(name)
+            a = np.asarray(self.ep.obs["robot_state"]["eef"]["mat"], dtype=np.float64).reshape(3, 3)[:2, 0]
+            if lim <= 0 or np.linalg.norm(a) < 1e-6:
+                off = np.zeros(2)
+            else:
+                a = a / np.linalg.norm(a)
+                off = off - (off @ a) * a
+                nn = float(np.linalg.norm(off))
+                off = off * min(1.0, lim / nn) if nn > 1e-9 else off
             y = self._hand_yaw()
             c, s = np.cos(-y), np.sin(-y)
             self._off_key = self.held
