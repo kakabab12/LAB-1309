@@ -16,6 +16,7 @@
 
 이름 규칙: 물체 인스턴스 = f"w_{shape}_{color}_1", 판 = f"w_pad_{color}_1" (LIBERO 가 끝에 _1 을 붙이는 꼴)
 """
+import functools
 import hashlib
 import json
 import os
@@ -421,6 +422,18 @@ def instruction(obj, dst, rng=None):
                           pcolor=CFG["pad_colors"][tcolor]["en"], pad=CFG["pad"]["en"])
     return tpl.format(color=CFG["object_colors"][color]["en"], shape=CFG["shapes"][shape]["en"],
                       tcolor=CFG["object_colors"][tcolor]["en"], tshape=CFG["shapes"][tshape]["en"])
+
+
+@functools.lru_cache(maxsize=256)
+def canonical(text):
+    """지시문 → 같은 물체·놓을 곳을 첫 틀(예전 데이터의 틀)로 다시 쓴 문장, 못 읽으면 그대로 (10/31). 해석기(world_feat.parse_instruction)가
+    읽는 틀이면 어느 꼴이든 VLA 에는 같은 문장이 들어간다 — 한국어 명령(world_cmd)이 영어 첫 틀로 바뀌어 들어가는 것과 같은 길.
+    새 기준 w10m + 다듬기 판 일: 첫 두 틀 20/25, 나머지 세 틀 38/63 (위치 입력 오차는 틀과 상관없이 0.1~2.7cm)."""
+    import piper_sim.world_feat as WF
+    o, d = WF.parse_instruction(text)
+    if o is None or d is None:
+        return text
+    return instruction(inst(o), inst(d))
 
 
 def rephrase(text, rng):

@@ -596,6 +596,8 @@ class Episode:
         return act
 
     def policy_action(self, instruction):
+        if getattr(self.r, "canon", None) is not None:     # 10/31: 지시문을 해석기로 표준 꼴(첫 틀)로 바꿔 VLA 에 넣는다 (모델 폴더 canon 또는 --canon)
+            instruction = self.r.canon(instruction)
         esc = self.maybe_escape()
         if esc is not None:
             return esc
@@ -999,6 +1001,10 @@ class Runner:
             P = Path(args.policy)       # 10/26 2판: 옮길 물체 방향, 10/27 3판: + 가까이 보기
             self.wf = WF.WorldFeat(version=3 if (P / "worldfeat_v3").exists() else 2 if (P / "worldfeat_v2").exists() else 1,
                                    sure=True if (P / "worldfeat_sure").exists() else None)     # 10/27: 없으면 PIPER_WF_SURE
+        self.canon = None
+        if (Path(args.policy) / "canon").exists() or getattr(args, "canon", False):
+            import piper_sim.world as W         # 10/31: 여러 모양·N개 장면 — 지시문 틀이 여러 개여도 VLA 에는 첫 틀로 (한국어 명령과 같은 길)
+            self.canon = W.canonical
         # 10/17: 단계 지시로 학습한 모델 (train_lora --subtask 가 subtask 를 남김) — 지시문을 지금 단계 지시로 바꿔 준다
         self.seq = None
         if (Path(args.policy) / "subtask").exists() or getattr(args, "subtask", False):

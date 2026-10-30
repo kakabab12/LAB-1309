@@ -91,6 +91,8 @@ def parse_args():
                         "수백 가지가 전체의 40%% 가까이를 가져가 같은 장면을 수십 번 되풀이한다")
     p.add_argument("--instr-aug", type=float, default=0.0,
                    help="10/30 동작 변수: 학습 표본의 지시문을 이 비율로 설정(PIPER_WORLD)의 다른 틀로 바꿔 쓴다 (world.rephrase). 0 = 그대로")
+    p.add_argument("--canon-text", action="store_true",
+                   help="10/31: 학습 지시문을 모두 첫 틀(표준 꼴)로 (canon). 저장한 모델에 canon 표시 → 평가도 VLA 에 표준 꼴로 넣는다 (--instr-aug 는 안 씀)")
     p.add_argument("--frame-stride", type=int, default=1,
                    help="학습 시작 프레임을 N 개마다 하나만 쓴다 (이웃 프레임은 거의 같다). 안 쓰는 사진은 메모리에서 지워 "
                         "메모리를 약 1/N 로 줄인다 (31GB PC 에서 데이터가 늘어 필요, 10/2)")
@@ -124,10 +126,11 @@ def parse_args():
         for k, v in _json.loads(ov.read_text()).get(a.out, {}).items():
             print(f"설정 덮어쓰기 ({ov}): {k} {getattr(a, k, None)} → {v}", flush=True)
             setattr(a, k, v)
-    global FEAT, SUBTASK, INSTR_AUG
+    global FEAT, SUBTASK, INSTR_AUG, CANON_TEXT
     FEAT = a.feat
     SUBTASK = getattr(a, "subtask", None) or False
     INSTR_AUG = float(getattr(a, "instr_aug", 0.0) or 0.0)
+    CANON_TEXT = bool(getattr(a, "canon_text", False))
     return a
 
 
@@ -170,6 +173,7 @@ def augment(img, rng):
 
 SUBTASK = False       # 10/17: --subtask 이면 지시문 대신 프레임마다 단계 지시 (subtask.py)
 INSTR_AUG = 0.0       # 10/30: --instr-aug 비율로 지시문 틀 바꿔 쓰기 (학습 표본만)
+CANON_TEXT = False    # 10/31: --canon-text 면 모든 지시문을 첫 틀로 (평가도 표준 꼴로 넣으니 학습도 그 꼴만)
 _PARSED = {}
 
 
@@ -219,6 +223,8 @@ class ChunkDataset(Dataset):
     def _task(self, ep, t):
         if "sub" in ep:
             return str(ep["sub"][t])
+        if CANON_TEXT:
+            return canon(ep["task"])
         if self.instr_aug and INSTR_AUG > 0 and np.random.random() < INSTR_AUG:
             return rephrase(ep["task"], np.random.default_rng())
         return ep["task"]
@@ -738,6 +744,10 @@ class Trainer:
                     (d / "worldfeat_sure").unlink()
                 # 10/20: 아래 SUBTASK 블록을 위 if 와 elif 사이에 넣었더니 elif 가 SUBTASK 에 붙어, 단계 지시 없이 학습한 모델은
                 #   relfeat 표시가 저장 직후 지워졌다 (als3b: 평가가 화면 좌표를 넣어 한 번도 못 쥠). 순서를 되돌림
+                if CANON_TEXT:                           # 10/31: 평가(switch_experiment.Runner)가 이 표시를 보고 지시문을 첫 틀로 넣는다
+                    (d / "canon").write_text("지시문을 모두 첫 틀(표준 꼴)로 학습 (train_lora --canon-text, 10/31) — 평가도 world.canonical 로 넣음\n")
+                elif (d / "canon").exists():
+                    (d / "canon").unlink()
                 if SUBTASK:
                     (d / "subtask").write_text("단계 지시로 학습 (subtask.py, 10/17) — 평가는 --subtask\n")
                     (d / "subtask_style").write_text(f"{SUBTASK}\n")

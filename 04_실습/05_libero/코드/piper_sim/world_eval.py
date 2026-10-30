@@ -222,7 +222,7 @@ def run_episode(r, sc, tasks, a, ep_idx):
                  "first_intent": getattr(A, "first_intent", None), "first_dest": getattr(A, "first_dest", None),
                  "assist_stat": {k: v for k, v in getattr(A, "stat", {}).items() if v}}
     return {"seed": ep_idx, "k": len(tasks), "nested": a.nested, "n_objects": len(sc.objects), "n_pads": len(sc.pads), "motion": mv,
-            "latency_steps": r.args.latency_steps, "release_refine": bool(a.release_refine),
+            "latency_steps": r.args.latency_steps, "release_refine": bool(a.release_refine), "canon": getattr(r, "canon", None) is not None,
             "tasks": res, "all_ok": all(final), "all_loose": all(final_loose), "final": final, "final_loose": final_loose,
             "steps": steps, "env_info": getattr(sc, "env_info", {}), **extra}
 
@@ -242,6 +242,7 @@ def main():
     p.add_argument("--max-steps", type=int, default=600)
     p.add_argument("--out", required=True)
     p.add_argument("--refine", default=None, help="grasp,place: VLA 의도를 따라 마지막 몇 cm 만 다듬기 (world_refine, 지시문 안 읽음)")
+    p.add_argument("--canon", action="store_true", help="10/31: VLA 에 들어가는 지시문만 해석기로 첫 틀(표준 꼴)로 바꿔 넣는다 (모델 폴더 canon 과 같음)")
     a, rest = p.parse_known_args()
     # 평가 설정(지연·ttrtc·보조 …)은 switch_experiment 인자 그대로 받는다
     args = sx.fill_defaults(sx.build_parser().parse_args(["--task-a", "0", "--policy", a.policy] + rest))
@@ -254,6 +255,8 @@ def main():
     if a.refine:                             # 10/26 논문용: 지시문을 읽지 않는 다듬기 (빼보기: grasp / place / grasp,place)
         import piper_sim.world_refine as WR
         r.assist = WR.make(tuple(a.refine.split(",")))
+    if a.canon:
+        r.canon = W.canonical
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     done = json.loads(out.read_text()) if out.exists() else []

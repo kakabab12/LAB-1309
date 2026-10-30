@@ -33,6 +33,20 @@ VLA 의도를 따라 마지막 몇 cm 만 다듬기 (2026-10-26) — 사용자 "
     0.8cm 안·판 윗면 1.2cm 위까지 맞춘 뒤 편다 (닿기 전에 펴야 평가가 든 채 성공으로 보지 않음). w8 + 다듬기 '판 안 3cm 밖' 추적: 막대 끝을 쥐어 손은 판에서 2cm·막대는 5.9cm (기본 1039),
     판 위 0.9cm 에서 놓아 막대가 1.3cm 밀림 (기본 1009, 끝 3.1cm). 지금 놓기 다듬기는 VLA 가 펴는 순간에야 붙고 손이 3cm 안이면 그대로 편다.
     10/30: 막대만 든 물체 가운데 어긋남 허용, 1.2cm 위까지 내린 뒤 천천히 내려 닿으면 편다 (_pfine_step).
+  "stk" (10/31, 기본 꺼짐): 쌓을 물체도 판처럼 바닥 반지름 + 여유(5cm) 안에서 VLA 가 펴려 하면 놓을 곳으로 본다 (예전 2cm). 단 든 물체 바닥이
+    그 윗면 1.5cm 아래보다 높을 때만 (책상까지 내려 펴는 빈 자리 내려놓기에는 안 붙는다). pfine 맞추기에서 그 윗면보다 낮으면 먼저 든다.
+    새 기준 w10m + 다듬기 일 1개 쌓기 26개: 지시한 물체 옆 2.5~8.5cm 에서 펴서 실패 8개.
+  "q2" (10/31, 기본 꺼짐): 쥠 판단(쥔 것 / 빈손)을 손가락 1 의 벌어짐 대신 두 손가락 평균으로, 상한은 0.031 (평균 − 3mm 를 넘김). 쥔 물체의 손가락 값이 0.0255~0.027 (원기둥·
+    육각기둥, 시범 프로그램이 가운데를 쥘 때) 인데 '쥠' 상한이 0.028 — VLA 가 비껴 쥐면 한쪽 손가락이 넘어 다듬기가 빈손으로 본다.
+    새 기준 w10m 따라가기: 기본 1001 쥔 153스텝 중 111, 흔든 1014 쥔 98스텝 모두 빈손으로 봐서 놓기 다듬기가 안 붙고, 빈손 쥐기 다듬기가
+    그리퍼를 열어 들고 가던 물체를 떨어뜨림 (1001: 3번).
+  "gq" (10/31, 기본 꺼짐, gplan 과 같이): 쥐는 자세 계산을 그리퍼가 활짝 벌어져 있지 않아도 (빈손으로 다 닫히기 전이면) 켜고, 켜는 거리를
+    물체 바닥 반지름 − 1cm (막대 3.9cm, 다른 모양은 그대로 3cm) 까지. 새 기준 w10m 따라가기 (기본 1005·1026, 흔든 1004): 지연 9~12 에서 VLA 가
+    물체 위 1.6~4cm 에서 먼저 오므리며 내려가 계산이 안 켜지고, 다듬기는 벌린 채 천천히 내리는 사이 VLA 는 쥐었다고 보고 빈손으로 떠남.
+  "mocc" (10/31, 기본 꺼짐): 다듬기 물체 기억을 팔에 가린 찾기로 덮지 않기. 예전에는 '평소보다 작은(85% 아래) 덩어리는 손 10cm 안일 때만
+    버림', '기억과 1.2cm 넘게 다르게 보이면 손이 8cm 밖이면 바로 고침'. 흔든 1004 (CPU 따라가기): 손이 12.5~13.4cm 앞에서 다가오는 두 스텝에
+    위 카메라가 육각기둥을 0.8 → 1.4cm 틀리게 보고 기억이 그대로 바뀜 → 쥐는 자세 계산이 그 자리에 정확히 맞춰 내려가 1.3cm 비껴 쥠
+    (기본 1026 도 1.6cm 틀린 기억에 맞춰 내려가다 손가락이 원기둥 윗면에 걸림). 작은 덩어리는 거리와 상관없이 버리고, 바로 고치는 거리는 20cm.
   "amb" (10/30, 기본 꺼짐): 손 아래 가장 가까운 물체와 둘째 물체가 1.5cm 안으로 비슷하면 쥐기 다듬기를 붙이지 않는다 (VLA 가 한쪽으로
     갈 때까지). 새 기준 w9: 지시한 것은 안 쥐고 다른 것만 쥔 장면이 다듬기 때만 5번 (혼자 0), 흔든 1014 는 혼자 성공·다듬기 실패.
 """
@@ -59,6 +73,7 @@ class WorldRefine(WA.WorldAssist):
         if "gplan" in self.parts:
             import piper_sim.world_gplan as WG
             self.gplan = WG.GraspPlan()
+            self.gplan.relax = "gq" in self.parts
         self.fmask = None                                     # 손목 카메라 모델 (손가락 자리·투영) — fmask·wxy 가 같이 쓴다
         self.use_fmask, self.use_wxy = "fmask" in self.parts, "wxy" in self.parts
         if self.use_fmask or self.use_wxy:
@@ -67,10 +82,26 @@ class WorldRefine(WA.WorldAssist):
         self.settle, self.settle_max, self._st_n, self._st_q = "settle" in self.parts, 10, 0, []
         self.pfine, self._pf = "pfine" in self.parts, None
         self.amb, self.amb_margin = "amb" in self.parts, 0.015     # 10/30: 손 아래 두 물체가 비슷하게 가까우면 붙지 않기 (흔든 1014: 옆 물체에 붙어 실패)
+        self.stk, self.stk_low = "stk" in self.parts, 0.015        # 10/31: 쌓을 물체도 판처럼 '크기 + 여유' 안 (든 물체 바닥이 그 윗면 1.5cm 아래보다 높을 때만)
+        self.q2 = "q2" in self.parts                               # 10/31: 쥠 판단에 손가락 둘의 평균 벌어짐 (한쪽만 보면 비껴 쥔 물체를 빈손으로 봄)
+        if "mocc" in self.parts:                                   # 10/31: 가린 덩어리는 손이 멀어도 안 씀, 기억과 다르면 손 20cm 안에서는 10번 연달아 볼 때만 고침
+            self.occ_r, self.mem_far = np.inf, 0.20
         self.ymem_aspect = 1.8                                # 막대 위 카메라 방향이 기억과 30° 넘게 다를 때 믿을 길쭉함 (긴 변/짧은 변, 9×4 → 2.25)
         self._off_key, self._off_h = None, None
 
     def __call__(self, ep, act, instruction):
+        g = ep.obs["robot_state"]["gripper"]
+        q0 = g["qpos"]
+        if self.q2 and len(q0) >= 2:                          # q2: 이 스텝 다듬기 안에서만 손가락 1 값 대신 두 손가락 평균 − 3mm (끝나면 되돌림)
+            q = np.array(q0, dtype=np.float64, copy=True)     #   '쥠' 상한 0.028 → 실제 0.031 (쥔 물체 0.0255~0.0273 과 활짝 0.035 의 가운데)
+            q[0] = max(0.0, 0.5 * (abs(float(q0[0])) + abs(float(q0[1]))) - 0.003)
+            g["qpos"] = q
+        try:
+            return self._call(ep, act, instruction)
+        finally:
+            g["qpos"] = q0
+
+    def _call(self, ep, act, instruction):
         if ep is not getattr(self, "ep", None):
             self.first_intent, self.first_dest = None, None
             self.lock, self.lock_n = None, 0
@@ -113,6 +144,8 @@ class WorldRefine(WA.WorldAssist):
             new[:2] = np.clip(e / 0.05, -self.vmax, self.vmax)
             new[2] = float(np.clip(-(above - 0.012) / 0.05, -0.2, 0.1))     # 판에 닿기 전(1.2cm 위)에서 편다: 닿으면 평가가 든 채로 성공을
             new[6] = 1.0                                                     # 보고 VLA 혼자 '펴기 기다리기' 로 넘어가 물체를 다시 든다 (기본 1024·1039)
+            if self.stk and P["dst"] in WA._Shim.BLOCKS and above < 0.005 and np.linalg.norm(e) > 0.01:
+                new[:2], new[2] = 0.0, 0.3                                   # stk: 쌓을 물체 윗면보다 낮으면 옆으로 가지 않고 먼저 든다 (옆면을 밀지 않게)
             if (np.linalg.norm(e) < 0.008 and above < 0.016) or P["n"] > 30:
                 P["phase"], P["n"], P["zh"] = "lower", 0, []
         elif P["phase"] == "lower":                     # 10/30: 판에 닿을 때까지 천천히 (쥔 높이로 잰 물체 바닥이 틀려도 — 흔든 1023 은 몇 cm 위에서 놓아 굴렀다)
@@ -361,9 +394,17 @@ class WorldRefine(WA.WorldAssist):
             stackable = lambda b: bool(W.CFG["shapes"][W.parse(b)[1]].get("stack_on"))   # noqa: E731
             objs = [b for b in self.pos if b != self.held and b in WA._Shim.BLOCKS and stackable(b)
                     and np.linalg.norm(self.pos[b] - hand[:2]) <= self.stack_r and hand[2] <= self._top(b) + h_held + self.engage_h]
+            if not objs and self.stk:                    # 새 기준 w10m 쌓기: 지시한 물체 옆 5~8cm 에서 펴고 2cm 밖이라 못 알아봄 (26개 중 8개)
+                ga = getattr(self, "grasp_at", None)     # 든 물체가 그 위에 얹힐 때의 손 높이 = 윗면 + 쥔 높이. 책상까지 내려 펴면 (빈 자리에 내려놓기) 안 붙는다
+                gz = float(ga[0][2] - W.TABLE_Z) if ga is not None else WA.GA.GRASP_H[self.held]
+                objs = [b for b in self.pos if b != self.held and b in WA._Shim.BLOCKS and stackable(b)
+                        and np.linalg.norm(self.pos[b] - hand[:2]) <= W.footprint(b) + self.r_margin
+                        and self._top(b) + gz - self.stk_low <= hand[2] <= self._top(b) + h_held + self.engage_h]
+                if objs:
+                    self.stat["stk"] = self.stat.get("stk", 0) + 1
             if not objs:
                 return None
-            k = min(objs, key=lambda b: float(np.linalg.norm(self.pos[b] - hand[:2])))
+            k = min(objs, key=lambda b: float(np.linalg.norm(self.pos[b] - hand[:2])) / ((W.footprint(b) + self.r_margin) if self.stk else 1.0))
         self.lock, self.lock_n = k, 0
         if self.first_dest is None:
             self.first_dest = k
