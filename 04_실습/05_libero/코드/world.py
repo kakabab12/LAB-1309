@@ -446,7 +446,12 @@ def motion():
     if os.environ.get("PIPER_MOTION") == "0":     # 예전 고정값으로 다시 재기 (10/30 전 숫자와 같은 장면)
         return None
     M = CFG.get("motion")
-    return M if M and M.get("enabled") else None
+    if not (M and M.get("enabled")):
+        return None
+    sp = os.environ.get("PIPER_STACK_P")                # 데이터 모을 때만: 쌓기 일 비율 바꾸기 (10/30 새 기준 w9 쌓기 0/24 → 쌓기 시범을 더)
+    if sp:
+        M = dict(M, task_p={"to_pad": 1.0 - float(sp), "to_obj": float(sp)})
+    return M
 
 
 SWITCH_KEY = {"reach": "reach_cm", "grasp": "grasp_steps", "carry": "carry_steps", "place": "place_cm"}

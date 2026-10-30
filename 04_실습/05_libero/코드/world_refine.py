@@ -32,6 +32,9 @@ VLA 의도를 따라 마지막 몇 cm 만 다듬기 (2026-10-26) — 사용자 "
   "pfine" (10/29 밤, 기본 꺼짐): 놓기 마무리 — 든 채 판 위에서 VLA 가 손을 펴려 하면 든 물체 가운데(objc 같이 켜면)·손을 판 가운데
     0.8cm 안·판 윗면 1.2cm 위까지 맞춘 뒤 편다 (닿기 전에 펴야 평가가 든 채 성공으로 보지 않음). w8 + 다듬기 '판 안 3cm 밖' 추적: 막대 끝을 쥐어 손은 판에서 2cm·막대는 5.9cm (기본 1039),
     판 위 0.9cm 에서 놓아 막대가 1.3cm 밀림 (기본 1009, 끝 3.1cm). 지금 놓기 다듬기는 VLA 가 펴는 순간에야 붙고 손이 3cm 안이면 그대로 편다.
+    10/30: 막대만 든 물체 가운데 어긋남 허용, 1.2cm 위까지 내린 뒤 천천히 내려 닿으면 편다 (_pfine_step).
+  "amb" (10/30, 기본 꺼짐): 손 아래 가장 가까운 물체와 둘째 물체가 1.5cm 안으로 비슷하면 쥐기 다듬기를 붙이지 않는다 (VLA 가 한쪽으로
+    갈 때까지). 새 기준 w9: 지시한 것은 안 쥐고 다른 것만 쥔 장면이 다듬기 때만 5번 (혼자 0), 흔든 1014 는 혼자 성공·다듬기 실패.
 """
 import numpy as np
 
@@ -63,6 +66,7 @@ class WorldRefine(WA.WorldAssist):
             self.fmask = WD.WristFingerMask()
         self.settle, self.settle_max, self._st_n, self._st_q = "settle" in self.parts, 10, 0, []
         self.pfine, self._pf = "pfine" in self.parts, None
+        self.amb, self.amb_margin = "amb" in self.parts, 0.015     # 10/30: 손 아래 두 물체가 비슷하게 가까우면 붙지 않기 (흔든 1014: 옆 물체에 붙어 실패)
         self.ymem_aspect = 1.8                                # 막대 위 카메라 방향이 기억과 30° 넘게 다를 때 믿을 길쭉함 (긴 변/짧은 변, 9×4 → 2.25)
         self._off_key, self._off_h = None, None
 
@@ -326,6 +330,11 @@ class WorldRefine(WA.WorldAssist):
         reach = 0.5 * (W.max_extent(name) if name else 0.05) + self.r_margin
         if np.linalg.norm(self.pos[k] - hand[:2]) > reach or hand[2] > self._top(k) + self.engage_h:
             return None
+        if self.amb and len(objs) > 1:                 # amb: 둘째로 가까운 물체와 1.5cm 안으로 비슷하면 VLA 가 한쪽으로 갈 때까지 손대지 않음
+            d = sorted(float(np.linalg.norm(self.pos[b] - hand[:2])) for b in objs)
+            if d[1] - d[0] < self.amb_margin:
+                self.stat["amb_wait"] = self.stat.get("amb_wait", 0) + 1
+                return None
         if self.first_intent is None:
             self.first_intent = k
         return k

@@ -4,7 +4,7 @@
 #   수집이 끝나면 자물쇠를 놓고 끝 (그 뒤로는 일꾼의 확인대로 4개까지). 끄기는 systemctl --user stop piper-gpugate.
 cd "$(dirname "$0")"
 LOCK=outputs/piper/gpu_launch.lock
-gpu_n(){ nvidia-smi --query-compute-apps=pid --format=csv,noheader | grep -c .; }
+gpu_n(){ nvidia-smi --query-compute-apps=pid,process_name --format=csv,noheader | grep -c python; }   # RustDesk(원격 접속)도 GPU 를 써서 python 만 센다
 coll(){ ps -eo args | grep -v grep | grep -c "piper_sim/world_collect.py"; }
 held=0
 trap '[ $held -eq 1 ] && rmdir $LOCK 2>/dev/null' EXIT
