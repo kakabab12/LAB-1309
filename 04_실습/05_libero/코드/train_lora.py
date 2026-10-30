@@ -86,6 +86,9 @@ def parse_args():
                    help="동작 정규화 통계(평균·표준편차)를 학습 데이터에서 다시 잰다. 원래 값은 LIBERO 사람 시범 기준이라 "
                         "선생 데이터에서는 위치 동작이 0.6배로 작고 손목 회전이 2배(최대 12.8배)로 커서, 학습이 위치 정밀도를 덜 본다")
     p.add_argument("--vis-cache", default=None, help="vis_cache.py 로 미리 계산한 사진 특징 폴더 (학습 약 3배 빠름, 증강 없음)")
+    p.add_argument("--obj-frac", type=float, default=None,
+                   help="--balance 와 함께: 쌓기 일(놓을 곳이 물체)이 뽑히는 몫 (10/30, 예 0.15). 일마다 같은 몫이면 데이터가 1~2개뿐인 쌓기 일 "
+                        "수백 가지가 전체의 40%% 가까이를 가져가 같은 장면을 수십 번 되풀이한다")
     p.add_argument("--instr-aug", type=float, default=0.0,
                    help="10/30 동작 변수: 학습 표본의 지시문을 이 비율로 설정(PIPER_WORLD)의 다른 틀로 바꿔 쓴다 (world.rephrase). 0 = 그대로")
     p.add_argument("--frame-stride", type=int, default=1,
@@ -546,6 +549,17 @@ class Trainer:
                         w.append(w0)
                 weights = torch.tensor(w, dtype=torch.double)
                 print("교정 시범 비율 맞춤:", {f"{t[:25]}": f"{cd[(t, True)]}/{cnt[t]}" for t in cnt}, flush=True)
+            if getattr(a, "obj_frac", None) is not None:
+                import piper_sim.world as W
+                import piper_sim.world_feat as WF
+                kind = {t: (lambda od: od[1] is not None and W.parse(W.inst(od[1]))[0] != "pad")(WF.parse_instruction(t)) for t in cnt}
+                isobj = torch.tensor([kind[t] for t in tasks])
+                m_obj, m_pad = float(weights[isobj].sum()), float(weights[~isobj].sum())
+                if m_obj > 0 and m_pad > 0:
+                    f = float(a.obj_frac)
+                    weights = torch.where(isobj, weights * (f / m_obj), weights * ((1 - f) / m_pad))
+                    print(f"쌓기 일 몫 {100 * m_obj / (m_obj + m_pad):.1f}% → {100 * f:.0f}% (쌓기 일 {sum(kind.values())}가지, "
+                          f"프레임 {int(isobj.sum())} / {len(tasks)})", flush=True)
             sampler = WeightedRandomSampler(weights, num_samples=len(tasks), replacement=True)
         dl = DataLoader(train_ds, batch_size=a.batch_size, shuffle=sampler is None, sampler=sampler,
                         collate_fn=collate, num_workers=a.workers, drop_last=True, persistent_workers=a.workers > 0)

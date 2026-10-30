@@ -21,7 +21,18 @@
 - 유닛: piper-npad (run_npad_base.sh: 판 N개·동작 변수 없음 w9 혼자 기본·흔든 50 → outputs/world_w9P_*, 깊이 3 DAgger 기본 남은 장면 — 많음은 11:15 에 PID 로 끔),
   piper-phase (VLA 단계 측정: PIPER_MOTION=0 --n-pads 2 --no-release-refine 로 예전 w9ra 기본 1000~1011 → scratchpad/phase), piper-mtest (시범 끼어드는 때 넷 시험, 5/5 성공 중).
   piper-w10 (run_world10.sh) 은 10:57 에 멈춤 (예전 고정 끼어들기로 DAgger 를 모으게 되어 있어서).
-- 다음: run_world10m.sh (새 기준 ⓪ w9 평가 ‖ ① 새 데이터 → ② 특징 → ③ w10m 학습 → ④ 평가) 를 piper-w10m 으로. 띄우기 전 동작 변수 켠 평가·DAgger 연기 시험.
+- 11:39 piper-w10m (run_world10m.sh, 기록 outputs/piper/world10m.log) 띄움: ⓪ w9 새 기준 (world_w9raM_*·world_w9M_* k1, w9raM 기본 k2·k3)
+  ‖ ① DAgger (data/world_daggerM2_*·M3_*) ‖ 시범 CPU 2줄 (data/world_motion_*) → ② 특징 → ③ w10m (--instr-aug 0.5) → ④ w10mM·w10mraM. 일꾼은 claim 폴더
+  outputs/piper/claim_w10m 로 항목을 나눔 (다시 띄우면 지우고 처음부터 — 평가·DAgger·수집은 끝난 장면을 건너뜀).
+- piper-gif (run_gif_lock.sh: 자물쇠 거쳐 world_w9ra_s1024 4K, PIPER_MOTION=0 판 2개 — 일지 10/30 에 넣을 것).
+- 12:03 깊이 3 DAgger 기본 (예전 고정 끼어들기, piper-npad) 을 PID 로 끔 (15030~15039 남음) — 새 기준 GPU 작업 셋 + 이것 + 수집 EGL 0.5GB 로 GPU 여유가 0.2GB 까지.
+  판 N개 w9 혼자: 기본 23/50, 흔든 18/50 (outputs/world_w9P_*). piper-npad 끝.
+- 12:35 새 기준 w9 + 다 켬 기본 19장면 10/19: 쌓기 0/4 (VLA 가 지시한 물체를 아예 안 쥠 — 쌓기·새 지시문 꼴을 못 배움), 판 10/15.
+  → train_lora --obj-frac (balance 와 함께 쌓기 일 몫), outputs/train_override.json 에 piper_w10m_model: obj_frac 0.15 (파이프라인은 그대로, 학습 때 덮어씀).
+- 12:04 piper-gpugate (run_gpu_gate.sh): 시범 수집(world_collect)이 도는 동안 GPU 작업이 3개 이상이면 GPU 자물쇠를 대신 쥠 → 3개까지. 수집이 끝나면 스스로 끝.
+  (수집 줄은 MuJoCo 그림 그리기로 GPU 0.25GB씩 — 4개 + 수집 둘이면 11.0GB/11.26GB)
+- 판 N개 VLA 혼자 중간 (11:44): 기본 18/39, 흔든 12/33 — 판 2개(34%·28%)보다 낮지 않음 (장면이 달라 짝 비교 아님). 판 많을수록 조금 낮아 보임.
+- 일지 10/30 초안 push (124916f). GIF·판 N개 결과·새 기준 w9 결과를 채울 것.
 
 
 ## 10/30 00:50 (가장 최신, 이것부터)

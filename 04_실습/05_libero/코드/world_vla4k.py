@@ -29,6 +29,7 @@ def main():
     p.add_argument("--n-pads", type=int, default=None, help="world_eval 과 같게 (안 주면 설정 범위)")
     p.add_argument("--switch-hold", type=int, default=30)
     p.add_argument("--release-wait", type=int, default=40)
+    p.add_argument("--no-release-refine", dest="release_refine", action="store_false", help="world_eval 과 같게 (10/30 전 평가)")
     p.add_argument("--max-steps", type=int, default=600)
     p.add_argument("--every", type=int, default=4, help="몇 스텝마다 한 장 (10장/초 → 4 면 2배속)")
     p.add_argument("--name", default="world_vla")
@@ -87,7 +88,8 @@ def main():
         return orig_rp(self, instruction, tag, *x, **kw)
 
     sx.Episode.step, sx.Episode.run_policy = step, run_policy
-    ea = SimpleNamespace(nested=a.nested, switch_hold=a.switch_hold, max_steps=a.max_steps, release_wait=a.release_wait)
+    ea = SimpleNamespace(nested=a.nested, switch_hold=a.switch_hold, max_steps=a.max_steps, release_wait=a.release_wait,
+                         release_refine=a.release_refine)
     d = WEv.run_episode(r, sc, tasks, ea, a.seed)
     wr.close()
     mb, nf, ev = R4.save_gif(str(out), str(out.with_suffix(".gif")))
