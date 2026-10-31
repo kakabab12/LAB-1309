@@ -1,6 +1,27 @@
-# 인계 메모 — 10/31 08:05 절이 최신
+# 인계 메모 — 10/31 09:30 절이 최신
 
-## 10/31 08:05 (가장 최신, 이것부터)
+## 10/31 09:30 (가장 최신, 이것부터) — 사용자 "오늘은 여기까지 하자"
+
+- 새로 띄우는 일은 멈춤. 저절로 도는 것 셋만 남김 (사용자가 끄라면: systemctl --user stop piper-w11m piper-rcguard2 piper-rc1031b piper-gpugate3c):
+  ① piper-w11m: ② 사진 특징·위치 입력 (08:55~) → ③ w11m 학습 15000스텝 (3시간 반, 13~14시쯤 끝) → ④ RC 다듬기로 일 1개 세 설정·혼자·일 2·3개 12항목.
+  ② piper-rcguard2: ④ 가 시작되면 w10m + RC 흔든·많음 평가를 piper-rc1031b 로 이어서 (outputs/world_w10mrcM_*).
+  ③ piper-gpugate3c: GPU 작업 3개로 묶는 문지기 (④·RC 가 다 끝나면 끌 것).
+- 다시 시작하면: world11m.log 의 ③ 검증 손실·④ SUMMARY, outputs/world_w10mrcM_{random,many} 를 보고, w10m RC vs w11m RC 를 같은 장면 짝으로
+  (scratchpad motion/cmp_models.py w10mrcM w11mraM — ④ 의 w11mraM 은 RC 다듬기). 그다음 일지 11/1 (또는 다음 날짜).
+- CPU 4K (RC, 많음 1017) 는 실패 장면이 나와 안 씀 — 일지 GIF 는 RA + stk 로 찍은 성공 장면 그대로.
+- 남은 생각: stk2 (기본 꺼짐, 안 잼), 넘어뜨리기 나눠 보기, 흔든 1014 다듬기 기억이 다른 덩어리 읽음, VLA 몫 (쌓기→판, 놓을 곳 지나침).
+
+## 10/31 09:00
+
+- RC (RA + stk,q2,gq,mocc) 기본 50장면: **38/50 (76%)**, 판 안 39, 판 일 33/38, 쌓기 5/12 (RA 28, RB 31). RA 와 짝: RC 만 성공 11 / RA 만 1 (부호 검정 p 0.006).
+  → outputs/piper/ra_choice.txt = RC 부품 (w11m ④ 가 읽음). RC 흔든 (08:47 시작) 은 08:55 w11m ② 시작으로 piper-rcguard2 가 멈춤 → ④ 시작 때 piper-rc1031b 로 이어서.
+- RC 기본 남은 실패 12: VLA 몫 8 (먼 곳·판으로·물체로 안 감), 다듬기로 줄일 몫 1 (1043 원기둥 3cm 안에서 낮게 폄 → 새 부품 "stk2" 기본 꺼짐, 아직 안 잼).
+- 일지 10/31 올림 (LAB-1309 3e6b660): 4K GIF 는 많음 1017 쌓기 (RA + stk 로 찍음). CPU 에서 RC 로 다시 찍는 중 (piper-gifcpu, ③ 시작하면 멈춤 —
+  성공이면 06_결과물/PiPER/img 에 바꿔 넣고 일지 그림 설명을 RC 로).
+- w11m: ① DAgger 끝 (d1 81/92/94, dn 82/101/87 구간, dk …), ② 08:55 시작 (vis_cache 2 + world_feat_cache), 그 뒤 ③ 학습 15000스텝 (3시간 반).
+  학습 중에는 메모리 규칙상 무거운 작업 금지.
+
+## 10/31 08:05
 
 - 새 다듬기 RB (RA + stk,q2,gq) 기본 50장면: 31/50 (RA 28), 판 안 33 (29), 판 일 27/38 그대로, 쌓기 4/12 (1/12). RB 흔든·많음은 재지 않고
   RC (RB + mocc) 로 넘어감: piper-rc1031 (run_rc_1031.sh, GPU 하나씩 기본 → 흔든 → 많음, outputs/world_w10mrcM_*, 꺼지면 자물쇠 놓음).

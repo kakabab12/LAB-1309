@@ -83,6 +83,7 @@ class WorldRefine(WA.WorldAssist):
         self.pfine, self._pf = "pfine" in self.parts, None
         self.amb, self.amb_margin = "amb" in self.parts, 0.015     # 10/30: 손 아래 두 물체가 비슷하게 가까우면 붙지 않기 (흔든 1014: 옆 물체에 붙어 실패)
         self.stk, self.stk_low = "stk" in self.parts, 0.015        # 10/31: 쌓을 물체도 판처럼 '크기 + 여유' 안 (든 물체 바닥이 그 윗면 1.5cm 아래보다 높을 때만)
+        self.stk2 = "stk2" in self.parts                           # 10/31: stk + 목표 물체 바로 위면 높이 상관없이
         self.q2 = "q2" in self.parts                               # 10/31: 쥠 판단에 손가락 둘의 평균 벌어짐 (한쪽만 보면 비껴 쥔 물체를 빈손으로 봄)
         if "mocc" in self.parts:                                   # 10/31: 가린 덩어리는 손이 멀어도 안 씀, 기억과 다르면 손 20cm 안에서는 10번 연달아 볼 때만 고침
             self.occ_r, self.mem_far = np.inf, 0.20
@@ -400,6 +401,10 @@ class WorldRefine(WA.WorldAssist):
                 objs = [b for b in self.pos if b != self.held and b in WA._Shim.BLOCKS and stackable(b)
                         and np.linalg.norm(self.pos[b] - hand[:2]) <= W.footprint(b) + self.r_margin
                         and self._top(b) + gz - self.stk_low <= hand[2] <= self._top(b) + h_held + self.engage_h]
+                if not objs and self.stk2:              # stk2: 목표 물체 바로 위(바닥 반지름 + 1.5cm 안)면 손이 낮아도 (기본 1043: 원기둥 3cm 안에서 낮게 폄)
+                    objs = [b for b in self.pos if b != self.held and b in WA._Shim.BLOCKS and stackable(b)
+                            and np.linalg.norm(self.pos[b] - hand[:2]) <= W.footprint(b) + 0.015
+                            and hand[2] <= self._top(b) + h_held + self.engage_h]
                 if objs:
                     self.stat["stk"] = self.stat.get("stk", 0) + 1
             if not objs:
