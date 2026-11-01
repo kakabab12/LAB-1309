@@ -44,6 +44,7 @@ class GraspPlan:
         self.finger_gap = finger_gap          # 벌린 손가락 끝과 옆 물체 사이 여유
         self.dwell = dwell
         self.relax = False                    # 10/31 다듬기 "gq": 오므리는 중에도 켜고, 막대는 긴 축 반 − 1cm 안이면 켠다
+        self.reach = None                     # 11/2 다듬기 "gq2": VLA 가 오므리는 중이면 켜는 거리를 다듬기가 물체를 고르는 거리(바닥 크기 반 + 여유)까지
         self.reset()
 
     def reset(self):
@@ -65,6 +66,8 @@ class GraspPlan:
             return False
         top = W.TABLE_Z + W.height(name)
         r = max(self.trig_r, W.footprint(name) - 0.01) if self.relax else self.trig_r    # gq: 막대 끝 쪽을 노려도 (9cm 막대 4.9 − 1 = 3.9cm)
+        if self.reach is not None and float(act[6]) > 0 and q > GA.Q_EMPTY:              # gq2: 먼 물체 6cm 앞에서 빈손으로 오므림 (많음 1047)
+            r = max(r, 0.5 * W.max_extent(name) + self.reach)
         if np.linalg.norm(p - hand[:2]) > r or hand[2] > top + self.trig_h:
             self.dw = (None, 0)
             return False

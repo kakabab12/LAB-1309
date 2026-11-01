@@ -47,6 +47,10 @@ VLA 의도를 따라 마지막 몇 cm 만 다듬기 (2026-10-26) — 사용자 "
     버림', '기억과 1.2cm 넘게 다르게 보이면 손이 8cm 밖이면 바로 고침'. 흔든 1004 (CPU 따라가기): 손이 12.5~13.4cm 앞에서 다가오는 두 스텝에
     위 카메라가 육각기둥을 0.8 → 1.4cm 틀리게 보고 기억이 그대로 바뀜 → 쥐는 자세 계산이 그 자리에 정확히 맞춰 내려가 1.3cm 비껴 쥠
     (기본 1026 도 1.6cm 틀린 기억에 맞춰 내려가다 손가락이 원기둥 윗면에 걸림). 작은 덩어리는 거리와 상관없이 버리고, 바로 고치는 거리는 20cm.
+  "gq2" (11/2, 기본 꺼짐, gplan 과 같이): VLA 가 빈손으로 오므리는 중이면 (다 닫히기 전) 쥐는 자세 계산을 켜는 거리를 다듬기가 쥘 물체를
+    고르는 거리(바닥 크기 반 + 5cm, 육각기둥 7.6cm)까지 넓힘. 많음 1047 (CPU 따라가기): 밑동 42cm 물체 6~7cm 앞에서 두 번 빈손으로 오므림.
+  "stk3" (11/2, 기본 꺼짐, stk 와 같이): 쌓을 물체를 놓을 곳으로 보는 반경을 판과 같게 (판 반대각선 반 + 5cm = 11.4cm, 예전 바닥 반지름 + 5cm ≈ 7.5cm).
+    w10m + RC 쌓기 실패 따라가기 (기본 1021·1028): VLA 가 목표 윗면 높이로 내려와 목표 10.4cm 앞에서 펴는데 7.5cm 밖이라 안 붙음 — 먼 목표(밑동 45cm)에서 손이 36cm 에 멈춤.
   "amb" (10/30, 기본 꺼짐): 손 아래 가장 가까운 물체와 둘째 물체가 1.5cm 안으로 비슷하면 쥐기 다듬기를 붙이지 않는다 (VLA 가 한쪽으로
     갈 때까지). 새 기준 w9: 지시한 것은 안 쥐고 다른 것만 쥔 장면이 다듬기 때만 5번 (혼자 0), 흔든 1014 는 혼자 성공·다듬기 실패.
 """
@@ -74,6 +78,8 @@ class WorldRefine(WA.WorldAssist):
             import piper_sim.world_gplan as WG
             self.gplan = WG.GraspPlan()
             self.gplan.relax = "gq" in self.parts
+            if "gq2" in self.parts:                                 # 11/2: 오므리는 중이면 다듬기가 물체를 고르는 거리까지 쥐는 자세 계산
+                self.gplan.reach = self.r_margin
         self.fmask = None                                     # 손목 카메라 모델 (손가락 자리·투영) — fmask·wxy 가 같이 쓴다
         self.use_fmask, self.use_wxy = "fmask" in self.parts, "wxy" in self.parts
         if self.use_fmask or self.use_wxy:
@@ -84,6 +90,7 @@ class WorldRefine(WA.WorldAssist):
         self.amb, self.amb_margin = "amb" in self.parts, 0.015     # 10/30: 손 아래 두 물체가 비슷하게 가까우면 붙지 않기 (흔든 1014: 옆 물체에 붙어 실패)
         self.stk, self.stk_low = "stk" in self.parts, 0.015        # 10/31: 쌓을 물체도 판처럼 '크기 + 여유' 안 (든 물체 바닥이 그 윗면 1.5cm 아래보다 높을 때만)
         self.stk2 = "stk2" in self.parts                           # 10/31: stk + 목표 물체 바로 위면 높이 상관없이
+        self.stk3 = "stk3" in self.parts                           # 11/2: stk 반경을 판과 같게 (판 반대각선 반 + 여유 = r_dest)
         self.q2 = "q2" in self.parts                               # 10/31: 쥠 판단에 손가락 둘의 평균 벌어짐 (한쪽만 보면 비껴 쥔 물체를 빈손으로 봄)
         if "mocc" in self.parts:                                   # 10/31: 가린 덩어리는 손이 멀어도 안 씀, 기억과 다르면 손 20cm 안에서는 10번 연달아 볼 때만 고침
             self.occ_r, self.mem_far = np.inf, 0.20
@@ -398,8 +405,9 @@ class WorldRefine(WA.WorldAssist):
             if not objs and self.stk:                    # 새 기준 w10m 쌓기: 지시한 물체 옆 5~8cm 에서 펴고 2cm 밖이라 못 알아봄 (26개 중 8개)
                 ga = getattr(self, "grasp_at", None)     # 든 물체가 그 위에 얹힐 때의 손 높이 = 윗면 + 쥔 높이. 책상까지 내려 펴면 (빈 자리에 내려놓기) 안 붙는다
                 gz = float(ga[0][2] - W.TABLE_Z) if ga is not None else WA.GA.GRASP_H[self.held]
+                rad = (lambda b: max(W.footprint(b) + self.r_margin, self.r_dest)) if self.stk3 else (lambda b: W.footprint(b) + self.r_margin)  # noqa: E731
                 objs = [b for b in self.pos if b != self.held and b in WA._Shim.BLOCKS and stackable(b)
-                        and np.linalg.norm(self.pos[b] - hand[:2]) <= W.footprint(b) + self.r_margin
+                        and np.linalg.norm(self.pos[b] - hand[:2]) <= rad(b)
                         and self._top(b) + gz - self.stk_low <= hand[2] <= self._top(b) + h_held + self.engage_h]
                 if not objs and self.stk2:              # stk2: 목표 물체 바로 위(바닥 반지름 + 1.5cm 안)면 손이 낮아도 (기본 1043: 원기둥 3cm 안에서 낮게 폄)
                     objs = [b for b in self.pos if b != self.held and b in WA._Shim.BLOCKS and stackable(b)
