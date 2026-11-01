@@ -35,6 +35,9 @@ def main():
     p.add_argument("--dart", type=float, default=0.1)
     p.add_argument("--ret-p", type=float, default=0.0, help="B 를 마친 뒤 VLA 가 A 로 돌아오기를 해 보는 비율 (나머지는 바로 시범)")
     p.add_argument("--t2", type=int, nargs=2, default=[30, 400], help="돌아오기에서 VLA 가 하는 스텝 수 범위")
+    p.add_argument("--stop-release", type=float, default=0.0,
+                   help="11/2: B·돌아오기에서 VLA 가 지시한 물체를 쥔 채 놓을 곳에서 이 cm 밖에서 손을 펴려 하면 그 순간 이어받음 (world_dagger.StopRelease)")
+    p.add_argument("--refine", default=None, help="11/2: VLA 가 하는 구간(A·B·돌아오기)에 다듬기를 켠다 (평가와 같은 시스템)")
     a, rest = p.parse_known_args()
     se.DART_SIGMA = a.dart
     args = sx.fill_defaults(sx.build_parser().parse_args(["--task-a", "0", "--policy", a.policy] + rest))
@@ -42,10 +45,13 @@ def main():
     r = sx.Runner(args)
     WEv.pad_lang(r)
     WE.install()
+    from piper_sim.world_dagger import refine_from
+    a._refine = refine_from(a)
+    r.assist = a._refine
     out = Path(a.out) / "episodes"
     out.mkdir(parents=True, exist_ok=True)
     st = {"tried": 0, "no_switch": 0, "vla_done": 0, "wrong_held": 0, "ok": 0, "fail": 0, "frames": 0,
-          "ret_tried": 0, "ret_vla_done": 0, "ret_fixed": 0}
+          "ret_tried": 0, "ret_vla_done": 0, "ret_fixed": 0, "stop_release": 0}
     t0 = time.time()
     for seed in rng_list(a.seeds):
         if list(out.glob(f"N{seed}_*.npz")):
@@ -85,7 +91,7 @@ def main():
                 ep.env.close()
                 continue
         T = int(rng.integers(a.t[0], a.t[1] + 1))
-        why, _ = ep.run_policy(langB, "T1", T, success_fn=WE.Goal(oB, dB)) if T > 0 else ("timeout", 0)
+        why, _ = run_guarded(ep, r, a, st, langB, "T1", T, oB, dB) if T > 0 else ("timeout", 0)
         held = ep.finger_object() if ep.holding() else None
         if held is not None and held not in (oA, oB):
             st["wrong_held"] += 1
@@ -118,7 +124,7 @@ def main():
                 for _ in range(10):                        # B 를 놓은 손을 조금 들어 둔다 (시범의 마무리와 같은 손 펴기)
                     ep.step(np.array([0, 0, 0, 0, 0, 0, -1.0], dtype=np.float32), "E")
                 T2 = int(rng.integers(a.t2[0], a.t2[1] + 1))
-                why2, _ = ep.run_policy(langA, "T2", T2, success_fn=WE.Goal(oA, dA))
+                why2, _ = run_guarded(ep, r, a, st, langA, "T2", T2, oA, dA)
                 if why2 == "success":
                     st["ret_vla_done"] += 1
             rec.say(langA)
@@ -164,6 +170,19 @@ def main():
         ep.env.close()
     st["wall_sec"] = round(time.time() - t0, 1)
     print("STATS", json.dumps(st, ensure_ascii=False), flush=True)
+
+
+def run_guarded(ep, r, a, st, lang, phase, T, o, d):
+    """VLA 를 T 스텝 (--stop-release 면 놓을 곳에서 먼 곳에서 펴려는 순간 멈춤 — 그 뒤 시범 프로그램이 쥔 채로 이어 간다)."""
+    from piper_sim.world_dagger import StopRelease, Chain
+    guard = StopRelease(o, d, a.stop_release) if a.stop_release > 0 else None
+    r.assist = Chain(getattr(a, "_refine", None), guard)
+    try:
+        res = ep.run_policy(lang, phase, T, success_fn=WE.Goal(o, d), trigger_fn=None if guard is None else (lambda _t: guard.hit))
+    finally:
+        r.assist = getattr(a, "_refine", None)
+    st["stop_release"] += int(guard is not None and guard.hit)
+    return res
 
 
 if __name__ == "__main__":

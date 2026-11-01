@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import piper_sim.world_eval as WEv  # noqa: E402  (piper_robot·world 설치까지)
 from piper_sim.world_collect import SegRec, rng_list  # noqa: E402
 import scripted_expert as se  # noqa: E402
+import piper_sim.world_dagger_nested as WDN  # noqa: E402  (run_guarded — 11/2 --stop-release)
 
 W, sx, WE = WEv.W, WEv.sx, WEv.WE
 
@@ -38,18 +39,24 @@ def main():
     p.add_argument("--dart", type=float, default=0.1)
     p.add_argument("--ret-p", type=float, default=0.0, help="돌아오기마다 VLA 가 먼저 해 보는 비율 (나머지는 바로 시범)")
     p.add_argument("--t2", type=int, nargs=2, default=[30, 400], help="돌아오기에서 VLA 가 하는 스텝 수 범위")
+    p.add_argument("--stop-release", type=float, default=0.0,
+                   help="11/2: 마지막 일·돌아오기에서 VLA 가 지시한 물체를 쥔 채 놓을 곳에서 이 cm 밖에서 손을 펴려 하면 그 순간 이어받음")
+    p.add_argument("--refine", default=None, help="11/2: VLA 가 하는 구간 모두에 다듬기를 켠다 (평가와 같은 시스템)")
     a, rest = p.parse_known_args()
     se.DART_SIGMA = a.dart
     args = sx.fill_defaults(sx.build_parser().parse_args(["--task-a", "0", "--policy", a.policy] + rest))
     args.task_a, args.task_b, args.strategy = 0, None, "none"
     r = sx.Runner(args)
+    from piper_sim.world_dagger import refine_from
+    a._refine = refine_from(a)
     WEv.pad_lang(r)
     WE.install()
+    r.assist = a._refine                 # 11/2 --refine: 앞 일들(넘기기 전)도 평가처럼 다듬기를 켠 채
     out = Path(a.out) / "episodes"
     out.mkdir(parents=True, exist_ok=True)
     K = a.depth
     st = {"tried": 0, "no_switch": [0] * (K - 1), "vla_done": 0, "wrong_held": 0, "ok": 0, "fail": 0, "skip": 0, "frames": 0, "cleared": 0,
-          "ret_tried": 0, "ret_vla_done": 0}
+          "ret_tried": 0, "ret_vla_done": 0, "stop_release": 0}
     t0 = time.time()
     for seed in rng_list(a.seeds):
         if list(out.glob(f"K{seed}_*.npz")):
@@ -118,7 +125,7 @@ def main():
             if not skip:
                 oL, dL, lL = tasks[-1]
                 T = int(rng.integers(a.t[0], a.t[1] + 1))
-                why, _ = ep.run_policy(lL, f"T{K - 1}", T, success_fn=WE.Goal(oL, dL)) if T > 0 else ("timeout", 0)
+                why, _ = WDN.run_guarded(ep, r, a, st, lL, f"T{K - 1}", T, oL, dL) if T > 0 else ("timeout", 0)
                 held = held_now()
                 if held is not None and held not in movers:
                     st["wrong_held"] += 1
@@ -143,7 +150,7 @@ def main():
                             for _ in range(10):
                                 ep.step(np.array([0, 0, 0, 0, 0, 0, -1.0], dtype=np.float32), "E")
                             T2 = int(rng.integers(a.t2[0], a.t2[1] + 1))
-                            why2, _ = ep.run_policy(lj, f"R{j}", T2, success_fn=WE.Goal(oj, dj))
+                            why2, _ = WDN.run_guarded(ep, r, a, st, lj, f"R{j}", T2, oj, dj)
                             st["ret_vla_done"] += int(why2 == "success")
                         rec.say(lj)
                         if WE.Goal(oj, dj)(ep.env):

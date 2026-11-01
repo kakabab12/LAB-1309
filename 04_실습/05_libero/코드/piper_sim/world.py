@@ -792,7 +792,11 @@ def make_cam_robot():
                                    "rgba": rgba, "contype": "0", "conaffinity": "0", "group": "1"})
     out = out_dir / "robot.xml"
     ET.indent(tree)
-    tree.write(out)
+    xml = ET.tostring(tree.getroot(), encoding="unicode")
+    if not out.exists() or out.read_text() != xml:     # 10/31 여러 프로세스가 같이 다시 쓰다 다른 쪽이 빈 파일을 읽음 → 바뀐 때만, 다른 이름에 써서 바꿔 끼움
+        tmp = out_dir / f"robot.xml.{os.getpid()}"
+        tmp.write_text(xml)
+        os.replace(tmp, out)
     return str(out)
 
 

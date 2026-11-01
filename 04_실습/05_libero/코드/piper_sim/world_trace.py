@@ -78,6 +78,15 @@ def trace(a, r, seed):
                        [self.gplan.plan["phase"]] + [round(float(v), 4) for v in self.gplan.plan["g"]])
             return o
         type(ra).__call__ = call
+    wf = getattr(r, "wf", None)
+    if wf is not None:                                               # 11/2: VLA 가 받는 물체 위치 입력 (옮길 물체·놓을 곳 − 손, 높이, 보임)
+        orig_wf = type(wf).step
+
+        def wf_step(self, obs, instruction, hand=None):
+            f = orig_wf(self, obs, instruction, hand=hand)
+            cur.update(wf=[round(float(v), 3) for v in np.asarray(f)[:8]])
+            return f
+        type(wf).step = wf_step
     orig_step = sx.Episode.step if not hasattr(sx.Episode, "_orig_step") else sx.Episode._orig_step
     sx.Episode._orig_step = orig_step
 
@@ -118,6 +127,8 @@ def trace(a, r, seed):
         sx.Episode.step = orig_step
         if ra is not None:
             type(ra).__call__ = orig_call
+        if wf is not None:
+            type(wf).step = orig_wf
         if wr is not None:
             wr.close()
     Path(str(out) + ".json").write_text(json.dumps({"tasks": tasks, "result": res, "rows": rows}, ensure_ascii=False))

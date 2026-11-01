@@ -1000,7 +1000,8 @@ class Runner:
             import piper_sim.world_feat as WF
             P = Path(args.policy)       # 10/26 2판: 옮길 물체 방향, 10/27 3판: + 가까이 보기
             self.wf = WF.WorldFeat(version=3 if (P / "worldfeat_v3").exists() else 2 if (P / "worldfeat_v2").exists() else 1,
-                                   sure=True if (P / "worldfeat_sure").exists() else None)     # 10/27: 없으면 PIPER_WF_SURE
+                                   sure=True if (P / "worldfeat_sure").exists() else None,     # 10/27: 없으면 PIPER_WF_SURE
+                                   held=True if (P / "worldfeat_held").exists() else None)     # 11/2: 없으면 PIPER_WF_HELD
         self.canon = None
         if (Path(args.policy) / "canon").exists() or getattr(args, "canon", False):
             import piper_sim.world as W         # 10/31: 여러 모양·N개 장면 — 지시문 틀이 여러 개여도 VLA 에는 첫 틀로 (한국어 명령과 같은 길)

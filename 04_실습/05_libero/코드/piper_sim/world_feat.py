@@ -25,6 +25,14 @@ FAR = 0.10
 #   (첫 사진에서는 13/14 맞음). 팔이 옮길 물체를 가리면 짝을 못 얻어 같은 색 다른 모양 덩어리로 채우고 (world_detect fallback),
 #   그 덩어리가 손에서 멀어 기억을 덮어썼다. SURE 면 그렇게 채운 찾기는 이미 있는 기억을 덮지 않는다.
 SURE = os.environ.get("PIPER_WF_SURE", "0") == "1"      # 기본값 (WorldFeat(sure=…) 로 정함; 학습한 모델은 worldfeat_sure 표시)
+# 11/2 시험 (기본 꺼짐): 쥔 물체 기억이 손을 따라가게. 지금은 손 10cm 안 찾기는 기억을 덮지 않아, 지시한 물체를 쥐고 옮기는 동안
+#   '옮길 물체 − 손' 이 집은 자리 − 손 으로 점점 커진다 (w10m + RC 기본 쌓기 따라가기 1021: 24cm, 1028: 55cm). 끼어들기 학습에서는
+#   '지시한 물체는 멀리 있는데 다른 것을 쥐고 있다 → 가까운 빈 자리에 내려놓기' 라, 옮기는 도중이 그것과 같아 보일 수 있다 (가설:
+#   쌓을 목표 10cm 앞에서 내려가 폄). 두 손가락 평균이 쥔 범위(0.008~0.031)로 들어선 순간 손 5cm 안에 기억이 있는 지시문 물체
+#   (옮길 것·놓을 곳)를 쥔 것으로 보고, 쥐는 동안 그 기억 = 손 자리, 놓는 순간 기억 = 놓은 손 자리.
+HELD = os.environ.get("PIPER_WF_HELD", "0") == "1"
+HELD_Q = (0.008, 0.031)
+HELD_R = 0.05
 
 
 def _template_regex(tpl, groups):
@@ -79,16 +87,71 @@ def derive_v3(f):
     return f
 
 
+def derive_held(f2, grip, eef, idx):
+    """2판 입력 (T × 24, 계산한 장 idx 만 새로 — 사이 장은 앞 장 복사) → HELD 규칙(WorldFeat._track_held)을 사진 없이 덧씌운 2판.
+       기억 = [0:2]·[2:4] + 손 (보임 [6]·[7] > 0 일 때). 쥔 범위로 들어선 장에 손 5cm 안의 기억(옮길 것·놓을 곳)을 쥔 것으로,
+       쥐는 동안·놓는 장에는 그 기억 = 손. 놓은 뒤에는 2판 기억이 바뀌는 장(위 카메라 찾기로 고침)까지 놓은 자리를 그대로 둔다
+       (평가 때 같은 장에서 같은 찾기로 고쳐진다 — 고치는 조건 '손 10cm 밖' 은 기억 값과 상관없음)."""
+    f = np.array(f2, dtype=np.float32, copy=True)
+    was, hk = False, None
+    rel, prev = [None, None], [None, None]
+    last = None
+    idx = list(idx)
+    for i, t in enumerate(idx):
+        hand = np.asarray(eef[t][:2], dtype=np.float64)
+        q = 0.5 * (abs(float(grip[t][0])) + abs(float(grip[t][1])))
+        hold = HELD_Q[0] < q < HELD_Q[1]
+        v2 = [(f2[t, 2 * j:2 * j + 2].astype(np.float64) + hand) if f2[t, 6 + j] > 0 else None for j in (0, 1)]
+        for j in (0, 1):
+            if rel[j] is not None and v2[j] is not None and prev[j] is not None and np.linalg.norm(v2[j] - prev[j]) > 1e-4:
+                rel[j] = None
+        mem = [rel[j] if rel[j] is not None else v2[j] for j in (0, 1)]
+        if hold and not was:
+            near = [j for j in (0, 1) if mem[j] is not None and np.linalg.norm(mem[j] - hand) < HELD_R]
+            hk = min(near, key=lambda j: float(np.linalg.norm(mem[j] - hand))) if near else None
+        if hk is not None and (hold or was):
+            mem[hk] = hand.copy()
+            rel[hk] = hand.copy()
+        if not hold:
+            hk = None
+        was = hold
+        for j in (0, 1):
+            if mem[j] is not None:
+                f[t, 2 * j:2 * j + 2] = mem[j] - hand
+        prev = v2
+        nxt = idx[i + 1] if i + 1 < len(idx) else len(f)
+        f[t + 1:nxt] = f[t]                     # 사이 장은 앞 장 그대로 (world_feat_cache 와 같은 꼴)
+    return f
+
+
 class WorldFeat:
-    def __init__(self, detector=None, version=1, sure=None):
+    def __init__(self, detector=None, version=1, sure=None, held=None):
         import piper_sim.world_detect as WD
         self.det = detector or WD.Detector()
         self.version = version
         self.sure = SURE if sure is None else bool(sure)
+        self.held = HELD if held is None else bool(held)
         self.reset()
 
     def reset(self):
         self.mem, self.ymem = {}, {}
+        self._hk, self._was = None, False
+
+    def _track_held(self, obs, keys, hand):
+        """HELD: 쥔 지시문 물체의 기억을 손 자리로 (위 설명). keys = 지금 지시문의 옮길 것·놓을 곳 인스턴스 이름."""
+        g = obs["robot_state"].get("gripper", {}).get("qpos")
+        if g is None or len(g) < 2:
+            return
+        q = 0.5 * (abs(float(g[0])) + abs(float(g[1])))
+        hold = HELD_Q[0] < q < HELD_Q[1]
+        if hold and not self._was:
+            near = [k for k in keys if k in self.mem and np.linalg.norm(self.mem[k] - hand[:2]) < HELD_R]
+            self._hk = min(near, key=lambda k: float(np.linalg.norm(self.mem[k] - hand[:2]))) if near else None
+        if self._hk is not None and self._hk in keys and (hold or self._was):
+            self.mem[self._hk] = np.array(hand[:2], dtype=np.float64)       # 쥐는 동안·놓는 순간 손 자리
+        if not hold:
+            self._hk = None
+        self._was = hold
 
     def step(self, obs, instruction, hand=None):
         hand = np.asarray(hand if hand is not None else obs["robot_state"]["eef"]["pos"], dtype=np.float64)
@@ -106,6 +169,8 @@ class WorldFeat:
                 self.mem[k] = p
                 if k in getattr(self.det, "yaw", {}):            # 방향도 같은 규칙으로 기억 (손이 가까우면 손에 가려 틀릴 수 있다)
                     self.ymem[k] = self.det.yaw[k][0]
+        if self.held:
+            self._track_held(obs, [W.inst(c) for c in (o, d) if c is not None], hand)
         f = np.zeros(24, dtype=np.float32)
         for j, cat in enumerate((o, d)):
             if cat is None:

@@ -720,7 +720,7 @@ class Trainer:
                     (d / "relfeat").write_text("물체 24개가 손 기준 위치 (relfeat.py, 10/15)\n")
                 elif (d / "relfeat").exists():
                     (d / "relfeat").unlink()
-                WV = re.fullmatch(r"wfeat(\d?)(s?)(c?)", FEAT)      # wfeat / wfeat2 / wfeat3 / wfeat3s (10/27 확실한 찾기만 기억) / wfeat3sc (10/29 손목 카메라 가림)
+                WV = re.fullmatch(r"wfeat(\d?)(s?)(c?)(h?)", FEAT)   # wfeat / wfeat2 / wfeat3 / wfeat3s (10/27 확실한 찾기만 기억) / wfeat3sc (10/29 손목 카메라 가림) / wfeat3sch (11/2 쥔 물체 기억이 손을 따라감)
                 if WV and WV.group(3):                   # 평가는 지금 코드(가리개에 손목 카메라 포함)로 하므로 기록용 표시
                     (d / "worldfeat_cammask").write_text("world_feat: 로봇 가리개가 손목 카메라 몸체까지 가린 위치 입력으로 학습 (10/29)\n")
                 elif (d / "worldfeat_cammask").exists():
@@ -738,6 +738,10 @@ class Trainer:
                     (d / "worldfeat_v3").write_text("world_feat 3판: [11:15] tanh((물체·놓을 곳 − 손) / 판 크기 절반) (10/27)\n")
                 elif (d / "worldfeat_v3").exists():
                     (d / "worldfeat_v3").unlink()
+                if WV and WV.group(4):                   # 11/2: 평가(switch_experiment.Runner)가 이 표시를 보고 WorldFeat(held=True)
+                    (d / "worldfeat_held").write_text("world_feat held: 쥔 지시문 물체의 기억이 손을 따라감 (world_feat.derive_held, 11/2)\n")
+                elif (d / "worldfeat_held").exists():
+                    (d / "worldfeat_held").unlink()
                 if WV and WV.group(2):                   # 10/27: 덜 확실한 찾기(fallback)는 기억을 덮지 않게 계산한 입력
                     (d / "worldfeat_sure").write_text("world_feat sure: 짝을 못 얻어 채운 찾기는 기억을 덮지 않음 (10/27)\n")
                 elif (d / "worldfeat_sure").exists():

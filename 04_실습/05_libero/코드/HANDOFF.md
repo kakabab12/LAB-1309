@@ -1,6 +1,51 @@
-# 인계 메모 — 10/31 09:30 절이 최신
+# 인계 메모 — 11/02 00:25 절이 최신
 
-## 10/31 09:30 (가장 최신, 이것부터) — 사용자 "오늘은 여기까지 하자"
+## 11/02 00:25 (가장 최신, 이것부터) — 사용자 "계속 진행해 정확도는 몇이야?"
+
+- **01:50 지금 상태**: w10m + RC 일 1개 세 설정 끝 — 기본 38·흔든 34·많음 29 /50 = **101/150 (67%)**, 판 안 103, 판 일 91/117, 쌓기 10/33
+  (예전 다듬기 RA 81/150: 기본 28·흔든 23·많음 30 — 많음만 그대로, 짝 7:6).
+  돌고 있는 것: piper-w11mc (01:44~ w11m 학습, FEAT=wfeat3sch, 3시간 20분 → ④ 14항목 = w11m RC·혼자 + w10m RC 일 2·3개 기본),
+  piper-w12m (w11mc 로그 마지막 '끝' 을 기다림), piper-abl1102 (④ 시작 10분 뒤 w10m + RB(= RC − mocc) 많음 50장면), piper-gpugate3c.
+  끄기: systemctl --user stop piper-w11mc piper-w12m piper-abl1102 (자물쇠 outputs/piper/gpu_launch.lock 확인).
+  일지 11/2 (LAB-1309 03_일지/2026-11-02.md) 올림.
+
+- 10/31 10:41 w11m 파이프라인이 ② 에서 멈춰 있었음 (이틀 가까이 GPU 놂): world_feat_cache 세 줄이 같이 시작하며 손목 카메라 로봇 파일
+  (piper_sim/assets/robots/piper_noped_cam_random/robot.xml) 을 다시 쓰다 다른 줄이 빈 파일을 읽음 → daggerW3_random 2판 15/47 에서 끊김.
+  고침: world.make_cam_robot 이 내용이 바뀐 때만, 다른 이름에 써서 os.replace 로 바꿔 끼움. rcguard 도 그래서 RC 흔든·많음을 못 이어 감.
+- 새 유닛 piper-w11mb (run_world11m_b.sh, 로그 outputs/piper/world11mb.log): ⓐ 2판 나머지·3판 (00:22 끝) ⓑ w10m + RC 흔든(이어서)·많음
+  → ③ w11m 학습 (자물쇠를 쥔 채, 3시간 20분쯤) → ④ RC 다듬기 12항목 (GPU 일꾼 셋). 끄기는 systemctl --user stop piper-w11mb 로만.
+- RC 기본 남은 실패 12 (VLA 몫): 물체와 놓을 곳을 맞게 고르면 32/32 성공. 실패 = 놓을 곳 대신 목표 물체를 집음 (1006·1043),
+  다른 물체 (1011·1018·1020), 쌓기에서 들고 가 목표 10~11cm 옆 책상에 내려놓음 (1021·1028)·끝까지 들고 있음 (1035),
+  3~7cm 앞에서 안 내려감 (1042·1047·1048), 육각기둥 넘어져 굴러감 (1004).
+- 따라가기 (GPU, outputs/media/trace/tr_w10mrc_default_{1006,1021,1028}, world_trace 에 VLA 위치 입력 wf 기록 추가):
+  셋 다 VLA 가 지시한 물체를 쥐고 쌓을 목표 10~20cm 앞에서 멈춰 내려가 손을 폄. 위치 입력은 목표까지 9.6cm 로 맞음 (오차 1cm),
+  손목 화면에 목표가 앞에 보임, 다듬기는 손대지 않음 (lock 없음) → VLA 몫 (가설: 쌓기 마무리 시범 부족).
+- 새 DAgger 옵션 --stop-release <cm> (world_dagger·_nested·_deep): VLA 가 지시한 물체를 쥔 채 놓을 곳에서 그 cm 밖에서 펴려는 스텝에
+  '쥐고 멈춤'으로 바꾸고 시범 프로그램이 그 자리에서 이어받음 (HG-DAgger 처럼 실수 순간 끼어들기). 백업 outputs/piper/world_dagger*_before_stoprel.py.
+  시험: scratchpad dagtest (쌓기 100%, 29000~29005) — VLA 혼자면 3장면 모두 230~337스텝 동안 물체를 못 쥐어 멈춤이 안 걸림
+  (옮기는 단계의 실수가 DAgger 데이터에 거의 안 담기는 까닭). → --refine <부품> 추가 (세 DAgger 모두): VLA 구간에 평가와 같은 다듬기를 켬
+  (저장은 선생 구간만, world_dagger.Chain = 다듬기 → 멈춤). 시험 dagtest2: 29000·29001 은 VLA + 다듬기가 스스로 끝냄 (저장 없음).
+- dagtest2 (다듬기 켬, 쌓기 6장면): VLA + 다듬기가 끝냄 3, 실수 순간 멈춤 2 (29005 이어받아 성공 44스텝, 29004 선생이 놓기 실패 — 저장 안 함).
+- 가설 시험 '쥔 물체 기억이 손을 따라감' (world_feat HELD, 기본 꺼짐 — PIPER_WF_HELD=1 또는 모델 폴더 worldfeat_held):
+  지금 2판 기억은 손 10cm 안 찾기를 안 받아 옮기는 동안 '옮길 물체 − 손' 이 집은 자리 − 손 으로 커짐 (1021: 24cm, 1028: 55cm) —
+  끼어들기 학습의 '지시한 물체는 멀리, 다른 것을 쥠 → 가까운 빈 자리(놓을 곳 바깥 6~10cm)에 내려놓기' 와 같아 보일 수 있다.
+  ① 다시 학습 없이 w10m + RC + HELD 기본 쌓기 12장면 (run_held_1102.sh → outputs/world_w10mrchM_default/k1s.json): **4/12 (RC 5/12)** —
+     처음 보는 입력이라 판단 못 함. 실패 넷 중 셋은 편 자리가 목표에 가까워짐 (1021 11.3→3.8cm, 1028 10.8→8.9, 1035 38.6→22.5), 1015 는 성공→실패.
+  ② 학습용: world_feat.derive_held (2판 + grip + eef_pos, 사진 없이) → world_feat_cache --from-v2 --held --stride 6 → *.wfeat3sch.npy,
+     train_lora --feat wfeat3sch 이면 모델 폴더에 worldfeat_held (Runner 가 보고 켬). 옛 데이터도 grip·eef_pos 있음.
+     백업 outputs/piper/{world_feat_before_held,train_lora_before_held,switch_experiment_before_held}.py.
+     전 데이터 *.wfeat3sch.npy 16068개 만듦 (piper-heldcache, 4분) — 장의 40% 에서 옮길 물체 입력이 바뀜 (26% 는 10cm 넘게 줄어듦), 다른 칸은 그대로.
+     run_world11m_c.sh = b 의 ③·④ 만, FEAT·OUT 로 위치 입력·모델 폴더를 고름 (예: FEAT=wfeat3sch OUT=outputs/piper_w11mh_model).
+- **01:00 결정: w11m 학습은 쥔 물체 따라가기 입력(wfeat3sch)으로.** 기존 입력에서 '쥐고 옮기는 동안 물체가 멀리 있다고 보이는' 칸만 바로잡은 것.
+  piper-holdlock (hold_lock.sh) 이 GPU 자물쇠를 쥐어 w11mb 가 ⓑ 뒤 학습을 못 띄우게 하고, piper-switch11 (run_switch11.sh) 이
+  ⓑ 끝을 보면 w11mb 끔 → holdlock 끔 → piper-w11mc (run_world11m_c.sh, FEAT=wfeat3sch, 로그 world11mc.log) → piper-w12m (w11mc 끝을 기다림).
+  (w11m 은 DAgger 데이터 + 입력 바꿈이 겹침 — 나아지지 않으면 입력 그대로(wfeat3sc)로 다시 학습해 갈라 볼 것)
+  ④ 에 w10m + RC 일 2·3개 기본 (w10mrcM k2n·k3n) 도 넣음 — 예전 일 2개 1/20 은 RA 다듬기라 같은 다듬기로 견주려고.
+- run_world12m.sh (piper-w12m 으로 띄움 예정 → 시험 보고 piper-w12m 으로): w11mb 마지막 줄 '=== 날짜 시각 끝' 뒤 ① X1/X2/X3 DAgger (w11m, --stop-release 4)
+  ② 특징 ③ w12m 학습 ④ 평가.
+
+
+## 10/31 09:30 — 사용자 "오늘은 여기까지 하자"
 
 - 새로 띄우는 일은 멈춤. 저절로 도는 것 셋만 남김 (사용자가 끄라면: systemctl --user stop piper-w11m piper-rcguard2 piper-rc1031b piper-gpugate3c):
   ① piper-w11m: ② 사진 특징·위치 입력 (08:55~) → ③ w11m 학습 15000스텝 (3시간 반, 13~14시쯤 끝) → ④ RC 다듬기로 일 1개 세 설정·혼자·일 2·3개 12항목.
