@@ -33,6 +33,8 @@ def main():
     p.add_argument("--fix-wrong", action="store_true", help="다른 물체를 쥐고 있으면 내려놓고 지시한 물체로 (기록)")
     p.add_argument("--stop-release", type=float, default=0.0,
                    help="11/2: VLA 가 지시한 물체를 쥔 채 놓을 곳에서 이 cm 밖에서 손을 펴려 하면 펴기 전에 멈추고 그 자리에서 이어받음 (0 이면 끔)")
+    p.add_argument("--stop-wrong-carry", type=float, default=0.0,
+                   help="11/2: 지시한 물체가 아닌 것을 쥔 채 손이 지시한 놓을 곳 이 cm 안으로 오면 그 순간 이어받음 (0 이면 끔)")
     p.add_argument("--refine", default=None,
                    help="11/2: VLA 가 하는 구간에 다듬기를 켠다 (평가와 같은 시스템이 가 있는 상태에서 이어받기 — 저장은 선생 구간만). 예: $(cat outputs/piper/ra_choice.txt)")
     a, rest = p.parse_known_args()
@@ -69,11 +71,13 @@ def main():
         WE.STATE["objs"] = tuple(sc.objects)
         T = int(rng.integers(a.t[0], a.t[1] + 1))
         st["tried"] += 1
-        guard = StopRelease(o, d, a.stop_release) if a.stop_release > 0 else None
+        guard = Guards(o, d, a)
         r.assist = Chain(a._refine, guard)
         why, n = ep.run_policy(lang, "T0", T, success_fn=WE.Goal(o, d), trigger_fn=None if guard is None else (lambda _t: guard.hit))
         r.assist = None
-        st["stop_release"] += int(guard is not None and guard.hit)
+        if guard is not None and guard.hit:
+            kk = {"StopRelease": "stop_release", "StopWrongCarry": "stop_wrong_carry"}[guard.kind]
+            st[kk] = st.get(kk, 0) + 1
         held = held0 = ep.finger_object() if ep.holding() else None
         res = "?"
         if why == "success":
@@ -109,7 +113,8 @@ def main():
                 seg.save(out / f"D{seed}_t{T}_s0.npz", lang, source="world_dagger",
                          scene=json.dumps({"seed": seed, "objects": sc.objects, "pads": sc.pads, "env_info": getattr(sc, "env_info", {}),
                                            "vla_steps": T, "held_at_handover": held0, "motion": mv,
-                                           "stop_release": None if guard is None or not guard.hit else n}), seg=0)
+                                           "stop_release": None if guard is None or not guard.hit else n,
+                                           "stop_kind": None if guard is None or not guard.hit else guard.kind}), seg=0)
                 st["ok"] += 1
                 st["wrong_fixed"] += int(held0 is not None and held0 != o)
                 st["frames"] += len(seg)
@@ -117,7 +122,7 @@ def main():
             else:
                 st["fail"] += 1
                 res = f"이어받아 실패 ({stage}: {WE.why(ep, o)}; 손 {np.round(sx.eef_pos(ep.obs), 3)} 그리퍼 {float(ep.obs['robot_state']['gripper']['qpos'][0]):.3f})"
-        print(f"{seed} T={T}{f' (펴기 전 멈춤 {n})' if guard is not None and guard.hit else ''} 물체 {len(sc.objects)}: {res} ({time.time() - t0:.0f}초)", flush=True)
+        print(f"{seed} T={T}{f' (실수 순간 멈춤 {guard.kind} {n})' if guard is not None and guard.hit else ''} 물체 {len(sc.objects)}: {res} ({time.time() - t0:.0f}초)", flush=True)
         ep.env.close()
     st["wall_sec"] = round(time.time() - t0, 1)
     print("STATS", json.dumps(st, ensure_ascii=False), flush=True)
@@ -144,6 +149,57 @@ class Chain:
     def __call__(self, ep, act, instruction):
         for f in self.fs:
             act = f(ep, act, instruction)
+        return act
+
+
+class Guards:
+    """실수 순간 멈춤 묶음 (--stop-release, --stop-wrong-carry). 아무것도 안 켜면 None 처럼 (Chain 이 건너뜀)."""
+
+    def __new__(cls, o, d, a):
+        gs = []
+        if getattr(a, "stop_release", 0) > 0:
+            gs.append(StopRelease(o, d, a.stop_release))
+        if getattr(a, "stop_wrong_carry", 0) > 0:
+            gs.append(StopWrongCarry(o, d, a.stop_wrong_carry))
+        if not gs:
+            return None
+        obj = super().__new__(cls)
+        obj.gs = gs
+        return obj
+
+    @property
+    def hit(self):
+        return any(g.hit for g in self.gs)
+
+    @property
+    def kind(self):
+        return next((type(g).__name__ for g in self.gs if g.hit), None)
+
+    def __call__(self, ep, act, instruction):
+        for g in self.gs:
+            if not self.hit:
+                act = g(ep, act, instruction)
+        return act
+
+
+class StopWrongCarry:
+    """11/2 (w11m + RC 일 2개 기본 0/20): B 지시로 바뀐 뒤 VLA 가 들고 있던 A 를 내려놓지 않고 B 의 판 쪽으로 가져가 그 옆(6~7cm)에 놓는다
+       (seed 1000). 지시한 물체가 아닌 것을 쥔 채 손이 지시한 놓을 곳 cm 안으로 오면 '쥔 채 멈춤' 으로 바꾸고 이어받게 (선생은 A 를 놓을 곳들을
+       피한 빈 자리에 내려놓고 B 로)."""
+
+    def __init__(self, o, d, cm):
+        self.o, self.d, self.r = o, d, cm / 100.0
+        self.hit = False
+
+    def __call__(self, ep, act, instruction):
+        if not self.hit and ep.holding():
+            h = ep.finger_object()
+            if h is not None and h != self.o:
+                hand = np.asarray(ep.obs["robot_state"]["eef"]["pos"], dtype=np.float64)
+                if np.linalg.norm(hand[:2] - WE.target(ep, self.d)[:2]) < self.r:
+                    self.hit = True
+                    act = np.array(act, dtype=np.float32, copy=True)
+                    act[:6], act[6] = 0.0, 1.0
         return act
 
 

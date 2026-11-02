@@ -42,6 +42,8 @@ def main():
     p.add_argument("--stop-release", type=float, default=0.0,
                    help="11/2: 마지막 일·돌아오기에서 VLA 가 지시한 물체를 쥔 채 놓을 곳에서 이 cm 밖에서 손을 펴려 하면 그 순간 이어받음")
     p.add_argument("--refine", default=None, help="11/2: VLA 가 하는 구간 모두에 다듬기를 켠다 (평가와 같은 시스템)")
+    p.add_argument("--stop-wrong-carry", type=float, default=0.0,
+                   help="11/2: 마지막 일·돌아오기에서 지시한 물체가 아닌 것을 쥔 채 손이 지시한 놓을 곳 이 cm 안으로 오면 이어받음")
     a, rest = p.parse_known_args()
     se.DART_SIGMA = a.dart
     args = sx.fill_defaults(sx.build_parser().parse_args(["--task-a", "0", "--policy", a.policy] + rest))

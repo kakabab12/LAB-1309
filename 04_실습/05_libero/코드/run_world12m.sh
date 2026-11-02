@@ -4,7 +4,8 @@
 #   (위치 입력은 목표까지 9.6cm 로 맞음, 다듬기는 손대지 않음). 무작위 T 에서만 이어받으면 그 순간의 바로잡기 시범이 드물다
 #   → VLA 가 지시한 물체를 쥔 채 놓을 곳 4cm 밖에서 펴려는 스텝에 멈추고 시범 프로그램이 그 자리에서 옮겨 놓는다 (HG-DAgger 처럼).
 #   VLA 구간은 평가와 같이 다듬기(RC)를 켠 채 (--refine): VLA 혼자 돌리면 쥐기를 못 해 옮기는 단계의 실수가 데이터에 안 담긴다.
-#   ① DAgger (w11m, GPU 일꾼 셋): 일 1개 --fix-wrong --stop-release 4 (쌓기 50%, VLA 60~450스텝) 세 설정 × 150 (31000~),
+#   11/2 8시: --stop-wrong-carry 12 도 (B 지시인데 A 를 든 채 B 의 놓을 곳 12cm 안 → 이어받기, w11m 일 2개 0/20 의 꼴), 끼어들기 몫을 늘림.
+#   ① DAgger (w11m, GPU 일꾼 셋): 깊이 2 × 100 (32000~) 먼저, 일 1개 --fix-wrong (쌓기 50%, VLA 60~450스텝) 세 설정 × 120 (31000~),
 #      깊이 2 --ret-p 0.6 --stop-release 4 세 설정 × 60 (32000~), 깊이 3 같은 옵션 세 설정 × 20 (33000~)
 #   ② 사진 특징·위치 입력  ③ w12m 학습 (w11m 에서 15000스텝, 지시문 바꿔 쓰기 50%)  ④ 평가 (w11m ④ 와 같은 장면·RC 다듬기)
 #   w11m 학습·평가(piper-w11mc, 로그 W11LOG)가 끝난 뒤 시작. 끄기는 systemctl --user stop piper-w12m 으로만.
@@ -29,11 +30,11 @@ run_item(){ IFS=: read -r kind c a b d e f <<< "$1"
         env PIPER_WORLD=piper_sim/worlds/$c.json $PY piper_sim/world_eval.py --policy $f --seeds $b --k $a --nested $EVQ $opt \
             --out outputs/world_${e}_$c/k${a}n.json > outputs/piper/w12m_${e}_${c}_k$a.log 2>&1 ;;
     x1) env PIPER_WORLD=piper_sim/worlds/$c.json PIPER_STACK_P=0.5 $PY piper_sim/world_dagger.py --policy $CD --seeds $a --out data/world_daggerX1_$c \
-            --fix-wrong --stop-release 4 --t 60 450 --refine $RC $EVQ > outputs/piper/w12m_x1_$c.log 2>&1 ;;
+            --fix-wrong --stop-release 4 --stop-wrong-carry 12 --t 60 450 --refine $RC $EVQ > outputs/piper/w12m_x1_$c.log 2>&1 ;;
     x2) env PIPER_WORLD=piper_sim/worlds/$c.json $PY piper_sim/world_dagger_nested.py --policy $CD --seeds $a --out data/world_daggerX2_$c \
-            --ret-p 0.6 --stop-release 4 --refine $RC $EVQ > outputs/piper/w12m_x2_$c.log 2>&1 ;;
+            --ret-p 0.6 --stop-release 4 --stop-wrong-carry 12 --refine $RC $EVQ > outputs/piper/w12m_x2_$c.log 2>&1 ;;
     x3) env PIPER_WORLD=piper_sim/worlds/$c.json $PY piper_sim/world_dagger_deep.py --policy $CD --depth 3 --seeds $a --out data/world_daggerX3_$c \
-            --ret-p 0.6 --stop-release 4 --refine $RC $EVQ > outputs/piper/w12m_x3_$c.log 2>&1 ;;
+            --ret-p 0.6 --stop-release 4 --stop-wrong-carry 12 --refine $RC $EVQ > outputs/piper/w12m_x3_$c.log 2>&1 ;;
   esac; }
 gworker(){ for it in "$@"; do mkdir $CL/${it//[:\/,]/_} 2>/dev/null || continue
     until mkdir $LOCK 2>/dev/null; do sleep 15; done
@@ -51,9 +52,9 @@ tail -1 $W11LOG | grep -q "멈춤" && { log "w11m 파이프라인 멈춤 — 그
 [ -f $CD/worldfeat_v3 ] || { log "w11m 모델 없음 — 그만"; exit 1; }
 
 log "[① w12m DAgger] 시작 모델 $CD (GPU 일꾼 셋, 실수하는 순간 이어받기 4cm)"
-D1="x1:default:31000-31149 x1:random:31200-31349 x1:many:31400-31549
-    x2:default:32000-32059 x2:random:32200-32259 x2:many:32400-32459
-    x3:default:33000-33019 x3:random:33100-33119 x3:many:33200-33219"
+D1="x2:default:32000-32099 x2:random:32200-32299 x2:many:32400-32499
+    x1:default:31000-31119 x1:random:31200-31319 x1:many:31400-31519
+    x3:default:33000-33029 x3:random:33100-33129 x3:many:33200-33229"      # 11/2 8시: 일 1개 81% · 일 2개 0/20 → 끼어들기 몫을 늘리고 먼저
 W=()
 for i in 1 2 3; do gworker $D1 & W+=($!); sleep 5; done
 wait "${W[@]}"
