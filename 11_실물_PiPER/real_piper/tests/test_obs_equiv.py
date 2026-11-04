@@ -42,12 +42,10 @@ for seed in map(int, a.seeds.split(",")):
         ds, da = np.abs(s1 - s2).max(), np.abs(a1 - a2).max()
         worst_s, worst_a = max(worst_s, ds), max(worst_a, da)
         print(f"seed {seed} 순간 {k}: 상태 입력 최대 차이 {ds:.4f} (정규화 공간), 동작 묶음 최대 차이 {da:.4f} (위치 m / ±1)", flush=True)
-        robot.send_joints(robot.joints())
-        for _ in range(15):                           # 시뮬 평가 경로(VLA 첫 동작들)로 손을 조금 움직여 다른 순간
-            robot.ep.step(np.r_[np.clip((a1[0, :3] - o_sim["robot_state"]["eef"]["pos"]) / 0.05, -1, 1), a1[0, 3:6], a1[0, 6]].astype(np.float32), "T0") \
-                if False else None
-            robot._q_cmd = None
-            robot.ep.step(np.r_[np.clip((a1[min(_, len(a1) - 1), :3] - robot.obs()["robot_state"]["eef"]["pos"]) / 0.05, -1, 1),
-                                a1[min(_, len(a1) - 1), 3:6], a1[min(_, len(a1) - 1), 6]].astype(np.float32), "T0")
+        robot._q_cmd = None                           # 관절 바로 넣기 끄고 시뮬 제어기로
+        for i in range(15):                           # VLA 첫 동작들로 손을 조금 움직여 다른 순간을 만든다
+            j = min(i, len(a1) - 1)
+            eef = robot.obs()["robot_state"]["eef"]["pos"]
+            robot.ep.step(np.r_[np.clip((a1[j, :3] - eef) / 0.05, -1, 1), a1[j, 3:6], a1[j, 6]].astype(np.float32), "T0")
     robot.close()
 print(f"전체 최대: 상태 입력 {worst_s:.4f}, 동작 {worst_a:.4f}")
