@@ -207,7 +207,7 @@ def main():
     else:
         if a.backend == "sdk":
             robot = robot_io.PiperSDK(cfg["can"], speed_pct=a.speed or cfg["speed_pct"], grip_open_m=cfg["gripper"]["open_m"],
-                                      grip_effort_nm=cfg["gripper"]["effort_nm"])
+                                      grip_effort_nm=cfg["gripper"]["effort_nm"], interface=cfg.get("sdk_interface", "v2"))
         else:
             robot = robot_io.DryRun(np.array(cfg["home_qpos"]), grip_open_m=cfg["gripper"]["open_m"])
         from real_piper import cameras

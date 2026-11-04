@@ -44,7 +44,7 @@
 
 ### 0. 준비물
 - GPU 가 있는 PC (연구실 1080 Ti 로 추론 한 번 0.4~0.6초 — 지연 9~12스텝). `~/smolVLA` 폴더 (코드 + 모델 `outputs/piper_w12m_model/merged`) 와 같은 가상환경
-- PiPER + CAN-USB 어댑터, `pip install piper_sdk` (원격 조종·기록은 WeGo 플러그인 `pip install lerobot_robot_wego_piper`)
+- PiPER + CAN-USB 어댑터, `pip install piper_sdk python-can` (원격 조종·기록은 WeGo 플러그인 `pip install lerobot_robot_wego_piper`). 펌웨어가 S-V1.8-8 이상이면 `pip install "piper_sdk>=0.7.0a1"` 과 설정 `sdk_interface: "v3"`. 설치·CAN·조작법 자세히: LAB-1309 `12_PiPER_조작법_및_설치법`
 - 위 카메라: 책상 윗면에서 **0.85 m 위, 로봇 밑동 바로 위**, 똑바로 아래를 보고, 사진 위쪽 = 로봇 앞. 잘라서 **세로 시야각 75°** 가 나와야 한다 (그보다 좁으면 cameras.py 가 멈춤)
 - 손목 카메라: 시뮬과 같은 자리 (손 끝판, RealSense D405 크기, 시야각 75° 정사각형) — `reference/wrist_view.png` 와 비슷하게 보이도록
 - 책상: 로봇 밑동을 책상 윗면에 바로 둠 (받침대 없음). 물체·판은 시뮬과 같은 모양·크기·색 (정육면체 4.5 cm, 막대 9×4×4 cm, 원기둥 지름 4.5 cm, 판 9 cm 정사각형 — `piper_sim/worlds/default.json`)
@@ -106,6 +106,7 @@ PIPER_NOPED=1 MUJOCO_GL=egl python real_piper/run_real.py --backend sim --seed 1
 | `model` | VLA 모델 폴더 (smolVLA 기준 경로) |
 | `latency_steps` | 접두로 넣을 지연 (스텝). 실물은 추론 시간에 맞춰 (0.45초 → 9) |
 | `can`, `speed_pct` | CAN 이름, 관절 속도 % (MotionCtrl_2) |
+| `sdk_interface` | `v2` (C_PiperInterface_V2) 또는 `v3` (펌웨어 S-V1.8-8 이상, piper_sdk 0.7.0a1 이상) |
 | `home_qpos` | 처음 자세 (시뮬 init_qpos, rad) |
 | `gripper.open_m`, `effort_nm` | 열 때 벌림 (0.07 m), 쥐는 힘 (N·m, 0~5) |
 | `gripper.q_offset_m` | 손가락 값 = 거리/2 + 이 값. 시뮬은 4.5 cm 정육면체를 쥐면 두 손가락 합 5.0 cm (패드 두께) → 0.0025 |
@@ -119,7 +120,7 @@ PIPER_NOPED=1 MUJOCO_GL=egl python real_piper/run_real.py --backend sim --seed 1
 ## 안전
 - 처음은 `--backend dry`, 그다음 `--speed 10~20`, 팔 둘레를 비우고 비상 정지를 손에.
 - 손끝 목표는 작업 공간·책상 위 높이로 자르고, 관절은 한 스텝에 4° 이상 못 움직인다 (`safety`). 잘린 횟수는 100스텝마다 출력.
-- Ctrl-C 는 지금 관절을 목표로 다시 보내 멈춘다. `EmergencyStop` 은 `robot_io.PiperSDK.estop()`. `ResetPiper` 는 힘이 빠져 팔이 떨어지므로 쓰지 않는다.
+- Ctrl-C 는 지금 관절을 목표로 다시 보내 멈춘다. `EmergencyStop` 은 `robot_io.PiperSDK.estop()` — 팔이 천천히 내려앉으니 아래를 비울 것, 다시 쓰려면 `EmergencyStop(0x02)` 로 풀고 다시 켜는데, 이것은 `ResetPiper` 와 같은 명령이라 힘이 빠져 팔이 떨어진다 (팔이 내려앉은 뒤에 보낼 것). 그래서 실행 중에는 둘 다 쓰지 않는다.
 
 ## 한계 (정직하게)
 1. **시뮬 그림 → 실물 사진**: VLA 는 MuJoCo 그림으로만 학습했다. 카메라 자리·시야각을 맞춰도 색·빛·질감이 달라 처음에는 잘 안 될 가능성이 크다.

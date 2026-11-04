@@ -8,6 +8,10 @@
 실물 단위 (piper_sdk V2, agilexrobotics/piper_sdk asserts/V2/INTERFACE_V2.MD):
   JointCtrl·GetArmJointMsgs = 0.001°, GripperCtrl·GetArmGripperMsgs grippers_angle = 0.001 mm, gripper_effort = 0.001 N·m,
   MotionCtrl_2(0x01 CAN 명령, 0x01 MOVE J, 속도 %, 0x00 위치·속도 모드), EmergencyStop(0x01 정지 / 0x02 풀기).
+펌웨어 S-V1.8-8 이상은 공식 문서가 C_PiperInterface_V3 를 쓰라고 한다 (config_real.json "sdk_interface": "v3").
+V3 에서 바뀐 것은 MOVE M 번호·MIT 프레임·그리퍼 각도 모드이고, 여기서 쓰는 MOVE J·JointCtrl·그리퍼 폭 명령은 V2 와 같다.
+EmergencyStop(0x01) 을 보내면 팔이 천천히 내려앉는다 (공식 demo piper_ctrl_stop.py). 다시 쓰려면 0x02 로 풀고 다시 켠다.
+0x02 는 ResetPiper 와 같은 명령(CAN 0x150 첫 바이트 0x02)이라 힘이 빠진다 — 팔이 내려앉은 뒤나 손으로 받친 채 보낸다.
 """
 import time
 
@@ -19,9 +23,12 @@ RAD2MDEG = 180.0 / np.pi * 1000.0      # rad → 0.001°
 class PiperSDK:
     """실물 PiPER. 팔을 켜고(EnablePiper) 관절 위치 모드(MOVE J)로 움직인다."""
 
-    def __init__(self, can="can0", speed_pct=30, grip_open_m=0.07, grip_effort_nm=1.0, enable_timeout=5.0):
-        from piper_sdk import C_PiperInterface_V2
-        self.p = C_PiperInterface_V2(can_name=can)
+    def __init__(self, can="can0", speed_pct=30, grip_open_m=0.07, grip_effort_nm=1.0, enable_timeout=5.0, interface="v2"):
+        import piper_sdk
+        name = {"v2": "C_PiperInterface_V2", "v3": "C_PiperInterface_V3"}[interface]
+        if not hasattr(piper_sdk, name):              # V3 는 piper_sdk 0.7.0a1 (미리 보기판) 부터. pip install piper_sdk 는 0.6.2 (V2 만)
+            raise RuntimeError(f"piper_sdk 에 {name} 이 없음 — 펌웨어 S-V1.8-8 이상(V3)은 pip install 'piper_sdk>=0.7.0a1'")
+        self.p = getattr(piper_sdk, name)(can_name=can)
         self.speed = int(np.clip(speed_pct, 1, 100))
         self.open_m, self.effort = float(grip_open_m), float(grip_effort_nm)
         self.p.ConnectPort()

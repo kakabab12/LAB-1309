@@ -5,17 +5,63 @@
   "latency_steps": 9,
   "cuda_graph": true,
   "can": "can0",
+  "sdk_interface": "v2",
   "speed_pct": 30,
-  "home_qpos": [-0.0372, 0.6342, -0.551, 0.0339, 0.8454, -0.0491],
+  "home_qpos": [
+    -0.0372,
+    0.6342,
+    -0.551,
+    0.0339,
+    0.8454,
+    -0.0491
+  ],
   "home_seconds": 5.0,
   "max_steps": 2400,
-  "gripper": {"open_m": 0.07, "effort_nm": 1.0, "q_offset_m": 0.0025},
-  "safety": {"radius_m": [0.12, 0.50], "z_above_table_m": [0.02, 0.45], "max_joint_step_deg": 4.0},
+  "gripper": {
+    "open_m": 0.07,
+    "effort_nm": 1.0,
+    "q_offset_m": 0.0025
+  },
+  "safety": {
+    "radius_m": [
+      0.12,
+      0.5
+    ],
+    "z_above_table_m": [
+      0.02,
+      0.45
+    ],
+    "max_joint_step_deg": 4.0
+  },
   "cameras": {
-    "top": {"device": 0, "width": 1280, "height": 720, "fovy_deg": 75, "out": 512, "flip": "v",
-            "intrinsics": {"fx": null, "fy": null, "cx": null, "cy": null}},
-    "wrist": {"device": 2, "width": 640, "height": 480, "fovy_deg": 75, "out": 512, "flip": "v",
-              "intrinsics": {"fx": null, "fy": null, "cx": null, "cy": null}}
+    "top": {
+      "device": 0,
+      "width": 1280,
+      "height": 720,
+      "fovy_deg": 75,
+      "out": 512,
+      "flip": "v",
+      "intrinsics": {
+        "fx": null,
+        "fy": null,
+        "cx": null,
+        "cy": null
+      }
+    },
+    "wrist": {
+      "device": 2,
+      "width": 640,
+      "height": 480,
+      "fovy_deg": 75,
+      "out": 512,
+      "flip": "v",
+      "intrinsics": {
+        "fx": null,
+        "fy": null,
+        "cx": null,
+        "cy": null
+      }
+    }
   },
   "top_camera_calib": null,
   "detect_model": null,
