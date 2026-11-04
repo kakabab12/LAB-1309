@@ -409,7 +409,7 @@ def s_background(x, y, w):
 
 def s_capstone(x, y, w):
     steps = [(["색 분류", "컨베이어"], ["파랑 큐브만"]), (["저울 숫자 판독"], ["YOLOv8n ·", "Jetson Orin Nano"]),
-             (["118 g 이상"], ["TCP 트리거"]), (["SO-101 로봇팔"], ["단계별 ACT"]), (["1층 → 옆 → 2층"], ["순차 적재"])]
+             (["118g 이상"], ["TCP 트리거"]), (["SO-101 로봇팔"], ["단계별 ACT"]), (["1층 → 옆 → 2층"], ["순차 적재"])]
     bw = 62.0
     gap = (w - 5 * bw) / 4
     for i, (head, tail) in enumerate(steps):
@@ -421,9 +421,9 @@ def s_capstone(x, y, w):
             shape(MSO_SHAPE.RIGHT_ARROW, bx + bw + 2.5, y + 20, gap - 5, 12, fill=DARK)
     loop = shape(MSO_SHAPE.U_TURN_ARROW, x + 3 * (bw + gap) + 8, y + 54, bw + gap + bw - 16, 14, fill=WARM, name="retry loop")
     loop.rotation = 180
-    textbox(x, y + 55, 3 * (bw + gap), 12, [P("무게 확인 재시도: 저울에 60 g 이상 남으면 그 단계를 다시 실행 →", 20, True, WARM_DK, align="r")],
+    textbox(x, y + 55, 3 * (bw + gap), 12, [P("무게 확인 재시도: 저울에 60g 이상 남으면 그 단계를 다시 실행 →", 20, True, WARM_DK, align="r")],
             anchor="ctr", name="retry note")
-    stats = [("86.3%", "숫자 탐지 mAP50"), ("91.7%", "118 g 분류 정확도 (55/60)"), ("약 810 ms", "인식 → 로봇 명령")]
+    stats = [("86.3%", "숫자 탐지 mAP50"), ("91.7%", "118g 분류 정확도 (55/60)"), ("약 0.81초", "인식 → 로봇 명령")]
     sw = (w - 2 * 8) / 3
     for i, (num, cap) in enumerate(stats):
         s = shape(MSO_SHAPE.RECTANGLE, x + i * (sw + 8), y + 74, sw, 46, fill="FFFFFF", line=ACC, line_w=1.25, name=f"stat {i + 1}")
@@ -444,9 +444,9 @@ def s_sim(x, y, w):
     label(x + hero_w + 9, y + 3, "손목 카메라", size=20)
     label(x + hero_w + 9, y + hero_h - cam_h + 3, "상단 카메라", size=20)
     textbox(x, y + hero_h + 4, w, PH["sim"] - 2 * PAD - hero_h - 4, [
-        B("로봇팔이 고장 나 ", ("캡스톤 시스템을 그대로 재현", True, DARK), ": 공식 SO-101 모델, 같은 카메라 위치·30 Hz 제어,\v적재함 64×64×52 mm·123 g",
+        B("로봇팔이 고장 나 ", ("캡스톤 시스템을 그대로 재현", True, DARK), ": 공식 SO-101 모델, 같은 카메라 위치·1초에 30번 제어,\v적재함 64×64×52mm·123g",
           size=24, after=2),
-        B("적재함 위치 ±20 mm·각도 ±20° 무작위, 단계마다 스크립트 시연 100회로\vACT 학습 (LeRobot", ("[2]", False, MUTED), ")", size=24, after=0),
+        B("적재함 위치 ±20mm·각도 ±20° 무작위, 단계마다 스크립트 시연 100회로\vACT 학습 (LeRobot", ("[2]", False, MUTED), ")", size=24, after=0),
     ], anchor="ctr", name="sim notes")
 
 
@@ -454,9 +454,9 @@ RH, RW = 94.0, 128.0
 
 
 def s_rules(x, y, w):
-    rules = [("① 여유 두고 잡기", "벽에 바짝 붙여 내려가면 3 mm만 어긋나도 벽 위에 얹힘\v→ 벽 바깥 9 mm에서 내려감", "28% → 62%"),
+    rules = [("① 여유 두고 잡기", "벽에 바짝 붙여 내려가면 3mm만 어긋나도 벽 위에 얹힘\v→ 벽 바깥 9mm에서 내려감", "28% → 62%"),
              ("② 늘 같은 곳 잡기", "가장 가까운 벽을 잡으면 +7°·+9°처럼 비슷한 장면에서 잡는 벽이 바뀜\v→ 항상 같은 벽", "62% → 82%"),
-             ("③ 놓고 물러나기", "놓자마자 올라가면 집게가 적재함을 끌어 올려 기울임\v→ 5 mm 물러난 뒤 올라감", "82% → 96%")]
+             ("③ 놓고 물러나기", "놓자마자 올라가면 집게가 적재함을 끌어 올려 기울임\v→ 5mm 물러난 뒤 올라감", "82% → 96%")]
     for i, (head, desc, eff) in enumerate(rules):
         ry = y + i * (RH + 5)
         iw_, ih_ = Image.open(IMG / f"p_rule{i + 1}.png").size
