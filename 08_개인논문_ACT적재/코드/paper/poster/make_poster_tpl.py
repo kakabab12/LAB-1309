@@ -54,6 +54,7 @@ MUTED = ("tx1", 65000, 35000)      # 595959
 WARM = ("accent6",)                # F79646
 WARM_DK = ("accent6", 50000)       # 984807
 ORANGE = "D9480F"                  # same orange as the figures (human-style demos, wrong grasps)
+FIG_BLUE = "1C5FC8"                # same blue as the figures (rule demos)
 GREY = "A6A6A6"
 
 
@@ -285,7 +286,7 @@ def section(title, x, y, panel_h, w=COL_W):
     return y + HB
 
 
-def column_chart(x, y0, w, h, cats, series, colors, labels, legend=False, name=None, lab_h=19.0):
+def column_chart(x, y0, w, h, cats, series, colors, labels, legend=False, name=None, lab_h=19.0, vmax=118):
     """Clustered columns. Category names and the legend are text boxes (LibreOffice puts a space between digits and
     Hangul inside charts, e.g. '200 회'); the plot area has a fixed layout so the text boxes line up with the bars."""
     cd = CategoryChartData()
@@ -303,7 +304,7 @@ def column_chart(x, y0, w, h, cats, series, colors, labels, legend=False, name=N
     ch.has_title = False
     ch.has_legend = False
     va = ch.value_axis
-    va.maximum_scale, va.minimum_scale = 118, 0
+    va.maximum_scale, va.minimum_scale = vmax, 0
     va.has_major_gridlines = False
     va.visible = False
     ca = ch.category_axis
@@ -343,7 +344,7 @@ def column_chart(x, y0, w, h, cats, series, colors, labels, legend=False, name=N
             for para in dl.text_frame.paragraphs:
                 for r in para.runs:
                     r.font.size, r.font.bold = Pt(22), True
-                    set_color(r.font.color, DARK if col in (DARK, ACC) else INK)
+                    set_color(r.font.color, DARK if col in (DARK, ACC) else col if col in (ORANGE, FIG_BLUE) else INK)
     cs = ch._chartSpace
     for tag in ("a:defRPr", "a:rPr"):  # Calibri (theme) for Latin, 맑은 고딕 for Korean in every chart text
         for rp in cs.iter(qn(tag)):
@@ -369,12 +370,9 @@ LOGO_X, LOGO_W = 32.0, 145.0
 ieie = Image.open(LOGO / "ieie_logo_white.png").size
 ih = LOGO_W * ieie[1] / ieie[0]
 picture(LOGO / "ieie_logo_white.png", LOGO_X, BAND_H / 2 - ih / 2, w=LOGO_W, name="logo IEIE")
-kmu = Image.open(LOGO / "kmu_signature_kor.png").size
-kw = LOGO_W - 2 * 7
-kh = kw * kmu[1] / kmu[0]
-bx_h = kh + 2 * 9
-shape(MSO_SHAPE.RECTANGLE, W - LOGO_X - LOGO_W, BAND_H / 2 - bx_h / 2, LOGO_W, bx_h, fill="FFFFFF", name="logo box KMU")
-picture(LOGO / "kmu_signature_kor.png", W - LOGO_X - LOGO_W + 7, BAND_H / 2 - kh / 2, w=kw, name="logo KMU")
+kmu = Image.open(LOGO / "kmu_signature_kor_band.png").size   # shield in colour, white logotype, no white box
+kh = LOGO_W * kmu[1] / kmu[0]
+picture(LOGO / "kmu_signature_kor_band.png", W - LOGO_X - LOGO_W, BAND_H / 2 - kh / 2, w=LOGO_W, name="logo KMU")
 
 tx0, txw = LOGO_X + LOGO_W + 8, W - 2 * (LOGO_X + LOGO_W + 8)
 PT = 25.4 / 72  # mm per point
@@ -471,6 +469,7 @@ def s_rules(x, y, w):
 
 
 AUD_W = 380.0
+G_CH = 74.0   # per-object gap chart (incl. category names)
 
 
 def s_audit(x, y, w):
@@ -481,7 +480,17 @@ def s_audit(x, y, w):
                   (" − θ", 28, True, DARK), ("i", 28, False, DARK, -25000), (")", 28, True, DARK),
                   ("     잡는 방식이 둘로 갈리면 빈 구간이 커짐 → 학습 전에 시연만 보고 점검", 21, False, ORANGE)], "line": 1.0},
     ], name="audit text")
-    picture(IMG / "audit.png", x + (w - AUD_W) / 2, y + 36, w=AUD_W, name="audit figure")
+    hw, hh = Image.open(IMG / "audit_hist.png").size
+    picture(IMG / "audit_hist.png", x + (w - AUD_W) / 2, y + 36, w=AUD_W, name="audit histogram")
+    gy = y + 36 + AUD_W * hh / hw + 4
+    textbox(x, gy, 200, 10, [P("물체별 가장 큰 빈 구간 G", 21, True, DARK)], name="gap chart title")
+    for k, (lab, col) in enumerate((("사람식 시연", ORANGE), ("규칙 시연", FIG_BLUE))):  # legend in the title row
+        lx = x + 205 + k * 92
+        shape(MSO_SHAPE.RECTANGLE, lx, gy + 2.5, 5, 5, fill=col, name="gap chart legend key")
+        textbox(lx + 6.5, gy, 84, 10, [P(lab, 18, False, INK, line=1.0)], anchor="ctr", name="gap chart legend")
+    column_chart(x, gy + 10, w, G_CH, ["정사각형 적재함", "직사각형 상자", "손잡이 컵"],
+                 [("사람식 시연", (51.0, 52.1, 65.5)), ("규칙 시연", (3.1, 3.4, 3.2))], [ORANGE, FIG_BLUE],
+                 [["51°", "52°", "66°"], ["3°", "3°", "3°"]], name="chart gap", lab_h=11.0, vmax=80)
 
 
 CH_H = 124.0
@@ -538,6 +547,7 @@ def s_conclusion(x, y, w):
 
 
 # panel heights (inner content + 2 x PAD)
+_hist = Image.open(IMG / "audit_hist.png").size
 _cw = (0.5625 * (COL_W - 2 * PAD - 6) - 5) / (1.5 + 0.5625)
 _hero_h = (COL_W - 2 * PAD - 6 - _cw) * 900 / 1600
 _tw = (COL_W - 2 * PAD - 2 * TILE_GAP) / 3
@@ -546,7 +556,7 @@ PH = {
     "cap": 132.0 + 2 * PAD,
     "sim": _hero_h + 4 + 50 + 2 * PAD,
     "rules": 3 * RH + 2 * 5 + 2 * PAD,
-    "audit": 36 + AUD_W * 215 / 400 + 2 * PAD,
+    "audit": 36 + AUD_W * _hist[1] / _hist[0] + 4 + 10 + G_CH + 2 * PAD,
     "res": 50 + 9 + CH_H + 2 + 11 + 2 * PAD,
     "envs": 2 * (_tw * 836 / 1400 + LBL_H + 3) + 14 + 2 * PAD,
     "concl": 84.0,

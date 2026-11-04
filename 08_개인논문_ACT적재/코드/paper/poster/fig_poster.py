@@ -188,7 +188,53 @@ def rule3():
     plt.close(fig)
 
 
+def audit_hist(width_mm=380, height_mm=100):
+    """Easier version of the audit figure: one object (square bin, stage 1, 100 demos each), histogram of the
+    wrist angle at grasp. Human-like demos split into two groups with a wide empty gap; rule demos form one group.
+    -> img/audit_hist.png (the per-object gap values are a native chart on the poster)"""
+    rows = json.loads((ROOT / "results" / "demo_audit_general.json").read_text())
+    sets = [(True, "사람식 시연", HUMAN), (False, "규칙 시연", RULE)]
+    fig, axs = plt.subplots(2, 1, figsize=(width_mm * MM, height_mm * MM), dpi=250, sharex=True)
+    bins = np.arange(-50, 84, 4)
+    for ax, (naive, label, col) in zip(axs, sets):
+        v = next(v for v in rows.values()
+                 if v["object"] == "bin" and v["layout"] == "orig" and v["naive"] == naive and v["stage"] == 1)
+        roll = np.sort(np.asarray(v["roll"]))
+        cnt, _, _ = ax.hist(roll, bins=bins, color=col, alpha=0.9, edgecolor="white", linewidth=1.2)
+        top = cnt.max()
+        ax.set_ylim(0, top * 1.55)
+        d = np.diff(roll); i = int(np.argmax(d)); lo, hi = roll[i], roll[i + 1]
+        if hi - lo >= 10:   # two groups: shade the empty gap (between bar edges), arrow + size, group sizes
+            e_lo = bins[np.searchsorted(bins, lo, side="right")]
+            e_hi = bins[np.searchsorted(bins, hi, side="right") - 1]
+            ax.axvspan(e_lo, e_hi, color=col, alpha=0.10, lw=0)
+            ya = top * 0.55
+            ax.annotate("", xy=(e_lo, ya), xytext=(e_hi, ya), arrowprops=dict(arrowstyle="<->", color=col, lw=2.5))
+            ax.text((lo + hi) / 2, ya + top * 0.12, f"빈 구간 G = {v['widest_gap_deg']:.0f}°", ha="center", va="bottom",
+                    fontsize=22, color=col, fontweight="bold")
+            for grp in (roll[: i + 1], roll[i + 1:]):
+                gc = np.histogram(grp, bins=bins)[0].max()
+                ax.text(grp.mean(), gc + top * 0.08, f"{len(grp)}회", ha="center", va="bottom", fontsize=20,
+                        color=NAVY, fontweight="bold")
+        else:               # one group
+            ax.text(roll.mean(), top + top * 0.08, f"{len(roll)}회 (한 무리)", ha="center", va="bottom", fontsize=20,
+                    color=NAVY, fontweight="bold")
+            ax.text(-12, top * 0.55, f"빈 구간이 거의 없음 (G = {v['widest_gap_deg']:.0f}°)", ha="center", va="center",
+                    fontsize=22, color=col, fontweight="bold")
+        ax.set_yticks([])
+        ax.set_ylabel(label, rotation=0, ha="right", va="center", fontsize=21, color=col, fontweight="bold", labelpad=10)
+        for s in ("top", "right", "left"):
+            ax.spines[s].set_visible(False)
+    axs[-1].set_xlim(-52, 82)
+    axs[-1].set_xticks(range(-40, 81, 20))
+    axs[-1].tick_params(axis="x", labelsize=18)
+    axs[-1].set_xlabel("그리퍼가 닫히는 순간의 손목 회전각 (°) — 정사각형 적재함, 1층 시연 각 100회", fontsize=19)
+    fig.tight_layout(h_pad=0.6)
+    fig.savefig(OUT / "audit_hist.png", facecolor="white")
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     OUT.mkdir(exist_ok=True)
-    audit(); rule1(); rule2(); rule3()
+    audit(); audit_hist(); rule1(); rule2(); rule3()
     print("figures written to", OUT)
