@@ -292,7 +292,7 @@ def column_chart(x, y0, w, h, cats, series, colors, labels, legend=False, name=N
     cd.categories = cats
     for sname, vals in series:
         cd.add_series(sname, vals)
-    top = 11.0 if legend else 1.0      # mm above the plot (legend row)
+    top = 10.0 * len(series) + 1 if legend else 1.0   # mm above the plot (one legend row per series)
     ch_h = h - lab_h                   # chart frame; category names below it
     gf = slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, mm(x), mm(y0), mm(w), mm(ch_h), cd)
     if name:
@@ -324,12 +324,10 @@ def column_chart(x, y0, w, h, cats, series, colors, labels, legend=False, name=N
         textbox(x + i * slot, y0 + ch_h + 0.8, slot, lab_h - 0.8, [P(c.replace("\n", "\v"), 18, False, INK, align="ctr", line=1.0)],
                 name=f"{name} label {i + 1}")
     if legend:
-        lx = x + 4
-        for (sname, _), col in zip(series, colors):
-            shape(MSO_SHAPE.RECTANGLE, lx, y0 + 2.2, 5, 5, fill=col, name=f"{name} legend key")
-            tw = len(sname) * 18 * 0.30 + 4
-            textbox(lx + 6.5, y0, tw, 9.5, [P(sname, 18, False, INK, line=1.0)], anchor="ctr", name=f"{name} legend")
-            lx += 6.5 + tw + 5
+        for k, ((sname, _), col) in enumerate(zip(series, colors)):
+            ly = y0 + 10.0 * k
+            shape(MSO_SHAPE.RECTANGLE, x + 4, ly + 2.2, 5, 5, fill=col, name=f"{name} legend key")
+            textbox(x + 10.5, ly, w - 10.5, 9.5, [P(sname, 18, False, INK, line=1.0)], anchor="ctr", name=f"{name} legend")
     plot = ch.plots[0]
     plot.gap_width = 55
     plot.overlap = -10 if len(series) > 1 else 0
@@ -401,15 +399,15 @@ for name, proto, paras, h_, g_ in band:
 # ------------------------------------------------------------------ sections (x, y = top-left inside the box; w = inner width)
 def s_background(x, y, w):
     textbox(x, y - 1, w, PH["bg"] - 2 * PAD + 2, [
-        B("중소 공정은 고가 산업용 로봇 도입이 어려움 →\v저가 로봇팔과 모방학습(ACT", ("[1]", False, MUTED), ")으로 적은 시연에서 조작을 학습"),
-        B("순차 적재는 앞 단계가 놓은 적재함이 다음 단계의 출발점 →\v", ("작은 오차와 서로 다른 시연 동작이 단계마다 누적", True, ORANGE)),
-        B(("목표", True, DARK), ": 모델 구조·학습 설정은 그대로 두고 ", ("시연의 일관성", True, DARK), "만으로 세 단계 연속 성공률을 높인다", after=0),
+        B("중소 제조 현장은 비싼 산업용 로봇을 들이기 어려움 →\v저가 로봇팔이 모방학습(ACT", ("[1]", False, MUTED), ")으로 적은 시연만 보고 작업을 배움"),
+        B("순차 적재는 앞 단계에서 놓은 적재함이 다음 단계의 출발점이 됨 →\v", ("작은 오차와 시연마다 다른 동작이 단계를 거치며 쌓임", True, ORANGE)),
+        B(("목표", True, DARK), ": 모델 구조와 학습 설정은 그대로 두고 ", ("시연의 일관성", True, DARK), "만 높여 세 단계 연속 성공률 올리기", after=0),
     ], anchor="ctr", name="background")
 
 
 def s_capstone(x, y, w):
-    steps = [(["색 분류", "컨베이어"], ["파랑 큐브만"]), (["저울 숫자 판독"], ["YOLOv8n ·", "Jetson Orin Nano"]),
-             (["118g 이상"], ["TCP 트리거"]), (["SO-101 로봇팔"], ["단계별 ACT"]), (["1층 → 옆 → 2층"], ["순차 적재"])]
+    steps = [(["색 분류", "컨베이어"], ["파란 큐브만 통과"]), (["저울 숫자 인식"], ["YOLOv8n ·", "Jetson Orin Nano"]),
+             (["118g 이상이면"], ["TCP 트리거"]), (["SO-101 로봇팔"], ["단계별 ACT 모델"]), (["1층 → 옆 → 2층"], ["순차 적재"])]
     bw = 62.0
     gap = (w - 5 * bw) / 4
     for i, (head, tail) in enumerate(steps):
@@ -421,14 +419,14 @@ def s_capstone(x, y, w):
             shape(MSO_SHAPE.RIGHT_ARROW, bx + bw + 2.5, y + 20, gap - 5, 12, fill=DARK)
     loop = shape(MSO_SHAPE.U_TURN_ARROW, x + 3 * (bw + gap) + 8, y + 54, bw + gap + bw - 16, 14, fill=WARM, name="retry loop")
     loop.rotation = 180
-    textbox(x, y + 55, 3 * (bw + gap), 12, [P("무게 확인 재시도: 저울에 60g 이상 남으면 그 단계를 다시 실행 →", 20, True, WARM_DK, align="r")],
+    textbox(x, y + 55, 3 * (bw + gap), 12, [P("무게 확인 재시도: 저울에 60g 이상 남아 있으면 그 단계를 다시 실행 →", 20, True, WARM_DK, align="r")],
             anchor="ctr", name="retry note")
-    stats = [("86.3%", "숫자 탐지 mAP50"), ("91.7%", "118g 분류 정확도 (55/60)"), ("약 0.81초", "인식 → 로봇 명령")]
+    stats = [("86.3%", "숫자 탐지 정확도 (mAP50)"), ("91.7%", "118g 기준 분류 정확도 (55/60)"), ("약 0.81초", "인식부터 로봇 명령까지")]
     sw = (w - 2 * 8) / 3
     for i, (num, cap) in enumerate(stats):
         s = shape(MSO_SHAPE.RECTANGLE, x + i * (sw + 8), y + 74, sw, 46, fill="FFFFFF", line=ACC, line_w=1.25, name=f"stat {i + 1}")
         shape_text(s, [P(num, 44, True, DARK, align="ctr", line=1.0), P(cap, 19, False, MUTED, align="ctr", line=1.0)], inset=1.0)
-    textbox(x, y + 122, w, 10, [P("무게 인식은 실제 장치에서 측정 (조건별 20회, 총 60회)", 20, False, MUTED)], name="real note")
+    textbox(x, y + 122, w, 10, [P("무게 인식은 실제 장치에서 잰 값 (조건별 20회, 총 60회)", 20, False, MUTED)], name="real note")
 
 
 def s_sim(x, y, w):
@@ -444,9 +442,9 @@ def s_sim(x, y, w):
     label(x + hero_w + 9, y + 3, "손목 카메라", size=20)
     label(x + hero_w + 9, y + hero_h - cam_h + 3, "상단 카메라", size=20)
     textbox(x, y + hero_h + 4, w, PH["sim"] - 2 * PAD - hero_h - 4, [
-        B("로봇팔이 고장 나 ", ("캡스톤 시스템을 그대로 재현", True, DARK), ": 공식 SO-101 모델, 같은 카메라 위치·1초에 30번 제어,\v적재함 64×64×52mm·123g",
+        B("로봇팔이 고장 나서 ", ("캡스톤 시스템을 그대로 재현", True, DARK), ": 공식 SO-101 모델, 같은 카메라 위치, 1초에 30번 제어,\v적재함 크기 64×64×52mm, 무게 123g",
           size=24, after=2),
-        B("적재함 위치 ±20mm·각도 ±20° 무작위, 단계마다 스크립트 시연 100회로\vACT 학습 (LeRobot", ("[2]", False, MUTED), ")", size=24, after=0),
+        B("적재함 위치(±20mm)와 각도(±20°)를 무작위로 바꾸고,\v단계마다 스크립트 시연 100회로 ACT 학습 (LeRobot", ("[2]", False, MUTED), ")", size=24, after=0),
     ], anchor="ctr", name="sim notes")
 
 
@@ -454,9 +452,9 @@ RH, RW = 94.0, 128.0
 
 
 def s_rules(x, y, w):
-    rules = [("① 여유 두고 잡기", "벽에 바짝 붙여 내려가면 3mm만 어긋나도 벽 위에 얹힘\v→ 벽 바깥 9mm에서 내려감", "28% → 62%"),
-             ("② 늘 같은 곳 잡기", "가장 가까운 벽을 잡으면 +7°·+9°처럼 비슷한 장면에서 잡는 벽이 바뀜\v→ 항상 같은 벽", "62% → 82%"),
-             ("③ 놓고 물러나기", "놓자마자 올라가면 집게가 적재함을 끌어 올려 기울임\v→ 5mm 물러난 뒤 올라감", "82% → 96%")]
+    rules = [("① 여유 두고 잡기", "집게를 벽에 바짝 붙여 내리면 3mm만 어긋나도 벽 윗면에 얹힘\v→ 벽 바깥 9mm 지점에서 내림", "28% → 62%"),
+             ("② 늘 같은 곳 잡기", "가장 가까운 벽을 잡으면 +7°와 +9°처럼 비슷한 장면에서도 잡는 벽이 바뀜\v→ 늘 같은 부위를 잡음", "62% → 82%"),
+             ("③ 놓고 물러나기", "놓자마자 올라가면 집게가 적재함 한쪽을 끌어 올려 기울어짐\v→ 그리퍼를 벌리고 바깥쪽으로 5mm 물러난 뒤 올라감", "82% → 96%")]
     for i, (head, desc, eff) in enumerate(rules):
         ry = y + i * (RH + 5)
         iw_, ih_ = Image.open(IMG / f"p_rule{i + 1}.png").size
@@ -472,42 +470,42 @@ def s_rules(x, y, w):
             set_color(ln.line.color, TINT2); ln.line.width = Pt(1.5)
 
 
-AUD_W = 388.0
+AUD_W = 380.0
 
 
 def s_audit(x, y, w):
     textbox(x, y, w, 32, [
-        P("그리퍼가 닫히는 순간의 손목 회전각을 시연마다 모아 작은 값부터 정렬하고, 이웃한 값 사이의 최대 간격 G를 잰다", 22, line=1.08, after=3),
+        P("시연마다 그리퍼가 닫히는 순간의 손목 회전각을 모아 크기순으로 늘어놓고, 이웃한 두 값의 간격 중 가장 큰 값 G를 구함", 22, line=1.08, after=3),
         # subscripts: PowerPoint draws baseline-shifted text at about 2/3 of its size, so they are set at 28 pt
         {"runs": [("G = max", 28, True, DARK), ("1≤i<N", 28, False, DARK, -25000), (" (θ", 28, True, DARK), ("i+1", 28, False, DARK, -25000),
                   (" − θ", 28, True, DARK), ("i", 28, False, DARK, -25000), (")", 28, True, DARK),
-                  ("     잡는 방식이 둘로 갈리면 큰 빈 구간 → 학습 없이 시연만으로 점검", 21, False, ORANGE)], "line": 1.0},
+                  ("     잡는 방식이 둘로 갈리면 빈 구간이 커짐 → 학습 전에 시연만 보고 점검", 21, False, ORANGE)], "line": 1.0},
     ], name="audit text")
     picture(IMG / "audit.png", x + (w - AUD_W) / 2, y + 36, w=AUD_W, name="audit figure")
 
 
-CH_H = 132.0
+CH_H = 124.0
 
 
 def s_results(x, y, w):
-    callouts = [("28% → 99.0%", "세 단계 연속 성공률 (시연 100회)"), ("200/200", "무게 확인 재시도까지 적용")]
+    callouts = [("28% → 99.0%", "세 단계 연속 성공률 (시연 100회)"), ("200/200", "무게 확인 재시도까지 넣었을 때")]
     cw = (w - 8) / 2
     for i, (num, cap) in enumerate(callouts):
         s = shape(MSO_SHAPE.RECTANGLE, x + i * (cw + 8), y, cw, 44, fill=TINT, line=ACC, line_w=1.25, name=f"callout {i + 1}")
         shape_text(s, [P(num, 50, True, DARK, align="ctr", line=1.0), P(cap, 20, False, MUTED, align="ctr", line=1.0)], inset=1.0)
     cy = y + 50
     aw = 238.0
-    textbox(x, cy, aw, 10, [P("규칙을 하나씩 추가 (단계당 시연 100회)", 21, True, DARK)], name="chart a title")
+    textbox(x, cy, aw, 10, [P("규칙을 하나씩 더하면 (단계마다 시연 100회)", 21, True, DARK)], name="chart a title")
     column_chart(x - 2, cy + 9, aw + 2, CH_H,
-                 ["초기", "+ 여유\n두고 잡기", "+ 늘 같은\n곳 잡기", "+ 놓고\n물러나기", "규칙 3개\n(200개 장면)"],
+                 ["처음 시연", "+ 여유\n두고 잡기", "+ 늘 같은\n곳 잡기", "+ 놓고\n물러나기", "규칙 3개\n(200개 장면)"],
                  [("연속 성공률", (28, 62, 82, 96, 99.0))], [[GREY, TINT2, ("accent1", 60000, 40000), ACC, DARK]],
                  [["28%", "62%", "82%", "96%", "99.0%"]], name="chart rules")
     textbox(x + aw + 6, cy, w - aw - 6, 10, [P("시연 수를 늘리면?", 21, True, DARK)], name="chart b title")
-    column_chart(x + aw + 4, cy + 9, w - aw - 4, CH_H, ["여유만\n(일관성 X)", "규칙\n시연"],
-                 [("시연 100회", (62, 96)), ("200회 · 1,000회", (36, 94))], [ACC, GREY],
+    column_chart(x + aw + 4, cy + 9, w - aw - 4, CH_H, ["잡는 곳이\n갈리는 시연", "규칙 시연"],
+                 [("시연 100회", (62, 96)), ("시연을 늘림 (200회·1,000회)", (36, 94))], [ACC, GREY],
                  [["62%", "96%"], ["36%", "94%"]], legend=True, name="chart data")
     textbox(x, cy + 9 + CH_H + 2, w, 11, [
-        {"runs": [("시연을 늘려도 일관성이 없으면 오히려 하락 (200회 36%) → ", 21, False, INK), ("양보다 일관성", 22, True, ORANGE)], "line": 1.0},
+        {"runs": [("잡는 곳이 갈리는 시연은 200회로 늘려도 오히려 36%로 떨어짐 → ", 21, False, INK), ("양보다 일관성", 22, True, ORANGE)], "line": 1.0},
     ], name="result note")
 
 
@@ -526,16 +524,16 @@ def s_envs(x, y, w):
         textbox(tx, ty + th + 0.5, tw, LBL_H - 1, [{"runs": [(name, 21, True, DARK), ("  " + val, 24, True, ACC)], "line": 1.0}],
                 anchor="ctr", name=f"tile label {i + 1}")
     textbox(x, y + 2 * (th + LBL_H + 3) - 2, w, 16, [
-        P("세 단계 연속 성공률 (팔레트: 8칸을 모두 쌓은 비율 38/40). *15개 조건의 단계별 평균. 각 환경의 시연을 더해 학습", 20, False, MUTED,
+        P("숫자는 세 단계 연속 성공률 (팔레트는 8칸을 다 쌓은 비율, 38/40). *15개 조건의 단계별 평균. 환경마다 시연을 더해 학습", 20, False, MUTED,
           line=1.0)], name="tile note")
 
 
 def s_conclusion(x, y, w):
     textbox(x, y, w, PH["concl"] - 2 * PAD, [
-        B("모델은 그대로 두고 시연 규칙만 바꿔 세 단계 연속 성공률 ", ("28% → 99.0%", True, DARK), ", 무게 확인 재시도로 ", ("200/200", True, DARK),
+        B("모델은 그대로 두고 시연 규칙만 바꿔 세 단계 연속 성공률 ", ("28% → 99.0%", True, DARK), ",\v무게 확인 재시도까지 넣으면 ", ("200/200", True, DARK),
           size=24, after=3),
-        B("학습 전 손목 각도 간격 G로 상충하는 시연을 찾음 → ", ("시연은 양보다 일관성", True, ORANGE), size=24, after=3),
-        B("한계: 로봇 조작은 시뮬레이션·스크립트 시연 결과 → 실제 로봇과 사람 원격조작 시연으로 검증 예정", size=24, after=0),
+        B("학습 전에 손목 각도 간격 G로 서로 어긋나는 시연을 찾아냄 → ", ("시연은 양보다 일관성", True, ORANGE), size=24, after=3),
+        B("한계: 로봇 조작 결과는 시뮬레이션과 스크립트 시연에서 얻음 →\v실제 로봇과 사람이 원격조작한 시연으로 검증할 예정", size=24, after=0),
     ], anchor="ctr", name="conclusion")
 
 
@@ -551,7 +549,7 @@ PH = {
     "audit": 36 + AUD_W * 215 / 400 + 2 * PAD,
     "res": 50 + 9 + CH_H + 2 + 11 + 2 * PAD,
     "envs": 2 * (_tw * 836 / 1400 + LBL_H + 3) + 14 + 2 * PAD,
-    "concl": 60.0,
+    "concl": 84.0,
 }
 LEFT = [("연구 배경 및 목표", "bg", s_background), ("캡스톤 시스템 구성", "cap", s_capstone),
         ("시뮬레이션으로 재현 (MuJoCo)", "sim", s_sim), ("제안 1. 시연 설계 규칙 3가지", "rules", s_rules)]
