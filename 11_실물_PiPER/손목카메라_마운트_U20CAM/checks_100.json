@@ -1,0 +1,168 @@
+{
+ "params": {
+  "variant": "100",
+  "tab_off": 38.0,
+  "tab_z": 50.5,
+  "tab_hole_y": 6.0,
+  "cam_x": -70.0,
+  "sim_cam_z": 20.0,
+  "width": 36.0,
+  "plate_z0": 0.5,
+  "plate_t": 4.0,
+  "rail_h": 3.0,
+  "rail_w": 6.0,
+  "board": 32.0,
+  "board_t": 1.6,
+  "hole_min": 27.0,
+  "hole_max": 28.2,
+  "m2_d": 2.4,
+  "m2_nut_af": 4.3,
+  "m2_nut_depth": 2.5,
+  "col_t": 8.0,
+  "col_gap": 5.0,
+  "pad_t": 6.0,
+  "pad_in": 5.5,
+  "m3_d": 3.4,
+  "chamfer": 6.0,
+  "tie_z": 22.0,
+  "holder": 15.0,
+  "holder_h": 10.0,
+  "lens_d": 14.0,
+  "lens_front": 17.0,
+  "pupil_back": 2.0
+ },
+ "checks": {
+  "variant": "100",
+  "part_watertight": true,
+  "part_volume_cm3": 22.22,
+  "mass_g_PLA_100pct": 27.6,
+  "z_min": 0.5,
+  "bounds": [
+   [
+    -88.0,
+    -18.0,
+    0.5
+   ],
+   [
+    -32.5,
+    18.0,
+    50.5
+   ]
+  ],
+  "gripper": {
+   "motor_housing": {
+    "overlap_mm3": NaN,
+    "min_gap_mm": 4.01,
+    "min_gap_away_from_tab_face_mm": 4.01,
+    "watertight": false
+   },
+   "linear_rail": {
+    "overlap_mm3": 0.0,
+    "min_gap_mm": 32.31,
+    "min_gap_away_from_tab_face_mm": 32.53,
+    "watertight": true
+   },
+   "finger_plate": {
+    "overlap_mm3": NaN,
+    "min_gap_mm": 0.05,
+    "min_gap_away_from_tab_face_mm": 0.54,
+    "watertight": false
+   },
+   "back_cover": {
+    "overlap_mm3": 0.0,
+    "min_gap_mm": 14.5,
+    "min_gap_away_from_tab_face_mm": 14.5,
+    "watertight": false
+   },
+   "flange": {
+    "overlap_mm3": 0.0,
+    "min_gap_mm": 14.5,
+    "min_gap_away_from_tab_face_mm": 14.5,
+    "watertight": true
+   }
+  },
+  "gripper_brep": {
+   "motor_housing": {
+    "overlap_mm3": 0.0,
+    "overlap_thickness_mm": 0.0
+   },
+   "linear_rail": {
+    "overlap_mm3": 0.0,
+    "overlap_thickness_mm": 0.0
+   },
+   "finger_plate": {
+    "overlap_mm3": 0.3563,
+    "overlap_thickness_mm": 0.0022
+   },
+   "back_cover": {
+    "overlap_mm3": 0.0,
+    "overlap_thickness_mm": 0.0
+   },
+   "flange": {
+    "overlap_mm3": 0.0,
+    "overlap_thickness_mm": 0.0
+   },
+   "finger_5": {
+    "overlap_mm3": 0.0,
+    "overlap_thickness_mm": 0.0
+   },
+   "finger_6": {
+    "overlap_mm3": 0.0,
+    "overlap_thickness_mm": 0.0
+   },
+   "finger_7": {
+    "overlap_mm3": 0.0,
+    "overlap_thickness_mm": 0.0
+   },
+   "finger_8": {
+    "overlap_mm3": 0.0,
+    "overlap_thickness_mm": 0.0
+   },
+   "finger_9": {
+    "overlap_mm3": 0.0,
+    "overlap_thickness_mm": 0.0
+   },
+   "finger_10": {
+    "overlap_mm3": 0.0,
+    "overlap_thickness_mm": 0.0
+   },
+   "finger_11": {
+    "overlap_mm3": 0.0,
+    "overlap_thickness_mm": 0.0
+   },
+   "finger_12": {
+    "overlap_mm3": 0.0,
+    "overlap_thickness_mm": 0.0
+   }
+  },
+  "gripper_brep_note": "finger_plate 의 아주 작은 값은 두께 0 인 판(패드 윗면이 탭 뒷면에 닿는 면)이다. 겹침이 아니라 닿음",
+  "pad_contact_note": "패드 윗면 z = tab_z 가 탭 뒷면에 닿는다 (겹침 0 이 정상)",
+  "fov": {
+   "sim_crop_75x75": {
+    "mount_points_visible": 0
+   },
+   "u20cam_1080p_wide_along_y": {
+    "mount_points_visible": 0
+   },
+   "u20cam_1080p_wide_along_x": {
+    "mount_points_visible": 710
+   }
+  },
+  "camera": {
+   "optical_center_mm": [
+    -70.0,
+    0.0,
+    24.1
+   ],
+   "sim_eye_in_hand_mm": [
+    -70.0,
+    0.0,
+    20.0
+   ],
+   "dz_from_sim_mm": 4.1,
+   "board_back_z": 7.5,
+   "lens_front_z_est": 26.1
+  },
+  "camera_vs_mount_overlap_mm3": 0.0
+ }
+}

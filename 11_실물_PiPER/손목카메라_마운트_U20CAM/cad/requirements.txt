@@ -1,0 +1,8 @@
+cadquery>=2.4
+numpy
+trimesh
+manifold3d
+scipy
+shapely
+rtree
+# sim_check.py: mujoco, pillow (smolVLA 가상환경)

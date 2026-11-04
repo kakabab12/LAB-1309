@@ -44,6 +44,7 @@
 - PiPER + CAN-USB 어댑터, `pip install piper_sdk python-can` (원격 조종·기록은 WeGo 플러그인 `pip install lerobot_robot_wego_piper`). 펌웨어가 S-V1.8-8 이상이면 `pip install "piper_sdk>=0.7.0a1"` 과 설정 `sdk_interface: "v3"`. 설치·CAN·조작법 자세히: LAB-1309 `12_PiPER_조작법_및_설치법`
 - 위 카메라: 책상 윗면에서 **0.85 m 위, 로봇 밑동 바로 위**, 똑바로 아래를 보고, 사진 위쪽 = 로봇 앞. 잘라서 **세로 시야각 75°** 가 나와야 한다 (그보다 좁으면 cameras.py 가 멈춤)
 - 손목 카메라: 시뮬과 같은 자리 (손 끝판, RealSense D405 크기, 시야각 75° 정사각형) — `reference/wrist_view.png` 와 비슷하게 보이도록
+  - U20CAM 이면 3D 프린트 마운트 (0–70 mm·0–100 mm 그리퍼): LAB-1309 `11_실물_PiPER/손목카메라_마운트_U20CAM` — 시뮬 카메라 자리 (J6 축에서 탭 쪽 70 mm) 에 온다. U20CAM 세로 시야는 75° 보다 좁을 수 있다 (그 README 3절)
 - 책상: 로봇 밑동을 책상 윗면에 바로 둠 (받침대 없음). 물체·판은 시뮬과 같은 모양·크기·색 (정육면체 4.5 cm, 막대 9×4×4 cm, 원기둥 지름 4.5 cm, 판 9 cm 정사각형 — `piper_sim/worlds/default.json`)
 
 ### 1. CAN·팔 점검

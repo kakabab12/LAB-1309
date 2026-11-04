@@ -1,0 +1,89 @@
+{
+ "params": {
+  "variant": "70",
+  "tab_off": 36.0,
+  "tab_z": 48.0,
+  "tab_hole_y": 6.0,
+  "cam_x": -70.0,
+  "sim_cam_z": 20.0,
+  "width": 36.0,
+  "plate_z0": 0.5,
+  "plate_t": 4.0,
+  "rail_h": 3.0,
+  "rail_w": 6.0,
+  "board": 32.0,
+  "board_t": 1.6,
+  "hole_min": 27.0,
+  "hole_max": 28.2,
+  "m2_d": 2.4,
+  "m2_nut_af": 4.3,
+  "m2_nut_depth": 2.5,
+  "col_t": 8.0,
+  "col_gap": 5.0,
+  "pad_t": 6.0,
+  "pad_in": 5.5,
+  "m3_d": 3.4,
+  "chamfer": 6.0,
+  "tie_z": 22.0,
+  "holder": 15.0,
+  "holder_h": 10.0,
+  "lens_d": 14.0,
+  "lens_front": 17.0,
+  "pupil_back": 2.0
+ },
+ "checks": {
+  "variant": "70",
+  "part_watertight": true,
+  "part_volume_cm3": 21.85,
+  "mass_g_PLA_100pct": 27.1,
+  "z_min": 0.5,
+  "bounds": [
+   [
+    -88.0,
+    -18.0,
+    0.5
+   ],
+   [
+    -30.5,
+    18.0,
+    48.0
+   ]
+  ],
+  "gripper": {
+   "gripper_body": {
+    "overlap_mm3": 0.0,
+    "min_gap_mm": 0.05,
+    "min_gap_away_from_tab_face_mm": 0.55,
+    "watertight": true
+   }
+  },
+  "pad_contact_note": "패드 윗면 z = tab_z 가 탭 뒷면에 닿는다 (겹침 0 이 정상)",
+  "fov": {
+   "sim_crop_75x75": {
+    "mount_points_visible": 0
+   },
+   "u20cam_1080p_wide_along_y": {
+    "mount_points_visible": 0
+   },
+   "u20cam_1080p_wide_along_x": {
+    "mount_points_visible": 253
+   }
+  },
+  "camera": {
+   "optical_center_mm": [
+    -70.0,
+    0.0,
+    24.1
+   ],
+   "sim_eye_in_hand_mm": [
+    -70.0,
+    0.0,
+    20.0
+   ],
+   "dz_from_sim_mm": 4.1,
+   "board_back_z": 7.5,
+   "lens_front_z_est": 26.1
+  },
+  "camera_vs_mount_overlap_mm3": 0.0
+ }
+}

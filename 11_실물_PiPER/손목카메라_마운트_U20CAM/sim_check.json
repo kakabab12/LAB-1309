@@ -1,0 +1,40 @@
+{
+ "70": {
+  "poses": 8100,
+  "j4_deg": [
+   -105,
+   105
+  ],
+  "j5_deg": [
+   -70,
+   70
+  ],
+  "j6_deg_step": [
+   -180,
+   170,
+   10
+  ],
+  "mount_touches_arm_poses": 0,
+  "min_gap_to_link5_mm_convex": 15.0,
+  "examples": []
+ },
+ "100": {
+  "poses": 8100,
+  "j4_deg": [
+   -105,
+   105
+  ],
+  "j5_deg": [
+   -70,
+   70
+  ],
+  "j6_deg_step": [
+   -180,
+   170,
+   10
+  ],
+  "mount_touches_arm_poses": 0,
+  "min_gap_to_link5_mm_convex": 16.8,
+  "examples": []
+ }
+}
