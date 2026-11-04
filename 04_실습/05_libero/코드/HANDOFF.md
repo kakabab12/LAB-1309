@@ -1,6 +1,20 @@
-# 인계 메모 — 11/02 11:40 절이 최신
+# 인계 메모 — 11/04 13:40 절이 최신
 
-## 11/02 11:40 (가장 최신, 이것부터) — 사용자 "오늘은 여기까지"
+## 11/04 13:40 (가장 최신, 이것부터) — 사용자 "95% 넘은 것 … 우리 기준·벤치마크와 비교", "깃허브에 실물 PiPER 에 바로 적용할 파일"
+
+- 11/03 w12m 결과 (piper-w12m 09:02 끝): + RC 일 1개 기본 42·흔든 40·많음 39 = 121/150 (w11m 122), VLA 혼자 49/150,
+  일 2개 1/20·1/20·0/20 (일별 32/120), 일 3개 0/60 (일별 34/180). 돌고 있는 유닛 없음 (gpugate3c 만).
+- 비교 문서: LAB-1309 10_문서/기준과_벤치마크_비교.md (블록 장면 95% = 지시문 읽는 보조 + 고정 장면, 지금 기준, LIBERO·LIBERO-Plus·CALVIN GR-1·SwitchVLA).
+- 실물 PiPER 코드: ~/smolVLA/real_piper (= LAB-1309 11_실물_PiPER/real_piper). run_real.py --backend {sdk, dry, sim}, kin.py (시뮬 모델에서 메시 뺀
+  kin/piper_kin.xml, 역기구학 = ik_controller 와 같음), policy.py (시뮬과 같은 관측·지연, 실물은 추론 스레드), robot_io.py (piper_sdk V2: JointCtrl 0.001°,
+  GripperCtrl 벌림 0.001mm), cameras.py (세로 75° 정사각형 → 512 → 위아래 뒤집기), 보정 도구 check_fk / check_gripper / calib_top_camera / fit_colors / sim_reference.
+  확인 (시뮬 팔): 관절 목표 차이 0.0000°, 손끝 0.9mm, 같은 잡음이면 8장면 결과 같음, 16장면 실물용 4 vs 시뮬 평가 7 (잡음 차이), dry 실제 시간 20Hz·추론 0.46초.
+  알아낸 것: VLA 상태의 손 방향은 robot0_right_hand 몸 사원수 (그리퍼 끝점과 90° 다름), 시뮬 관측 사진은 위아래 뒤집힘, robot xml 은 각도 단위가 없어 따로 읽으면 '도'.
+  실물 팔에는 아직 안 돌려 봄. 다듬기는 실물로 안 옮김 (VLA 혼자).
+- 일지 11/04 (LAB 03_일지/2026-11-04.md), 4K GIF world_w12mrc_default_s1021 (w10m 이 10cm 앞에서 펴던 장면을 w12m 이 성공).
+
+
+## 11/02 11:40 — 사용자 "오늘은 여기까지"
 
 - 새로 띄우는 일은 멈춤. 저절로 도는 것 (사용자가 끄라면: systemctl --user stop piper-w11mc piper-rcx1102 piper-w12m piper-gpugate3c):
   ① piper-w11mc: ④ 남은 평가 (w11m RC 일 2개 많음·일 3개 세 설정, w10m RC 일 2·3개 기본) → 마지막 줄 '=== 날짜 시각 끝'.
