@@ -554,7 +554,7 @@ PH = {
 LEFT = [("연구 배경 및 목표", "bg", s_background), ("캡스톤 시스템 구성", "cap", s_capstone),
         ("시뮬레이션으로 재현 (MuJoCo)", "sim", s_sim), ("제안 1. 시연 설계 규칙 3가지", "rules", s_rules)]
 RIGHT = [("제안 2. 학습 전 시연 일관성 점검", "audit", s_audit), ("실험 결과 (시뮬레이션)", "res", s_results),
-         ("다양한 환경으로 확장", "envs", s_envs), ("결론 및 향후 연구", "concl", s_conclusion)]
+         ("여러 조건에서의 검증", "envs", s_envs), ("결론 및 향후 연구", "concl", s_conclusion)]
 
 
 def column(sections, x):
