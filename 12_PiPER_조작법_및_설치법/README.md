@@ -13,6 +13,7 @@
 | [3_조작법.md](3_조작법.md) | 켜기, 관절 움직이기, 그리퍼, 손끝 자세, 상태 읽기, 멈추기, 끄기 |
 | [4_원격조종과_기록.md](4_원격조종과_기록.md) | 리더 팔로 팔로워 팔 움직이기, LeRobot 으로 시범 기록 |
 | [예제/](예제/README.md) | 바로 돌려 볼 수 있는 짧은 파이썬 파일 4개 (상태 읽기, 관절, 그리퍼, 멈추기) |
+| [참고자료.md](참고자료.md) | 무엇을 보고 적었나: 공식 문서·코드·demo 링크와 쓴 곳, 직접 해 보고 안 것 |
 
 ## 용어
 
@@ -72,10 +73,17 @@
 - 영점 설정(`piper-calibrate`, `JointConfig(set_zero)`)은 모터 안에 저장되어 되돌리기 어렵다. 필요할 때만 한다.
 - MIT 모드(관절 힘 직접 제어)는 쓰지 않는다. 공식 문서도 잘못 쓰면 팔이 망가진다고 경고한다.
 
-## 출처
+## 참고한 자료
 
-- piper_sdk: <https://github.com/agilexrobotics/piper_sdk> (커밋 b847e53, 2026-10-14)
-  - README.MD, assets/can_config.MD, assets/Q&A.MD, assets/double_piper.MD, assets/V3/CHANGELOG-V3.MD
-  - piper_sdk/demo/V2, V3
-- WeGo 플러그인: <https://github.com/WeGo-Robotics/lerobot_robot_piper> (커밋 ed387ed, 0.3.1)
-- 시뮬에서 학습한 VLA 를 실물에 잇는 우리 코드: [11_실물_PiPER](../11_실물_PiPER/README.md)
+자세한 목록(자료마다 무엇을 봤고 어디에 썼는지)은 [참고자료.md](참고자료.md) 에 있다. 각 문서 끝에도 그 문서에서 쓴 자료를 적었다.
+
+| 자료 | 링크 |
+|---|---|
+| AgileX 공식 piper_sdk (팔 제조사) | <https://github.com/agilexrobotics/piper_sdk> (커밋 b847e53, 2026-10-14) |
+| ㄴ 설치·CAN·V3 | [README.MD](https://github.com/agilexrobotics/piper_sdk/blob/master/README.MD), [can_config.MD](https://github.com/agilexrobotics/piper_sdk/blob/master/assets/can_config.MD), [CHANGELOG-V3.MD](https://github.com/agilexrobotics/piper_sdk/blob/master/assets/V3/CHANGELOG-V3.MD) |
+| ㄴ 자주 묻는 것·두 팔 | [Q&A.MD](https://github.com/agilexrobotics/piper_sdk/blob/master/assets/Q%26A.MD), [double_piper.MD](https://github.com/agilexrobotics/piper_sdk/blob/master/assets/double_piper.MD) |
+| ㄴ 함수 설명·demo | [INTERFACE_V2.MD](https://github.com/agilexrobotics/piper_sdk/blob/master/assets/V2/INTERFACE_V2.MD), [piper_interface_v2.py](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/interface/piper_interface_v2.py), [demo/V2](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/demo/V2/README.MD) |
+| WeGo 플러그인 (연구실 PiPER 공급사) | <https://github.com/WeGo-Robotics/lerobot_robot_piper> ([README](https://github.com/WeGo-Robotics/lerobot_robot_piper/blob/master/README.md), 커밋 ed387ed, 0.3.1) |
+| LeRobot 0.4.4 | [lerobot_record.py](https://github.com/huggingface/lerobot/blob/v0.4.4/src/lerobot/scripts/lerobot_record.py), [import_utils.py](https://github.com/huggingface/lerobot/blob/v0.4.4/src/lerobot/utils/import_utils.py) |
+| PyPI | [piper_sdk](https://pypi.org/project/piper_sdk/), [lerobot_robot_wego_piper](https://pypi.org/project/lerobot_robot_wego_piper/) |
+| 우리 실물 연결 코드 | [11_실물_PiPER](../11_실물_PiPER/README.md) |

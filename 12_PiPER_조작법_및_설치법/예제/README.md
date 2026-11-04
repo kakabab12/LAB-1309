@@ -36,3 +36,14 @@ python3 04_stop.py
 - Ctrl-C 를 누르면 그 자리에 서는지
 
 **실물 팔로는 아직 안 돌려 봤다.** 처음 돌릴 때는 `01` 만 먼저 해서 값이 맞게 나오는지 본다.
+
+## 참고한 자료
+
+- [demo/V2 README.MD](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/demo/V2/README.MD) — demo 목록
+- 01 ← [piper_read_firmware.py](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/demo/V2/piper_read_firmware.py), [piper_read_status.py](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/demo/V2/piper_read_status.py)
+- 02 ← [piper_ctrl_enable.py](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/demo/V2/piper_ctrl_enable.py), [piper_ctrl_joint.py](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/demo/V2/piper_ctrl_joint.py)
+- 03 ← [piper_ctrl_gripper.py](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/demo/V2/piper_ctrl_gripper.py)
+- 04 ← [piper_ctrl_stop.py](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/demo/V2/piper_ctrl_stop.py), [piper_interface_v2.py](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/interface/piper_interface_v2.py) 의 `EmergencyStop`·`ResetPiper` 설명
+- 관절 범위 ← [piper_interface_v2.py](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/interface/piper_interface_v2.py) `JointCtrl` 설명, J5 는 [WeGo README](https://github.com/WeGo-Robotics/lerobot_robot_piper/blob/master/README.md) 의 ±65°
+
+전체 목록: [참고자료.md](../참고자료.md)

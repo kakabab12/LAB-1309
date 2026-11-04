@@ -101,6 +101,18 @@ sudo bash scripts/install_can_persist.sh     # lerobot_robot_piper 소스 폴더
 | 펌웨어 버전이 `-1199` (-0x4AF) | 연결 직후 바로 읽어서다. 0.03초 이상 기다렸다 읽는다 |
 | 그리퍼 값이 늘 0 이고 안 움직임 | 처음 쓰는 그리퍼는 벌림 범위 설정이 필요하다 ([3_조작법.md](3_조작법.md) 6절) |
 
+## 참고한 자료
+
+- [piper_sdk assets/can_config.MD](https://github.com/agilexrobotics/piper_sdk/blob/master/assets/can_config.MD) — CAN 켜기, USB 자리로 이름 붙이기, 여러 개 켜기
+- [piper_sdk README.MD](https://github.com/agilexrobotics/piper_sdk/blob/master/README.MD) — 속도 1 Mbps 고정, 팔에 딸린 모듈만 지원, 오류 100017
+- [can_activate.sh](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/can_activate.sh), [can_muti_activate.sh](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/can_muti_activate.sh) — 스크립트 인자, 안에서 sudo
+- [piper_sdk assets/Q&A.MD](https://github.com/agilexrobotics/piper_sdk/blob/master/assets/Q%26A.MD) — 팔 하나의 CAN 신호 수 약 3,040/초
+- [demo piper_read_firmware.py](https://github.com/agilexrobotics/piper_sdk/blob/master/piper_sdk/demo/V2/piper_read_firmware.py) — 바로 읽으면 -0x4AF
+- [WeGo README.md](https://github.com/WeGo-Robotics/lerobot_robot_piper/blob/master/README.md) — `piper-setup`, 일련번호로 이름 고정, `piper-doctor`
+- [WeGo install_can_persist.sh](https://github.com/WeGo-Robotics/lerobot_robot_piper/blob/master/scripts/install_can_persist.sh), [list_can_adapters.py](https://github.com/WeGo-Robotics/lerobot_robot_piper/blob/master/scripts/list_can_adapters.py)
+
+전체 목록: [참고자료.md](참고자료.md)
+
 ## 다음
 
 → [3_조작법.md](3_조작법.md)
