@@ -474,32 +474,21 @@ G_CH = 64.0   # per-object gap chart (incl. category names)
 
 def s_audit(x, y, w):
     textbox(x, y, w, 21, [
-        P("학습하기 전에, 시연들이 같은 방식으로 잡았는지 시연만 보고 확인하는 방법", 22, True, INK, line=1.0, after=2),
-        P("점 1개 = 시연 1번 · 점의 위치 = 집게가 닫힐 때 손목이 돌아간 각도 (정사각형 적재함, 1층 시연 100번씩)", 19, False, MUTED, line=1.0),
+        P("학습 전에 시연만 보고, 잡는 방식이 엇갈렸는지 확인", 24, True, INK, line=1.0, after=2),
+        P("시연 100번에서 집게가 닫힐 때의 손목 방향을 반원에 표시 (정사각형 적재함, 1층)", 19, False, MUTED, line=1.0),
     ], name="audit intro")
-    dw, dh = Image.open(IMG / "audit_dial.png").size
-    picture(IMG / "audit_dial.png", x + (w - AUD_W) / 2, y + 23, w=AUD_W, name="audit dial")
-    ty = y + 23 + AUD_W * dh / dw + 1
+    dw, dh = Image.open(IMG / "audit_simple.png").size
+    picture(IMG / "audit_simple.png", x + (w - AUD_W) / 2, y + 23, w=AUD_W, name="audit figure")
+    ty = y + 23 + AUD_W * dh / dw + 2
     textbox(x, ty, w, 23, [
-        {"runs": [("빈 각도 G가 크면 → 잡는 방식이 두 갈래로 어긋난 시연 → ", 22, True, ORANGE), ("학습 전에 시연을 고침", 22, True, DARK)],
-         "line": 1.0, "after": 2},
-        # subscripts: PowerPoint draws baseline-shifted text at about 2/3 of its size, so they are set at 26 pt
-        {"runs": [("G = max", 26, True, DARK), ("1≤i<N", 26, False, DARK, -25000), (" (θ", 26, True, DARK), ("i+1", 26, False, DARK, -25000),
-                  (" − θ", 26, True, DARK), ("i", 26, False, DARK, -25000), (")", 26, True, DARK),
-                  ("  각도를 크기순으로 늘어놓았을 때 이웃한 두 각도 사이의 가장 큰 간격", 19, False, MUTED)], "line": 1.0},
+        {"runs": [("빈 각도가 크면 → 잡는 방식이 엇갈린 시연 → ", 23, True, ORANGE), ("학습 전에 고친다", 23, True, DARK)],
+         "line": 1.0, "after": 3},
+        P("직사각형 상자·손잡이 컵도 같음 (사람식 52°·66°, 규칙 시연 3°)  ·  빈 각도 G = 손목 각도를 줄 세웠을 때 가장 크게 빈 간격",
+          19, False, MUTED, line=1.0),
     ], name="audit takeaway")
-    gy = ty + 27
-    textbox(x, gy, 205, 10, [P("물건을 바꿔도 같음: 가장 크게 빈 각도 G", 21, True, DARK)], name="gap chart title")
-    for k, (lab, col) in enumerate((("사람식 시연", ORANGE), ("규칙 시연", FIG_BLUE))):  # legend in the title row
-        lx = x + 212 + k * 88
-        shape(MSO_SHAPE.RECTANGLE, lx, gy + 2.5, 5, 5, fill=col, name="gap chart legend key")
-        textbox(lx + 6.5, gy, 80, 10, [P(lab, 18, False, INK, line=1.0)], anchor="ctr", name="gap chart legend")
-    column_chart(x, gy + 10, w, G_CH, ["정사각형 적재함", "직사각형 상자", "손잡이 컵"],
-                 [("사람식 시연", (51.0, 52.1, 65.5)), ("규칙 시연", (3.1, 3.4, 3.2))], [ORANGE, FIG_BLUE],
-                 [["51°", "52°", "66°"], ["3°", "3°", "3°"]], name="chart gap", lab_h=11.0, vmax=80)
 
 
-CH_H = 124.0
+CH_H = 160.0
 
 
 def s_results(x, y, w):
@@ -553,7 +542,7 @@ def s_conclusion(x, y, w):
 
 
 # panel heights (inner content + 2 x PAD)
-_dial = Image.open(IMG / "audit_dial.png").size
+_aud = Image.open(IMG / "audit_simple.png").size
 _cw = (0.5625 * (COL_W - 2 * PAD - 6) - 5) / (1.5 + 0.5625)
 _hero_h = (COL_W - 2 * PAD - 6 - _cw) * 900 / 1600
 _tw = (COL_W - 2 * PAD - 2 * TILE_GAP) / 3
@@ -562,7 +551,7 @@ PH = {
     "cap": 132.0 + 2 * PAD,
     "sim": _hero_h + 4 + 50 + 2 * PAD,
     "rules": 3 * RH + 2 * 5 + 2 * PAD,
-    "audit": 23 + AUD_W * _dial[1] / _dial[0] + 1 + 27 + 10 + G_CH + 2 * PAD,
+    "audit": 23 + AUD_W * _aud[1] / _aud[0] + 2 + 25 + 2 * PAD,
     "res": 50 + 9 + CH_H + 2 + 11 + 2 * PAD,
     "envs": 2 * (_tw * 836 / 1400 + LBL_H + 3) + 14 + 2 * PAD,
     "concl": 84.0,

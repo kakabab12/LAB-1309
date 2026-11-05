@@ -290,7 +290,42 @@ def audit_dial(width_mm=380, height_mm=118):
     plt.close(fig)
 
 
+def audit_simple(width_mm=380, height_mm=144):
+    """Simplest audit figure: a half-dial per demo set, coloured only where the wrist angles fall (square bin,
+    stage 1, 100 demos each), one arrow per group, and the verdict underneath. -> img/audit_simple.png"""
+    rows = json.loads((ROOT / "results" / "demo_audit_general.json").read_text())
+    sets = [(True, "사람식 시연", "가까운 곳을 잡음", HUMAN), (False, "규칙 시연", "늘 같은 곳을 잡음", RULE)]
+    fig, axs = plt.subplots(1, 2, figsize=(width_mm * MM, height_mm * MM), dpi=250)
+    pos = lambda th, r: (r * np.sin(np.radians(th)), r * np.cos(np.radians(th)))   # wrist 0° = straight up
+    band = lambda a0, a1, col, alpha=1.0: patches.Wedge((0, 0), 1.0, 90 - a1, 90 - a0, width=0.26, color=col, alpha=alpha, lw=0)
+    for ax, (naive, name, how, col) in zip(axs, sets):
+        v = next(v for v in rows.values()
+                 if v["object"] == "bin" and v["layout"] == "orig" and v["naive"] == naive and v["stage"] == 1)
+        roll = np.sort(np.asarray(v["roll"]))
+        d = np.diff(roll); i = int(np.argmax(d))
+        groups = [roll[: i + 1], roll[i + 1:]] if d[i] >= 10 else [roll]
+        ax.add_patch(band(-90, 90, "#e4e7eb"))
+        for g in groups:
+            ax.add_patch(band(g.min(), g.max(), col))
+            m = (g.min() + g.max()) / 2
+            ax.annotate("", xy=pos(m, 0.66), xytext=(0, 0), arrowprops=dict(arrowstyle="-|>", color=col, lw=5, mutation_scale=34))
+            ax.text(*pos(m, 1.2), f"{len(g)}번", ha="center", va="center", fontsize=24, color=NAVY, fontweight="bold")
+        if len(groups) == 2:   # the empty stretch between the two groups, lightly tinted
+            ax.add_patch(band(roll[i], roll[i + 1], col, alpha=0.18))
+        ax.add_patch(patches.Circle((0, 0), 0.07, color="#3d4852"))
+        ax.text(0, 1.5, name, ha="center", va="center", fontsize=26, color=col, fontweight="bold")
+        ax.text(0, 1.33, f"({how})", ha="center", va="center", fontsize=20, color="#52606d")
+        ax.text(0, -0.24, f"잡는 방식 {len(groups)}가지", ha="center", va="center", fontsize=28, color=col, fontweight="bold")
+        ax.text(0, -0.47, f"빈 각도 {v['widest_gap_deg']:.0f}°", ha="center", va="center", fontsize=22, color="#52606d",
+                fontweight="bold")
+        ax.set_xlim(-1.45, 1.45); ax.set_ylim(-0.6, 1.6)
+        ax.set_aspect("equal"); ax.axis("off")
+    fig.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0, wspace=0.0)
+    fig.savefig(OUT / "audit_simple.png", facecolor="white")
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     OUT.mkdir(exist_ok=True)
-    audit(); audit_hist(); audit_dial(); rule1(); rule2(); rule3()
+    audit(); audit_hist(); audit_dial(); audit_simple(); rule1(); rule2(); rule3()
     print("figures written to", OUT)
