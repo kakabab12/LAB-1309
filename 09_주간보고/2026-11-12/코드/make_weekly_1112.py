@@ -11,10 +11,12 @@ HERE = Path(__file__).resolve().parent
 SRC, OUT = Path(sys.argv[1]), HERE / "주간보고_11_12_이지용.pptx"
 DATE, NAME = "2026. 11. 12", "Jiyong Lee"
 
+# Level 2 = the check-mark bullet of the lab template (as on 10-14). The final file was then edited by hand:
+# a line "-https://github.com/kakabab12/LAB-1309" under the first item (no bullet).
 PREVIOUS = [
-    (1, "I studied how to install the PiPER SDK (CAN setup, piper_sdk, WeGo plugin) and wrote a guide on GitHub"),
-    (1, "I designed a 3D-printed mount for the wrist camera (U20CAM)"),
-    (1, "I studied for the SQLD certificate exam on 11/12"),
+    (2, "I studied how to install the PiPER SDK and wrote a guide on GitHub"),
+    (2, "I designed a 3D-printed mount for the wrist camera (U20CAM)"),
+    (2, "I studied for the SQLD certificate exam on 11/12"),
 ]
 NEXT = [
     (1, "I will learn how to use the PiPER arm with Chanhyeok"),
@@ -56,6 +58,15 @@ for sh in shapes:  # the reference picture
     if sh.shape_type == 13:
         sh._element.getparent().remove(sh._element)
 fill(prev, "Previous", PREVIOUS)
+# White background whatever layout the slide ends up on: an editor may move it to the template's other master,
+# whose picture (an old green campus design) then shows through. Hide master pictures and paint the slide white.
+from lxml import etree
+from pptx.oxml.ns import qn
+s2._element.set("showMasterSp", "0")
+_cSld = s2._element.find(qn("p:cSld"))
+_cSld.insert(0, etree.fromstring('<p:bg xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+                                 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:bgPr><a:solidFill>'
+                                 '<a:srgbClr val="FFFFFF"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>'))
 fill(nxt, "Next", NEXT)
 W = prs.slide_width
 prev.left, prev.top, prev.width, prev.height = Inches(0.25), Inches(0.85), W - Inches(0.45), Inches(1.75)

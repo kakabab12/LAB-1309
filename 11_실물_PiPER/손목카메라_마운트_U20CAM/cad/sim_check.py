@@ -148,8 +148,8 @@ def render(m: mujoco.MjModel, variant: str):
     Image.fromarray(canvas).save(OUT / "img" / f"{variant}_wrist_views.png")
 
 
-def render_plain(variant: str, cam_z: float, bg=(0.96, 0.96, 0.97)):
-    """발표용: 바닥·하늘 없이 밝은 단색 배경 (img/{variant}_overview_plain.png, _closeup_plain.png)."""
+def render_plain(variant: str, cam_z: float, bg=(1.0, 1.0, 1.0)):
+    """발표용: 바닥·하늘 없이 흰 배경 (img/{variant}_overview_plain.png, _closeup_plain.png)."""
     # 바닥 없는 piper.xml 에 단색 하늘
     sp = mujoco.MjSpec.from_file(str(MENAGERIE / "piper.xml"))
     sp.add_texture(name="plainsky", type=mujoco.mjtTexture.mjTEXTURE_SKYBOX, builtin=mujoco.mjtBuiltin.mjBUILTIN_FLAT,
