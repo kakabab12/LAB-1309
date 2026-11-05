@@ -6,6 +6,7 @@ PiPER 모델은 MuJoCo Menagerie agilex_piper (MIT, 우리 시뮬의 바탕). �
 0-100 mm 형 그림은 AgileX STEP 을 플랜지 좌표 STL 로 바꾼 것 (.cache/g100_*.stl, u20cam_mount.py 가 만든다) 을 쓴다.
 
     MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa ~/smolVLA/.venv/bin/python sim_check.py
+    ... sim_check.py --plain-only    # 발표용 단색 배경 그림만
 """
 from __future__ import annotations
 
@@ -147,7 +148,55 @@ def render(m: mujoco.MjModel, variant: str):
     Image.fromarray(canvas).save(OUT / "img" / f"{variant}_wrist_views.png")
 
 
+def render_plain(variant: str, cam_z: float, bg=(0.96, 0.96, 0.97)):
+    """발표용: 바닥·하늘 없이 밝은 단색 배경 (img/{variant}_overview_plain.png, _closeup_plain.png)."""
+    # 바닥 없는 piper.xml 에 단색 하늘
+    sp = mujoco.MjSpec.from_file(str(MENAGERIE / "piper.xml"))
+    sp.add_texture(name="plainsky", type=mujoco.mjtTexture.mjTEXTURE_SKYBOX, builtin=mujoco.mjtBuiltin.mjBUILTIN_FLAT,
+                   rgb1=list(bg), rgb2=list(bg), width=16, height=16)
+    sp.visual.headlight.ambient = [0.45, 0.45, 0.45]
+    sp.visual.headlight.diffuse = [0.55, 0.55, 0.55]
+    sp.visual.global_.offwidth, sp.visual.global_.offheight = 1600, 1200
+    link6 = sp.body("link6")
+    sp.add_mesh(name="mount", file=str(CACHE / f"u20cam_mount_{variant}_flange.stl"), scale=[0.001] * 3)
+    sp.add_mesh(name="camera", file=str(CACHE / f"camera_{variant}.stl"), scale=[0.001] * 3)
+    link6.add_geom(name="mount", type=mujoco.mjtGeom.mjGEOM_MESH, meshname="mount", rgba=[0.95, 0.55, 0.15, 1],
+                   contype=0, conaffinity=0, group=1)
+    link6.add_geom(name="camera", type=mujoco.mjtGeom.mjGEOM_MESH, meshname="camera", rgba=[0.1, 0.1, 0.12, 1],
+                   contype=0, conaffinity=0, group=1)
+    if variant == "100":
+        for g in sp.geoms:
+            if g.parent.name in ("link6", "link7", "link8") and g.contype == 0 and g.name not in ("mount", "camera"):
+                g.rgba = [0, 0, 0, 0]
+        names = [f"{i:02d}_{n}" for i, n in enumerate(G100)] + [f"{i:02d}_finger_{i}" for i in range(5, 13)]
+        for nm in names:
+            sp.add_mesh(name=f"g100_{nm}", file=str(CACHE / f"g100_{nm}.stl"), scale=[0.001] * 3)
+            link6.add_geom(type=mujoco.mjtGeom.mjGEOM_MESH, meshname=f"g100_{nm}", rgba=[0.6, 0.6, 0.62, 1],
+                           contype=0, conaffinity=0, group=2)
+    m = sp.compile()
+    d = mujoco.MjData(m)
+    d.qpos[:6] = HOME_Q
+    mujoco.mj_forward(m, d)
+    opt = mujoco.MjvOption()
+    opt.geomgroup[:] = [1, 1, 1, 0, 0, 0]
+    site = d.xpos[mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "link6")]
+    r = mujoco.Renderer(m, 1200, 1600)
+    for nm, az, el, dist, look in (("overview", 215, -18, 0.62, site + np.array([0.06, 0.0, -0.08])),
+                                   ("closeup", 250, -12, 0.26, site)):
+        cam = mujoco.MjvCamera()
+        cam.lookat[:] = look
+        cam.azimuth, cam.elevation, cam.distance = az, el, dist
+        r.update_scene(d, camera=cam, scene_option=opt)
+        Image.fromarray(r.render()).save(OUT / "img" / f"{variant}_{nm}_plain.png")
+
+
 def main():
+    import sys
+    if "--plain-only" in sys.argv:
+        for v in ("70", "100"):
+            cam_z = json.loads((OUT / f"checks_{v}.json").read_text())["checks"]["camera"]["optical_center_mm"][2]
+            render_plain(v, cam_z)
+        return
     (OUT / "img").mkdir(exist_ok=True)
     res = {}
     for v in ("70", "100"):

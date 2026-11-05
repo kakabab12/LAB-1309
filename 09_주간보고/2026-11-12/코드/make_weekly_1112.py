@@ -12,10 +12,9 @@ SRC, OUT = Path(sys.argv[1]), HERE / "주간보고_11_12_이지용.pptx"
 DATE, NAME = "2026. 11. 12", "Jiyong Lee"
 
 PREVIOUS = [
-    (1, "Getting ready to use the real PiPER arm"),
-    (2, "I studied how to install the PiPER SDK (CAN setup, piper_sdk, WeGo plugin) and wrote a guide on GitHub"),
-    (2, "I designed a 3D-printed mount for the wrist camera (U20CAM)"),
-    (2, "I studied for the SQLD certificate exam on 11/12"),
+    (1, "I studied how to install the PiPER SDK (CAN setup, piper_sdk, WeGo plugin) and wrote a guide on GitHub"),
+    (1, "I designed a 3D-printed mount for the wrist camera (U20CAM)"),
+    (1, "I studied for the SQLD certificate exam on 11/12"),
 ]
 NEXT = [
     (1, "I will learn how to use the PiPER arm with Chanhyeok"),

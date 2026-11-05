@@ -1,5 +1,5 @@
 """Weekly report 11-12 picture: the 3D-printed U20CAM wrist camera mount on the PiPER gripper (simulation render).
-Left: the whole arm, right: close-up. Renders: LAB-1309 11_실물_PiPER/손목카메라_마운트_U20CAM/img/70_{overview,closeup}.png (cad/sim_check.py)."""
+Left: the whole arm, right: close-up. Renders: LAB-1309 11_실물_PiPER/손목카메라_마운트_U20CAM/img/70_{overview,closeup}_plain.png (cad/sim_check.py --plain-only, plain background)."""
 import sys
 from pathlib import Path
 
@@ -9,8 +9,8 @@ import numpy as np
 from PIL import Image
 
 IMG, OUT = Path(sys.argv[1]), sys.argv[2]
-over = np.asarray(Image.open(IMG / "70_overview.png").convert("RGB"))[270:1150, 520:1300]
-close = np.asarray(Image.open(IMG / "70_closeup.png").convert("RGB"))[200:990, 280:980]
+over = np.asarray(Image.open(IMG / "70_overview_plain.png").convert("RGB"))[120:950, 600:1340]
+close = np.asarray(Image.open(IMG / "70_closeup_plain.png").convert("RGB"))[200:990, 280:980]
 plt.rcParams["font.family"] = "DejaVu Sans"
 W, H = 8.6, 5.0                       # each panel 0.886 wide per 1 tall, 0.88 of the height, small gap
 fig = plt.figure(figsize=(W, H), dpi=200)
