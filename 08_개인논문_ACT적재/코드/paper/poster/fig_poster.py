@@ -234,7 +234,63 @@ def audit_hist(width_mm=380, height_mm=100):
     plt.close(fig)
 
 
+def audit_dial(width_mm=380, height_mm=118):
+    """Audit figure for first-time readers: the wrist angle at grasp drawn on a half-dial, one dot per
+    demonstration (square bin, stage 1, 100 demos each). Human-like demos point two ways (two clumps and an empty
+    arc between them); rule demos point one way. -> img/audit_dial.png"""
+    rows = json.loads((ROOT / "results" / "demo_audit_general.json").read_text())
+    sets = [(True, "사람식 시연", "그때그때 가까운 곳을 잡음", HUMAN), (False, "규칙 시연", "늘 같은 곳을 잡음", RULE)]
+    fig, axs = plt.subplots(1, 2, figsize=(width_mm * MM, height_mm * MM), dpi=250)
+    pos = lambda th, r: (r * np.sin(np.radians(th)), r * np.cos(np.radians(th)))   # wrist 0° = straight up
+    R0, DR, DOT, STEP = 1.0, 0.083, 0.036, 3.0
+    for ax, (naive, name, how, col) in zip(axs, sets):
+        v = next(v for v in rows.values()
+                 if v["object"] == "bin" and v["layout"] == "orig" and v["naive"] == naive and v["stage"] == 1)
+        roll = np.sort(np.asarray(v["roll"]))
+        # dial: arc, 0° / ±90° marks
+        t = np.linspace(-90, 90, 200)
+        ax.plot(*pos(t, R0 - 0.06), color="#9aa5b1", lw=2)
+        for m in (-90, -45, 0, 45, 90):
+            ax.plot(*zip(pos(m, R0 - 0.11), pos(m, R0 - 0.01)), color="#9aa5b1", lw=2)
+        ax.text(*pos(0, R0 - 0.27), "0°", ha="center", va="center", fontsize=18, color="#52606d")
+        for s_, lab in ((-1, "−90°"), (1, "+90°")):
+            ax.text(s_ * (R0 - 0.06), -0.13, lab, ha="center", va="top", fontsize=18, color="#52606d")
+        # empty arc between the two clumps
+        d = np.diff(roll); i = int(np.argmax(d)); lo, hi = roll[i], roll[i + 1]
+        if hi - lo >= 10:
+            ax.add_patch(patches.Wedge((0, 0), 1.82, 90 - hi, 90 - lo, width=0.88, color=col, alpha=0.10, lw=0))
+            x_, y_ = pos((lo + hi) / 2, 1.5)
+            ax.text(x_, y_, f"빈 각도\n{v['widest_gap_deg']:.0f}°", ha="center", va="center", fontsize=22, color=col,
+                    fontweight="bold", linespacing=1.1)
+            groups = [roll[: i + 1], roll[i + 1:]]
+        else:
+            groups = [roll]
+        # dots: one per demonstration, stacked outward in 3° bins
+        for b in np.arange(-90, 90, STEP):
+            sel = roll[(roll >= b) & (roll < b + STEP)]
+            for k in range(len(sel)):
+                ax.add_patch(patches.Circle(pos(b + STEP / 2, R0 + DOT + k * DR), DOT, color=col, lw=0))
+        # direction arrows from the wrist (centre) and the size of each clump
+        for g in groups:
+            m = g.mean()
+            ax.annotate("", xy=pos(m, 0.62), xytext=(0, 0), arrowprops=dict(arrowstyle="-|>", color=col, lw=4, mutation_scale=28))
+            top = max(np.histogram(g, bins=np.arange(-90, 91, STEP))[0])
+            x_, y_ = pos(m, R0 + DOT + top * DR + 0.17)
+            ax.text(x_, y_, f"{len(g)}번", ha="center", va="center", fontsize=21, color=NAVY, fontweight="bold")
+        ax.add_patch(patches.Circle((0, 0), 0.07, color="#3d4852"))
+        ax.text(0, -0.17, "손목", ha="center", va="top", fontsize=18, color="#3d4852")
+        ax.text(-2.15, 2.28, name, ha="left", va="top", fontsize=24, color=col, fontweight="bold")
+        ax.text(-2.15 + 0.215 * len(name), 2.255, f"({how})", ha="left", va="top", fontsize=19, color="#52606d")
+        msg = "손목 방향이 두 갈래로 갈림" if len(groups) == 2 else "손목 방향이 한쪽으로 모임"
+        ax.text(0, -0.52, msg, ha="center", va="top", fontsize=22, color=col, fontweight="bold")
+        ax.set_xlim(-2.2, 2.2); ax.set_ylim(-0.85, 2.3)
+        ax.set_aspect("equal"); ax.axis("off")
+    fig.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01, wspace=0.04)
+    fig.savefig(OUT / "audit_dial.png", facecolor="white")
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     OUT.mkdir(exist_ok=True)
-    audit(); audit_hist(); rule1(); rule2(); rule3()
+    audit(); audit_hist(); audit_dial(); rule1(); rule2(); rule3()
     print("figures written to", OUT)
