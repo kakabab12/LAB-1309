@@ -387,7 +387,7 @@ def audit_groups(width_mm=380, height_mm=150):
         ax.text(2, yb + 6, f"→ 잡는 방식 {len(groups)}가지", fontsize=23, ha="left", va="center", color=col, fontweight="bold")
 
     INK_C = "#222222"
-    row(get(True), 100, HUMAN, "사람식 시연", "가까운 벽을 잡음", [(15, "side", "옆벽을 잡음"), (-4, "front", "앞벽을 잡음")])
+    row(get(True), 100, HUMAN, "가까운 벽 시연", "그때그때 잡는 벽이 바뀜", [(15, "side", "옆벽을 잡음"), (-4, "front", "앞벽을 잡음")])
     row(get(False), 24, RULE, "규칙 시연", "늘 같은 벽을 잡음", [(15, "front", "늘 앞벽을 잡음")])
     for a in range(-40, 81, 20):   # one shared angle scale under the bottom row
         ax.plot([X(a), X(a)], [24 - 5.5, 24 - 7.5], color="#9aa5b1", lw=1.4)
