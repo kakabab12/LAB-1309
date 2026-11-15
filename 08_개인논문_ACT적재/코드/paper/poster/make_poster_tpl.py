@@ -398,7 +398,7 @@ for name, proto, paras, h_, g_ in band:
 def s_background(x, y, w):
     textbox(x, y - 1, w, PH["bg"] - 2 * PAD + 2, [
         B("중소 제조 현장은 비싼 산업용 로봇을 들이기 어려움 →\v저가 로봇팔이 모방학습(ACT", ("[1]", False, MUTED), ")으로 적은 시연만 보고 작업을 배움"),
-        B("순차 적재는 앞 단계에서 놓은 적재함이 다음 단계의 출발점이 됨 →\v", ("작은 오차와 시연마다 다른 동작이 단계를 거치며 쌓임", True, ORANGE)),
+        B("순차 적재는 앞 단계에서 놓은 적재함이 다음 단계의 출발점이 됨 →\v", ("작은 오차와 시연마다 다른 동작이 단계를 거치며 쌓임", True, ORANGE), ("[3]", False, MUTED)),
         B(("목표", True, DARK), ": 모델 구조와 학습 설정은 그대로 두고 ", ("시연의 일관성", True, DARK), "만 높여 세 단계 연속 성공률 올리기", after=0),
     ], anchor="ctr", name="background")
 
@@ -424,7 +424,7 @@ def s_capstone(x, y, w):
     for i, (num, cap) in enumerate(stats):
         s = shape(MSO_SHAPE.RECTANGLE, x + i * (sw + 8), y + 74, sw, 46, fill="FFFFFF", line=ACC, line_w=1.25, name=f"stat {i + 1}")
         shape_text(s, [P(num, 44, True, DARK, align="ctr", line=1.0), P(cap, 19, False, MUTED, align="ctr", line=1.0)], inset=1.0)
-    textbox(x, y + 122, w, 10, [P("무게 인식은 실제 장치에서 잰 값 (조건별 20회, 총 60회)", 20, False, MUTED)], name="real note")
+    textbox(x, y + 122, w, 10, [P("분류 정확도는 실제 장치에서 잰 값 (조건별 20회, 총 60회)", 20, False, MUTED)], name="real note")
 
 
 def s_sim(x, y, w):
@@ -440,7 +440,7 @@ def s_sim(x, y, w):
     label(x + hero_w + 9, y + 3, "손목 카메라", size=20)
     label(x + hero_w + 9, y + hero_h - cam_h + 3, "상단 카메라", size=20)
     textbox(x, y + hero_h + 4, w, PH["sim"] - 2 * PAD - hero_h - 4, [
-        B("로봇팔이 고장 나서 ", ("캡스톤 시스템을 그대로 재현", True, DARK), ": 공식 SO-101 모델, 같은 카메라 위치, 1초에 30번 제어,\v적재함 크기 64×64×52mm, 무게 123g",
+        B("로봇팔이 고장 나서 MuJoCo", ("[4]", False, MUTED), "로 ", ("캡스톤 시스템을 그대로 재현", True, DARK), ": 공식 SO-101 모델, 같은 카메라 위치,\v1초에 30번 제어, 적재함 크기 64×64×52mm, 무게 123g",
           size=24, after=2),
         B("적재함 위치(±20mm)와 각도(±20°)를 무작위로 바꾸고,\v단계마다 스크립트 시연 100회로 ACT 학습 (LeRobot", ("[2]", False, MUTED), ")", size=24, after=0),
     ], anchor="ctr", name="sim notes")
@@ -452,7 +452,7 @@ RH, RW = 94.0, 128.0
 def s_rules(x, y, w):
     rules = [("① 여유 두고 잡기", "집게를 벽에 바짝 붙여 내리면 3mm만 어긋나도 벽 윗면에 얹힘\v→ 벽 바깥 9mm 지점에서 내림", "28% → 62%"),
              ("② 늘 같은 곳 잡기", "가장 가까운 벽을 잡으면 +7°와 +9°처럼 비슷한 장면에서도 잡는 벽이 바뀜\v→ 늘 같은 부위를 잡음", "62% → 82%"),
-             ("③ 놓고 물러나기", "놓자마자 올라가면 집게가 적재함 한쪽을 끌어 올려 기울어짐\v→ 그리퍼를 벌리고 바깥쪽으로 5mm 물러난 뒤 올라감", "82% → 96%")]
+             ("③ 놓고 물러나기", "놓자마자 올라가면 집게가 적재함 한쪽을 끌어 올려 기울어짐\v→ 집게를 벌리고 바깥쪽으로 5mm 물러난 뒤 올라감", "82% → 96%")]
     for i, (head, desc, eff) in enumerate(rules):
         ry = y + i * (RH + 5)
         iw_, ih_ = Image.open(IMG / f"p_rule{i + 1}.png").size
@@ -499,9 +499,9 @@ def s_results(x, y, w):
         shape_text(s, [P(num, 50, True, DARK, align="ctr", line=1.0), P(cap, 20, False, MUTED, align="ctr", line=1.0)], inset=1.0)
     cy = y + 50
     aw = 238.0
-    textbox(x, cy, aw, 10, [P("규칙을 하나씩 더하면 (단계마다 시연 100회)", 21, True, DARK)], name="chart a title")
+    textbox(x, cy, aw, 10, [P("규칙을 하나씩 더하면 (단계마다 시연 100회, 50개 장면)", 21, True, DARK)], name="chart a title")
     column_chart(x - 2, cy + 9, aw + 2, CH_H,
-                 ["처음 시연", "+ 여유\n두고 잡기", "+ 늘 같은\n곳 잡기", "+ 놓고\n물러나기", "규칙 3개\n(200개 장면)"],
+                 ["처음 시연", "+ 여유\n두고 잡기", "+ 늘 같은\n곳 잡기", "+ 놓고\n물러나기", "같은 모델\n200개 장면"],
                  [("연속 성공률", (28, 62, 82, 96, 99.0))], [[GREY, TINT2, ("accent1", 60000, 40000), ACC, DARK]],
                  [["28%", "62%", "82%", "96%", "99.0%"]], name="chart rules")
     textbox(x + aw + 6, cy, w - aw - 6, 10, [P("시연 수를 늘리면?", 21, True, DARK)], name="chart b title")
