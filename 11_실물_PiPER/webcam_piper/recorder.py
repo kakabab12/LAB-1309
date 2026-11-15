@@ -1,0 +1,108 @@
+"""시범 기록 + 로봇 쪽 카메라 읽기 (2026-11-15).
+
+에피소드 하나 = 파일 하나 (ep_000.npz). 박자마다:
+  t (초), q (실제 관절 6, rad), grip (실제 집게 폭, m), q_cmd (보낸 관절 목표 6), grip_cmd (보낸 집게 폭),
+  hand (사람 집기점, 사람 책상 좌표 m), hand_yaw (rad), hand_gap (엄지·검지 사이, m), target (로봇 집게 끝 목표, 로봇 좌표 m),
+  tracked (손을 찾았는지), human_jpg (웹캠 사진 JPEG, 가로 480), 그리고 로봇 쪽 카메라가 있으면 wrist_jpg / front_jpg.
+찬혁님 VR 조종 기록(zarr: obs/qpos = 관절 6 + 집게 폭, action/qpos, obs/wrist_img·front_img)과 같은 값이 다 들어 있어서
+나중에 같은 형식으로 바꿀 수 있다. 사진은 JPEG 바이트라 np.load(..., allow_pickle=True) 로 읽는다.
+"""
+import json
+import os
+import time
+
+import cv2
+import numpy as np
+
+
+def jpeg(img, width=None, quality=85):
+    if img is None:
+        return b""
+    if width and img.shape[1] != width:
+        img = cv2.resize(img, (width, int(img.shape[0] * width / img.shape[1])))
+    ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, quality])
+    return buf.tobytes() if ok else b""
+
+
+class Recorder:
+    def __init__(self, out_dir, meta):
+        self.dir = os.path.join(out_dir, time.strftime("%Y%m%d_%H%M%S"))
+        self.meta = meta                                     # 폴더는 첫 기록을 저장할 때 만든다
+        self.rows = None
+        self.saved = []
+
+    @property
+    def on(self):
+        return self.rows is not None
+
+    def start(self):
+        self.rows = []
+
+    def add(self, **row):
+        if self.rows is not None:
+            self.rows.append(row)
+
+    def stop(self, keep=True):
+        rows, self.rows = self.rows, None
+        if not keep or not rows:
+            return None
+        out = {}
+        for k in rows[0]:
+            vals = [r[k] for r in rows]
+            if isinstance(vals[0], (bytes, bytearray)):
+                arr = np.empty(len(vals), dtype=object)
+                arr[:] = vals
+                out[k] = arr
+            else:
+                out[k] = np.asarray(vals)
+        if not os.path.exists(os.path.join(self.dir, "meta.json")):
+            os.makedirs(self.dir, exist_ok=True)
+            with open(os.path.join(self.dir, "meta.json"), "w", encoding="utf-8") as f:
+                json.dump(self.meta, f, ensure_ascii=False, indent=1)
+        path = os.path.join(self.dir, f"ep_{len(self.saved):03d}.npz")
+        np.savez(path, **out)
+        self.saved.append(path)
+        return path, len(rows)
+
+    def discard_last(self):
+        if self.saved:
+            path = self.saved.pop()
+            os.remove(path)
+            return path
+        return None
+
+
+class CamGrabber:
+    """로봇 쪽 카메라를 따로 읽는 일꾼. 기록할 때 기다리지 않고 가장 새 사진을 꺼낸다."""
+
+    def __init__(self, index, width=640, height=480):
+        import threading
+        self.cap = cv2.VideoCapture(index)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        self.ok = self.cap.isOpened()
+        self.frame = None
+        self.lock = threading.Lock()
+        self.running = self.ok
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        if self.ok:
+            self.thread.start()
+
+    def _run(self):
+        while self.running:
+            ok, f = self.cap.read()
+            if ok:
+                with self.lock:
+                    self.frame = f
+            else:
+                time.sleep(0.01)
+
+    def latest(self):
+        with self.lock:
+            return self.frame
+
+    def close(self):
+        self.running = False
+        if self.thread.is_alive():
+            self.thread.join(timeout=1.0)
+        self.cap.release()

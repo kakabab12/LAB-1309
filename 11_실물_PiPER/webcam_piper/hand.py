@@ -1,0 +1,99 @@
+"""MediaPipe 손 찾기 + 떨림 거르기 (2026-11-15).
+
+원래 웹캠 조종(My_portfolio 2026/05)은 팔 관절 각도를 썼지만, 여기서는 손 하나만 본다.
+손 21점의 화면 위치와 손 기준 3D 좌표(m)를 함께 받아 geometry.HandMeasure 로 책상 좌표를 구한다.
+"""
+import math
+import os
+
+import cv2
+import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+HAND_MODEL = os.path.join(HERE, "models", "hand_landmarker.task")
+HAND_LINKS = [(0, 1), (1, 2), (2, 3), (3, 4), (0, 5), (5, 6), (6, 7), (7, 8), (5, 9), (9, 10), (10, 11),
+              (11, 12), (9, 13), (13, 14), (14, 15), (15, 16), (13, 17), (0, 17), (17, 18), (18, 19), (19, 20)]
+
+
+class OneEuro:
+    """1€ 필터 (Casiez 2012) — 원래 웹캠 조종 코드와 같은 식. 멈춰 있으면 강하게, 빨리 움직이면 약하게 거른다."""
+
+    def __init__(self, min_cutoff=1.5, beta=0.5, d_cutoff=1.0):
+        self.min_cutoff, self.beta, self.d_cutoff = min_cutoff, beta, d_cutoff
+        self.x = self.dx = self.t = None
+
+    @staticmethod
+    def _alpha(cutoff, dt):
+        tau = 1.0 / (2.0 * math.pi * cutoff)
+        return 1.0 / (1.0 + tau / dt)
+
+    def __call__(self, t, x):
+        x = np.asarray(x, np.float64)
+        if self.t is None:
+            self.t, self.x, self.dx = t, x, np.zeros_like(x)
+            return x
+        dt = max(t - self.t, 1e-3)
+        dx = (x - self.x) / dt
+        a_d = self._alpha(self.d_cutoff, dt)
+        self.dx = a_d * dx + (1 - a_d) * self.dx
+        cutoff = self.min_cutoff + self.beta * np.linalg.norm(self.dx)
+        a = self._alpha(cutoff, dt)
+        self.x = a * x + (1 - a) * self.x
+        self.t = t
+        return self.x
+
+    def reset(self):
+        self.x = self.dx = self.t = None
+
+
+class HandTracker:
+    """웹캠 한 장 → 원하는 손(오른손/왼손)의 화면 21점(px)과 손 3D 21점(m)."""
+
+    def __init__(self, hand="right", model=HAND_MODEL, min_conf=0.5):
+        import mediapipe as mp
+        from mediapipe.tasks.python import BaseOptions, vision
+        if not os.path.exists(model):
+            raise FileNotFoundError(f"손 모델이 없음: {model}\n  python download_models.py 를 먼저 실행하세요")
+        self.mp = mp
+        self.want = hand
+        self.det = vision.HandLandmarker.create_from_options(vision.HandLandmarkerOptions(
+            base_options=BaseOptions(model_asset_path=model),
+            running_mode=vision.RunningMode.VIDEO, num_hands=2,
+            min_hand_detection_confidence=min_conf, min_hand_presence_confidence=min_conf,
+            min_tracking_confidence=min_conf))
+        self._last_ts = -1
+
+    def detect(self, frame_bgr, t_ms):
+        """돌려줌: dict(img_px 21×2, world 21×3, label, score) 또는 None.
+        MediaPipe 의 왼손·오른손 표시는 거울(셀카) 사진을 가정한다. 여기서는 뒤집지 않은 원본을 넣으므로
+        사용자의 오른손이 'Left' 로 나온다. 손이 하나만 보이면 그 손을 쓴다."""
+        h, w = frame_bgr.shape[:2]
+        ts = max(int(t_ms), self._last_ts + 1)
+        self._last_ts = ts
+        rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        res = self.det.detect_for_video(self.mp.Image(image_format=self.mp.ImageFormat.SRGB, data=rgb), ts)
+        if not res.hand_landmarks:
+            return None
+        want_label = "Left" if self.want == "right" else "Right"
+        pick = 0
+        if len(res.hand_landmarks) > 1:
+            for i, hd in enumerate(res.handedness):
+                if hd and hd[0].category_name == want_label:
+                    pick = i
+                    break
+        lm = res.hand_landmarks[pick]
+        wl = res.hand_world_landmarks[pick]
+        hd = res.handedness[pick][0] if res.handedness and res.handedness[pick] else None
+        return {"img_px": np.array([[p.x * w, p.y * h] for p in lm]),
+                "world": np.array([[p.x, p.y, p.z] for p in wl]),
+                "label": hd.category_name if hd else "?", "score": hd.score if hd else 0.0}
+
+    def close(self):
+        self.det.close()
+
+
+def draw_hand(img, img_px, color=(0, 255, 0)):
+    for a, b in HAND_LINKS:
+        cv2.line(img, tuple(int(v) for v in img_px[a]), tuple(int(v) for v in img_px[b]), color, 2)
+    for i in (4, 8):
+        cv2.circle(img, tuple(int(v) for v in img_px[i]), 6, (0, 0, 255), -1)
