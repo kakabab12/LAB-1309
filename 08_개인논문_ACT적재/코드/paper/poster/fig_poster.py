@@ -336,7 +336,68 @@ def audit_simple(width_mm=380, height_mm=144):
     plt.close(fig)
 
 
+def audit_groups(width_mm=380, height_mm=150):
+    """Audit figure without dials or histograms: for each demo set, what the grasp looks like (top view of the bin,
+    robot at the bottom, black bar = gripper jaw) and where its wrist angles fall on one line. Human-like demos form two
+    groups (side wall 26, front wall 74) with a 51 deg empty stretch; rule demos are one group. -> img/audit_groups.png
+    Group <-> wall: the rule set always takes the front wall and its angles (22..75) contain the 74-demo group (22..61)."""
+    rows = json.loads((ROOT / "results" / "demo_audit_general.json").read_text())
+    get = lambda naive: np.sort(np.asarray(next(v for v in rows.values() if v["object"] == "bin" and v["layout"] == "orig"
+                                                 and v["naive"] == naive and v["stage"] == 1)["roll"]))
+    fig = plt.figure(figsize=(width_mm * MM, height_mm * MM), dpi=250)
+    ax = fig.add_axes([0, 0, 1, 1]); setup(ax, (0, width_mm), (0, height_mm))
+    A0, A1, X0, X1 = -50, 80, 96, 372
+    X = lambda a: X0 + (a - A0) * (X1 - X0) / (A1 - A0)
+    GREY = "#52606d"
+
+    def icon(cx, cy, yaw, wall, col, s=24):
+        t = mtransforms.Affine2D().rotate_deg_around(cx, cy, yaw) + ax.transData
+        rect(ax, cx - s / 2, cy - s / 2, s, s, BIN_F, ec=WALL_C, lw=2.4, t=t, z=3)
+        if wall == "front":
+            seg, jaw = ((cx - s / 2, cy - s / 2), (cx + s / 2, cy - s / 2)), (cx - 5.5, cy - s / 2 - 6.5, 11, 3.6)
+        else:
+            seg, jaw = ((cx + s / 2, cy - s / 2), (cx + s / 2, cy + s / 2)), (cx + s / 2 + 2.9, cy - 5.5, 3.6, 11)
+        (x0, y0), (x1, y1) = seg
+        ax.plot([x0, x1], [y0, y1], color=col, lw=8, solid_capstyle="round", transform=t, zorder=4)
+        rect(ax, *jaw, JAW_C, t=t, z=5)
+
+    def row(roll, yb, col, name, how, icons):
+        d = np.diff(roll); i = int(np.argmax(d))
+        groups = [roll[: i + 1], roll[i + 1:]] if d[i] >= 10 else [roll]
+        ax.plot([X(A0), X(A1)], [yb, yb], color="#d5dbe3", lw=2.0, zorder=1, solid_capstyle="round")
+        for g in groups:
+            rect(ax, X(g.min()), yb - 4, X(g.max()) - X(g.min()), 8, col, z=3)
+        for g, (yaw, wall, text) in zip(groups, icons):
+            cx = (X(g.min()) + X(g.max())) / 2
+            icon(cx, yb + 30, yaw, wall, col)
+            ax.plot([cx, cx], [yb + 4.5, yb + 12], color=col, lw=1.6, zorder=2)
+            ax.text(cx + 21, yb + 36, text, fontsize=19, ha="left", va="center", color=INK_C)
+            ax.text(cx + 21, yb + 24, f"{len(g)}번", fontsize=26, ha="left", va="center", color=NAVY, fontweight="bold")
+        if len(groups) == 2:
+            lo, hi = X(roll[i]), X(roll[i + 1])
+            rect(ax, lo, yb - 4, hi - lo, 8, col, z=2, alpha=0.15)
+            arrow(ax, (lo + 1, yb - 10), (hi - 1, yb - 10), col, style="<->", lw=2.2, ms=14)
+            ax.text((lo + hi) / 2, yb - 13, f"빈 각도 {d[i]:.0f}°", fontsize=24, ha="center", va="top", color=col,
+                    fontweight="bold")
+        else:
+            ax.text(X(roll.min()) - 4, yb, f"빈 각도 {d[i]:.0f}°", fontsize=24, ha="right", va="center", color=col,
+                    fontweight="bold", bbox=dict(fc="white", ec="none", pad=2), zorder=6)
+        ax.text(2, yb + 36, name, fontsize=26, ha="left", va="center", color=col, fontweight="bold")
+        ax.text(2, yb + 25, f"({how})", fontsize=19, ha="left", va="center", color=GREY)
+        ax.text(2, yb + 6, f"→ 잡는 방식 {len(groups)}가지", fontsize=23, ha="left", va="center", color=col, fontweight="bold")
+
+    INK_C = "#222222"
+    row(get(True), 100, HUMAN, "사람식 시연", "가까운 벽을 잡음", [(15, "side", "옆벽을 잡음"), (-4, "front", "앞벽을 잡음")])
+    row(get(False), 24, RULE, "규칙 시연", "늘 같은 벽을 잡음", [(15, "front", "늘 앞벽을 잡음")])
+    for a in range(-40, 81, 20):   # one shared angle scale under the bottom row
+        ax.plot([X(a), X(a)], [24 - 5.5, 24 - 7.5], color="#9aa5b1", lw=1.4)
+        ax.text(X(a), 24 - 9, f"{a:+d}°".replace("-", "−") if a else "0°", fontsize=17, ha="center", va="top", color=GREY)
+    ax.text(2, 24 - 12.5, "집게가 닫힐 때 손목 각도 →", fontsize=18, ha="left", va="center", color=GREY)
+    fig.savefig(OUT / "audit_groups.png", facecolor="white")
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     OUT.mkdir(exist_ok=True)
-    audit(); audit_hist(); audit_dial(); audit_simple(); rule1(); rule2(); rule3()
+    audit(); audit_hist(); audit_dial(); audit_simple(); audit_groups(); rule1(); rule2(); rule3()
     print("figures written to", OUT)

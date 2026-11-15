@@ -475,10 +475,10 @@ G_CH = 64.0   # per-object gap chart (incl. category names)
 def s_audit(x, y, w):
     textbox(x, y, w, 21, [
         P("학습 전에 시연만 보고, 잡는 방식이 엇갈렸는지 확인", 24, True, INK, line=1.0, after=2),
-        P("시연 100번에서 집게가 닫힐 때의 손목 방향을 반원에 표시 (정사각형 적재함, 1층)", 19, False, MUTED, line=1.0),
+        P("시연 100번에서 집게가 닫힐 때의 손목 각도 (정사각형 적재함, 1층)  ·  그림은 위에서 본 적재함, 아래가 로봇 쪽, 검은 막대 = 집게", 19, False, MUTED, line=1.0),
     ], name="audit intro")
-    dw, dh = Image.open(IMG / "audit_simple.png").size
-    picture(IMG / "audit_simple.png", x + (w - AUD_W) / 2, y + 23, w=AUD_W, name="audit figure")
+    dw, dh = Image.open(IMG / "audit_groups.png").size
+    picture(IMG / "audit_groups.png", x + (w - AUD_W) / 2, y + 23, w=AUD_W, name="audit figure")
     ty = y + 23 + AUD_W * dh / dw + 2
     textbox(x, ty, w, 23, [
         {"runs": [("빈 각도가 크면 → 잡는 방식이 엇갈린 시연 → ", 23, True, ORANGE), ("학습 전에 고친다", 23, True, DARK)],
@@ -542,7 +542,7 @@ def s_conclusion(x, y, w):
 
 
 # panel heights (inner content + 2 x PAD)
-_aud = Image.open(IMG / "audit_simple.png").size
+_aud = Image.open(IMG / "audit_groups.png").size
 _cw = (0.5625 * (COL_W - 2 * PAD - 6) - 5) / (1.5 + 0.5625)
 _hero_h = (COL_W - 2 * PAD - 6 - _cw) * 900 / 1600
 _tw = (COL_W - 2 * PAD - 2 * TILE_GAP) / 3
