@@ -21,7 +21,7 @@ import time
 import cv2
 import numpy as np
 
-from geometry import CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, HandMeasure, TableCalib, scale_for_flat
+from geometry import CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, HandMeasure, TableCalib, flat_fit, scale_for_flat
 from hand import HandTracker, OneEuro, draw_hand
 from mapping import Mapper
 from net import PORT, Link
@@ -73,16 +73,29 @@ def parse():
 
 
 class Smoother:
+    """손 측정 거르기. 11/16 검토에서 고침: 손을 다시 찾은 첫 장면이 엉뚱하면 그 값에 계속 묶여 있던 문제.
+    - 새로 잡을 때: 3장이 서로 3 cm 안에서 맞아야 받아들인다 (그 전에는 '손 없음').
+    - 잡은 뒤 한 장면에 15 cm 넘게 튀면 버린다. 다만 튄 쪽 값이 5장 연달아 서로 3 cm 안이면 손이 정말 옮겨 간 것으로 보고 다시 잡는다."""
+    ACQUIRE_N, REJUMP_N, AGREE = 3, 5, 0.03
+
     def __init__(self):
         self.pinch, self.yaw, self.gap = OneEuro(1.5, 0.5), OneEuro(1.0, 0.3), OneEuro(1.5, 0.3)
         self.last = None
         self.yaw_unwrapped = None
         self.lost_since = None
+        self.pending = []
 
     def reset(self):
         for f in (self.pinch, self.yaw, self.gap):
             f.reset()
         self.last = self.yaw_unwrapped = None
+        self.pending = []
+
+    def _agree(self, n):
+        if len(self.pending) < n:
+            return False
+        ref = self.pending[-1]["pinch"]
+        return all(np.linalg.norm(p["pinch"] - ref) < self.AGREE for p in self.pending[-n:])
 
     def __call__(self, t, m):
         if m is None:
@@ -90,10 +103,21 @@ class Smoother:
                 self.lost_since = t
             if t - self.lost_since > 0.5:
                 self.reset()
+            self.pending = []
             return None
         self.lost_since = None
-        if self.last is not None and np.linalg.norm(m["pinch"] - self.last["pinch"]) > 0.15:
-            return self.last                                   # 한 장면에 15 cm 넘게 튀면 잘못 찾은 것으로 본다
+        if self.last is None:
+            self.pending = (self.pending + [m])[-self.ACQUIRE_N:]
+            if not self._agree(self.ACQUIRE_N):
+                return None
+            self.pending = []
+        elif np.linalg.norm(m["pinch"] - self.last["pinch"]) > 0.15:
+            self.pending = (self.pending + [m])[-self.REJUMP_N:]
+            if not self._agree(self.REJUMP_N):
+                return self.last                               # 한 장면에 15 cm 넘게 튀면 잘못 찾은 것으로 본다
+            self.reset()                                       # 손이 정말 옮겨 감: 새로 잡는다
+        else:
+            self.pending = []
         y = m["yaw"]
         if self.yaw_unwrapped is not None:
             y = self.yaw_unwrapped + math.remainder(y - self.yaw_unwrapped, 2 * math.pi)
@@ -139,7 +163,7 @@ def main():
             saved = json.load(f)
         if saved["table"]["w"] == W and saved["table"]["h"] == H:
             calib = TableCalib.from_dict(saved["table"])
-            measure = HandMeasure(calib, saved["scale"], a.grip)
+            measure = HandMeasure(calib, saved["scale"], a.grip, saved.get("mirror", False))
             mode = "run"
             print(f"[보정] {a.calib} 불러옴 (거리 배율 {saved['scale']:.3f})")
     rec = None if link else Recorder(a.out, {
@@ -213,21 +237,33 @@ def main():
                     samples.append(det)
                 if len(samples) >= 20:
                     collecting = False
-                    m1 = HandMeasure(calib, 1.0, a.grip)
+                    # MediaPipe 손 3D 가 화면과 같은 손인지 거울상인지: 펴서 올려놓은 21점이 종이 높이에 더 잘 맞는 쪽 (다수결)
+                    votes = []
+                    for d in samples:
+                        r0, r1 = HandMeasure(calib, 1.0, a.grip, False)(d["world"], d["img_px"]), \
+                            HandMeasure(calib, 1.0, a.grip, True)(d["world"], d["img_px"])
+                        if r0 and r1:
+                            votes.append(flat_fit(calib, r1["lm_cam_raw"])[1] < flat_fit(calib, r0["lm_cam_raw"])[1])
+                    mirror = bool(votes) and sum(votes) > 0.7 * len(votes)
+                    m1 = HandMeasure(calib, 1.0, a.grip, mirror)
                     raws = [m1(d["world"], d["img_px"]) for d in samples]
                     raws = [r for r in raws if r]
                     s = scale_for_flat(calib, np.median([r["lm_cam_raw"] for r in raws], axis=0)) if raws else None
                     if s is None:
                         msg, msg_t = "hand calibration failed - try again (S)", t
                     else:
-                        measure = HandMeasure(calib, s, a.grip)
+                        measure = HandMeasure(calib, s, a.grip, mirror)
                         rs = [r for r in (measure(d["world"], d["img_px"]) for d in samples) if r]
                         palm = np.median([r["palm"] for r in rs], axis=0)       # 손바닥 가운데가 + 에서 얼마나
                         with open(a.calib, "w", encoding="utf-8") as f:
-                            json.dump({"table": calib.to_dict(), "scale": s, "pose": "flat hand",
+                            json.dump({"table": calib.to_dict(), "scale": s, "pose": "flat hand", "mirror": mirror,
+                                       "mirror_votes": [int(sum(votes)), len(votes)],
                                        "palm_off_m": palm.tolist()}, f, indent=1)
                         msg = (f"saved. scale {s:.3f}, palm center off the cross by x {palm[0]*100:+.1f}"
-                               f" y {palm[1]*100:+.1f} cm (near 0 is good)")
+                               f" y {palm[1]*100:+.1f} cm (near 0 is good), 3D {'MIRRORED' if mirror else 'ok'}"
+                               f" {len(votes) - sum(votes)}/{len(votes)}")
+                        print(f"[보정] 배율 {s:.3f}, 손 3D {'거울상으로 판단해 뒤집어 씀' if mirror else '화면과 같은 손'}"
+                              f" (거울상 표 {sum(votes)}/{len(votes)})")
                         msg_t = t
                         smooth.reset()
                         mode = "run"
@@ -249,7 +285,8 @@ def main():
                 lines = ["hand not found"]
             lines.append(f"{fps:4.1f} fps   SPACE follow  R rec  G grip:{'on' if mapper.follow_grip else 'off'}"
                          f"  Y yaw:{'on' if mapper.follow_yaw else 'off'}  [ ] squeeze {mapper.squeeze*1000:.0f}mm")
-        if mode == "hand" and GUIDE is not None:              # 시작 자세 그림을 왼쪽 아래에
+        if mode == "hand" and GUIDE is not None and GUIDE.shape[0] + 16 <= disp.shape[0] \
+                and GUIDE.shape[1] + 16 <= disp.shape[1]:          # 시작 자세 그림을 왼쪽 아래에 (화면이 작으면 생략)
             gh, gw = GUIDE.shape[:2]
             disp[DISP_H - gh - 8:DISP_H - 8, 8:8 + gw] = GUIDE
         if msg and t - msg_t < 6:

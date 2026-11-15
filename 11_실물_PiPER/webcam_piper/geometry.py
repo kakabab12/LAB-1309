@@ -142,33 +142,43 @@ def scale_for_start(calib, pinch_cam, h0=PINCH_H0):
     return s if 0.5 < s < 2.0 else None
 
 
-def scale_for_flat(calib, lm_cam, heights=FLAT_H):
-    """손을 종이에 펴서 올려놓은 자세: 21점(카메라 좌표, 배율 1)의 책상 높이가 heights 에 가장 가깝게 하는 배율 s.
-    z_table(s·p) = s·(r3·p) − r3·t 이므로 최소제곱 s = Σ a(h + b) / Σ a²  (a = r3·p, b = r3·t)."""
+def flat_fit(calib, lm_cam, heights=FLAT_H):
+    """손을 종이에 펴서 올려놓은 자세: 21점(카메라 좌표, 배율 1)의 책상 높이가 heights 에 가장 가깝게 하는 배율 s 와,
+    그때 높이가 어림에서 벗어난 정도(RMS, m). z_table(s·p) = s·(r3·p) − r3·t 이므로 최소제곱 s = Σ a(h + b) / Σ a²."""
     r3 = calib.R[:, 2]
     a = np.asarray(lm_cam, np.float64).reshape(-1, 3) @ r3
     b = float(r3 @ calib.t)
     den = float(a @ a)
     if den < 1e-12:
-        return None
+        return None, float("inf")
     s = float(a @ (np.asarray(heights) + b)) / den
-    return s if 0.5 < s < 2.0 else None
+    rms = float(np.sqrt(np.mean((s * a - b - heights) ** 2)))
+    return s, rms
+
+
+def scale_for_flat(calib, lm_cam, heights=FLAT_H):
+    s, _ = flat_fit(calib, lm_cam, heights)
+    return s if s is not None and 0.5 < s < 2.0 else None
 
 
 class HandMeasure:
     """한 장면의 손 → 사람 책상 좌표의 집기점, 집게 방향(yaw), 손가락 사이 거리, 손바닥 가운데."""
 
-    def __init__(self, calib, scale=1.0, grip="whole"):
+    def __init__(self, calib, scale=1.0, grip="whole", mirror=False):
         self.calib = calib
         self.scale = scale
         self.tips = list(GRIPS[grip])
+        self.mirror = mirror        # MediaPipe 손 3D 가 화면과 거울상이면 z 를 뒤집어 쓴다 (보정 때 판별)
 
     def __call__(self, world_lm, img_px):
-        pose = hand_pose_cam(world_lm, img_px, self.calib.K)
+        world = np.asarray(world_lm, np.float64).reshape(-1, 3)
+        if self.mirror:
+            world = world * np.array([1.0, 1.0, -1.0])
+        pose = hand_pose_cam(world, img_px, self.calib.K)
         if pose is None:
             return None
         Rh, th = pose
-        cam = (Rh @ np.asarray(world_lm, np.float64).reshape(-1, 3).T).T + th      # 21점 카메라 좌표 (배율 1)
+        cam = (Rh @ world.T).T + th                                                 # 21점 카메라 좌표 (배율 1)
         tab = (self.calib.R.T @ (self.scale * cam - self.calib.t).T).T              # 책상 좌표
         thumb, other = tab[THUMB_TIP], tab[self.tips].mean(axis=0)
         axis = other - thumb                                                        # 엄지 → 맞은편 손가락

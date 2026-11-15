@@ -6,6 +6,7 @@
 마지막으로 사람이 손을 펴고 → 물체로 가서 손 전체로 쥐고 → 들고 → 옮기고 → 놓을 때 가상 팔 집게가 같은 길을 가는지 본다.
 
 실행: python test_geometry.py   (mediapipe·웹캠·mujoco 필요 없음, opencv 필요)
+6~8 은 11/16 검토에서 더함: 엉뚱한 첫 장면, MediaPipe 손 3D 모양 오차, 손 3D 거울상 판별.
 """
 import math
 
@@ -176,5 +177,66 @@ def main():
               f"최대 {errs.max():.0f}°, 반 바퀴 돎 {flips}번")
 
 
+def check_hard_cases():
+    """11/16 검토에서 더한 시험: 엉뚱한 첫 장면, MediaPipe 손 3D 모양 오차, 손 3D 가 거울상일 때."""
+    from geometry import flat_fit
+    from teleop import Smoother
+    print("== 6. 손을 다시 찾은 첫 장면이 엉뚱할 때 (x 40 cm 한 장 → 참 x 0)")
+    sm = Smoother()
+    seq = [{"pinch": np.array([0.40, 0.0, 0.05]), "yaw": 0.0, "gap": 0.08}] + \
+          [{"pinch": np.array([0.0, 0.0, 0.05]) + RNG.normal(0, 0.003, 3), "yaw": 0.0, "gap": 0.08} for _ in range(30)]
+    outs = [sm(i / 30, m) for i, m in enumerate(seq)]
+    first = next(i for i, o in enumerate(outs) if o is not None)
+    print(f"  처음 내보낸 장면 {first} (x {outs[first]['pinch'][0] * 100:.1f} cm), 1초 뒤 x {outs[-1]['pinch'][0] * 100:.1f} cm, "
+          f"엉뚱한 값을 내보낸 장면 {sum(o is not None and o['pinch'][0] > 0.2 for o in outs)}개")
+    sm = Smoother()
+    seq = [{"pinch": np.array([0.0, 0.0, 0.05]), "yaw": 0.0, "gap": 0.08}] * 10 + \
+          [{"pinch": np.array([0.20, 0.0, 0.05]), "yaw": 0.0, "gap": 0.08}] * 10
+    outs = [sm(i / 30, m) for i, m in enumerate(seq)]
+    print(f"  손이 정말 20 cm 옮겨 가면: 옮긴 뒤 {next(i for i, o in enumerate(outs[10:]) if o and o['pinch'][0] > 0.1) + 1}장째에 따라감")
+
+    K_true = intrinsics(focal_from_hfov(70.0, W), W, H)
+    R, t = look_at(np.array([0.65, 0.0, 0.25]), np.array([-0.05, 0.0, 0.05]))
+    calib = TableCalib(shoot(R, t, K_true, CORNERS_TABLE, 1.0), W, H)
+
+    def obs(kind, pos, yaw, w, wn, mirror=False):
+        local = hand_model(kind, w)
+        img = shoot(R, t, K_true, (rotz(yaw) @ local.T).T + np.asarray(pos, float), 2.0)
+        world = local * 1.10 + RNG.normal(0, wn, local.shape)
+        world -= world.mean(axis=0)
+        if mirror:
+            world[:, 2] *= -1
+        return world, img
+
+    print("== 7. MediaPipe 손 3D 모양이 점마다 틀릴 때 (화면 점 2 px 흔들림, 다섯 자리 × 40번)")
+    for wn in (0.0, 0.003, 0.006, 0.010):
+        s = scale_for_flat(calib, np.median([HandMeasure(calib, 1.0)(*obs("flat", (0, 0, 0), 0, 0, wn))["lm_cam_raw"]
+                                             for _ in range(20)], axis=0))
+        meas = HandMeasure(calib, s)
+        errs, yerr = [], []
+        for p, yaw, w in (((0, 0, 0.03), 0.0, 0.08), ((0.15, 0.10, 0.03), 0.3, 0.055), ((0.05, -0.05, 0.12), 0.4, 0.055),
+                          ((-0.08, 0.12, 0.05), -0.4, 0.07), ((0.10, -0.12, 0.15), 0.0, 0.10)):
+            for _ in range(40):
+                r = meas(*obs("grasp", p, yaw, w, wn))
+                errs.append(np.linalg.norm(r["pinch"] - p))
+                yerr.append(abs(axis_err_deg(r["yaw"], yaw - math.pi / 2)))
+        print(f"  점마다 {wn * 1000:2.0f} mm 틀림: 배율 {s:.3f} (참 0.909), 집기점 오차 중간값 {np.median(errs) * 100:.1f} cm "
+              f"/ 열에 아홉은 {np.percentile(errs, 90) * 100:.1f} cm 안, 집게 방향 {np.median(yerr):.0f}° / {np.percentile(yerr, 90):.0f}°")
+
+    print("== 8. 손 3D 가 거울상일 때 보정에서 알아채는가 (20장 다수결, 30번)")
+    for wn in (0.003, 0.006):
+        for truth in (False, True):
+            right = 0
+            for _ in range(30):
+                votes = []
+                for _ in range(20):
+                    w, img = obs("flat", (0, 0, 0), RNG.uniform(-0.4, 0.4), 0, wn, truth)
+                    r0, r1 = HandMeasure(calib, 1.0, mirror=False)(w, img), HandMeasure(calib, 1.0, mirror=True)(w, img)
+                    votes.append(flat_fit(calib, r1["lm_cam_raw"])[1] < flat_fit(calib, r0["lm_cam_raw"])[1])
+                right += (sum(votes) > 0.7 * len(votes)) == truth
+            print(f"  점마다 {wn * 1000:.0f} mm 틀림, 실제로 거울상 {str(truth):5s}: 30번 중 {right}번 맞게 판단")
+
+
 if __name__ == "__main__":
     main()
+    check_hard_cases()
