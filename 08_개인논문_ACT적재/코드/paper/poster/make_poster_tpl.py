@@ -480,10 +480,12 @@ def s_audit(x, y, w):
     dw, dh = Image.open(IMG / "audit_groups.png").size
     picture(IMG / "audit_groups.png", x + (w - AUD_W) / 2, y + 23, w=AUD_W, name="audit figure")
     ty = y + 23 + AUD_W * dh / dw + 2
-    textbox(x, ty, w, 23, [
+    textbox(x, ty, w, 31, [
         {"runs": [("빈 각도가 크면 잡는 방식이 엇갈린 시연 → ", 23, True, ORANGE), ("학습하기 전에 찾아서 다시 만듦", 23, True, DARK)],
          "line": 1.0, "after": 3},
-        P("직사각형 상자·손잡이 컵도 마찬가지 (가까운 벽 시연 52°·66°, 규칙 시연 3°)  ·  빈 각도 G = 손목 각도를 줄 세웠을 때 가장 크게 빈 간격",
+        P("빈 각도 G: 시연 100번의 손목 각도를 작은 순서로 늘어놓았을 때, 바로 이웃한 두 시연의 각도 차이 중 가장 큰 값",
+          19, False, INK, line=1.0, after=2),
+        P("잡는 벽이 바뀌면 손목을 돌리는 각도도 크게 달라지기 때문  ·  직사각형 상자·손잡이 컵도 마찬가지 (52°·66° 대 3°)",
           19, False, MUTED, line=1.0),
     ], name="audit takeaway")
 
@@ -552,7 +554,7 @@ PH = {
     "cap": 132.0 + 2 * PAD,
     "sim": _hero_h + 4 + 50 + 2 * PAD,
     "rules": 3 * RH + 2 * 5 + 2 * PAD,
-    "audit": 23 + AUD_W * _aud[1] / _aud[0] + 2 + 25 + 2 * PAD,
+    "audit": 23 + AUD_W * _aud[1] / _aud[0] + 2 + 33 + 2 * PAD,
     "res": 50 + 9 + CH_H + 2 + 11 + 2 * PAD,
     "envs": 2 * (_tw * 836 / 1400 + LBL_H + 3) + 14 + 2 * PAD,
     "concl": 84.0,

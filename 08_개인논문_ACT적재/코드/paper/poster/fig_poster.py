@@ -379,9 +379,11 @@ def audit_groups(width_mm=380, height_mm=150):
             arrow(ax, (lo + 1, yb - 10), (hi - 1, yb - 10), col, style="<->", lw=2.2, ms=14)
             ax.text((lo + hi) / 2, yb - 13, f"빈 각도 {d[i]:.0f}°", fontsize=24, ha="center", va="top", color=col,
                     fontweight="bold")
+            ax.text((lo + hi) / 2, yb - 23, "이 사이에는 시연이 하나도 없음", fontsize=19, ha="center", va="top", color=GREY)
         else:
             ax.text(X(roll.min()) - 4, yb, f"빈 각도 {d[i]:.0f}°", fontsize=24, ha="right", va="center", color=col,
                     fontweight="bold", bbox=dict(fc="white", ec="none", pad=2), zorder=6)
+            ax.text(X(roll.min()) - 4, yb + 10, "시연이 촘촘히 이어짐", fontsize=19, ha="right", va="center", color=GREY)
         ax.text(2, yb + 36, name, fontsize=26, ha="left", va="center", color=col, fontweight="bold")
         ax.text(2, yb + 25, f"({how})", fontsize=19, ha="left", va="center", color=GREY)
         ax.text(2, yb + 6, f"→ 잡는 방식 {len(groups)}가지", fontsize=23, ha="left", va="center", color=col, fontweight="bold")
