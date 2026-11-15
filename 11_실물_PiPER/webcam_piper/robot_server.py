@@ -61,7 +61,7 @@ def main():
         print("       노트북에서 SPACE 를 눌러야 따라가고, 통신이 %.1f초 끊기면 멈춥니다. 속도 %d%%" % (a.timeout, a.speed))
         input("       준비됐으면 Enter (취소 Ctrl+C) ")
     mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed)
-    mapper.yaw0 = 0.0                                   # 노트북이 이미 시작 자세 기준 돌림을 보냄
+    mapper.yaw0 = 0.0                                   # 노트북이 집게 방향(yaw)을 그대로 보냄
     mapper.sync_to(arm.joints())
     srv = Server(a.port)
     cams = {k: CamGrabber(i) for k, i in (("wrist", a.wrist_cam), ("front", a.front_cam)) if i is not None}
@@ -115,7 +115,9 @@ def main():
                 hand = {"pinch": np.array(h[:3], float), "yaw": float(h[3]), "gap": float(h[4])} if h else None
                 mapper.follow_grip = bool(m.get("grip", 1))
                 mapper.follow_yaw = bool(m.get("yawf", 1))
-                mapper.squeeze = float(np.clip(m.get("sq", 0.02), 0.0, 0.05))
+                mapper.squeeze = float(np.clip(m.get("sq", 0.025), 0.0, 0.05))
+                mapper.yaw_gap_min = float(np.clip(m.get("ygm", 0.05), 0.0, 0.1))
+                mapper.yaw_pref = float(np.clip(m.get("ypref", -1.047), -3.2, 3.2))
                 req = bool(m.get("follow", 0))
                 if m.get("bye"):
                     force_stop("laptop closed")

@@ -10,7 +10,7 @@ PiPER 는 팔 길이가 사람과 달라 관절 각도를 옮기면 집게가 �
   python teleop.py --send 192.168.0.10 # 팔은 연구실 PC 에: 손 측정만 보내고, 연구실 PC 에서 robot_server.py 가 팔을 움직임
 화면 글자는 영어다 (OpenCV 가 한글을 못 그림). 키:
   SPACE 따라가기 켜기/끄기   R 기록 시작/끝   X 마지막 기록 지우기   G 집게 따라가기   Y 손 돌림 따라가기
-  [ 집게 약하게 ] 세게 (5 mm)   C 종이 모서리 다시   S 손 시작 자세 다시   Q 또는 ESC 끝
+  [ 집게 약하게 ] 세게 (5 mm)   --grip pinch 면 엄지·검지로 집음 (기본은 손 전체)   C 종이 모서리 다시   S 손 시작 자세 다시   Q 또는 ESC 끝
 """
 import argparse
 import json
@@ -21,7 +21,7 @@ import time
 import cv2
 import numpy as np
 
-from geometry import CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, HandMeasure, TableCalib, scale_for_start
+from geometry import CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, HandMeasure, TableCalib, scale_for_flat
 from hand import HandTracker, OneEuro, draw_hand
 from mapping import Mapper
 from net import PORT, Link
@@ -32,6 +32,17 @@ from robots import make_arm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BACKSPACE = (8, 127)                                       # 127 = 맥의 delete 키
+
+
+def _load_guide(width=400):
+    """보정 2/2 화면에 띄울 시작 자세 그림 (img/guide_start.png). 없으면 글만."""
+    g = cv2.imread(os.path.join(HERE, "img", "guide_start.png"))
+    if g is None:
+        return None
+    return cv2.resize(g, (width, int(g.shape[0] * width / g.shape[1])), interpolation=cv2.INTER_AREA)
+
+
+GUIDE = _load_guide()
 
 
 def parse():
@@ -50,7 +61,10 @@ def parse():
     ap.add_argument("--y0", type=float, default=0.0, help="로봇 시작 표시: 밑동에서 왼쪽으로 (m)")
     ap.add_argument("--gain", type=float, default=1.0, help="사람 1 cm → 로봇 몇 cm (같은 물체면 1.0)")
     ap.add_argument("--max-speed", type=float, default=0.12, help="집게 끝 최고 속도 (m/s)")
-    ap.add_argument("--squeeze", type=float, default=0.02, help="집게 폭 = 엄지·검지 사이 − 이 값 (m)")
+    ap.add_argument("--grip", choices=["whole", "pinch"], default="whole",
+                    help="whole: 엄지 ↔ 네 손가락으로 손 전체로 쥠 (기본), pinch: 엄지 ↔ 검지로 집음")
+    ap.add_argument("--squeeze", type=float, default=None,
+                    help="집게 폭 = 엄지와 맞은편 손가락 사이 − 이 값 (m). 기본 whole 0.025, pinch 0.02")
     ap.add_argument("--calib", default=os.path.join(HERE, "calib.json"))
     ap.add_argument("--out", default=os.path.join(HERE, "data"))
     ap.add_argument("--wrist-cam", type=int, default=None, help="기록할 로봇 손목 카메라 번호 (선택)")
@@ -100,7 +114,11 @@ def main():
         print("\n[안전] 실물 팔입니다. 팔 둘레를 비우고, 전원 스위치 옆에 사람이 있어야 합니다.")
         print("       SPACE 를 눌러야 따라가기 시작하고, 손을 1초 넘게 놓치면 멈춥니다. 속도 %d%%" % a.speed)
         input("       준비됐으면 Enter (취소 Ctrl+C) ")
-    mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, squeeze=a.squeeze)
+    if a.squeeze is None:
+        a.squeeze = 0.025 if a.grip == "whole" else 0.02
+    mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, squeeze=a.squeeze,
+                    yaw_gap_min=0.05 if a.grip == "whole" else 0.025,
+                    yaw_pref=math.radians(-60 if a.hand == "right" else 60))
     mapper.sync_to(arm.joints())
 
     cap = cv2.VideoCapture(a.cam)
@@ -121,8 +139,7 @@ def main():
             saved = json.load(f)
         if saved["table"]["w"] == W and saved["table"]["h"] == H:
             calib = TableCalib.from_dict(saved["table"])
-            measure = HandMeasure(calib, saved["scale"])
-            mapper.yaw0 = saved["yaw0"]
+            measure = HandMeasure(calib, saved["scale"], a.grip)
             mode = "run"
             print(f"[보정] {a.calib} 불러옴 (거리 배율 {saved['scale']:.3f})")
     rec = None if link else Recorder(a.out, {
@@ -188,29 +205,29 @@ def main():
             lines = ["Check: blue dots must sit on the paper.  ENTER = ok,  BACKSPACE = redo",
                      f"focal {calib.f:.0f}px ({calib.focal_source}), corner error {calib.reproj_px:.1f}px"]
         if mode == "hand":
-            lines = ["CALIBRATION 2/2: right hand on the CROSS (paper center), palm down,",
-                     "thumb+index tips touching the paper, fingers forward. Hold still, press S"]
+            lines = ["CALIBRATION 2/2: lay your right hand FLAT on the paper,",
+                     "palm center on the cross, fingers toward the laptop. Hold still, press S"]
             if collecting:
                 lines.append(f"measuring... {len(samples)}/20  (keep still)")
                 if det is not None:
                     samples.append(det)
                 if len(samples) >= 20:
                     collecting = False
-                    m1 = HandMeasure(calib, 1.0)
+                    m1 = HandMeasure(calib, 1.0, a.grip)
                     raws = [m1(d["world"], d["img_px"]) for d in samples]
                     raws = [r for r in raws if r]
-                    s = scale_for_start(calib, np.median([r["pinch_cam_raw"] for r in raws], axis=0)) if raws else None
+                    s = scale_for_flat(calib, np.median([r["lm_cam_raw"] for r in raws], axis=0)) if raws else None
                     if s is None:
                         msg, msg_t = "hand calibration failed - try again (S)", t
                     else:
-                        measure = HandMeasure(calib, s)
+                        measure = HandMeasure(calib, s, a.grip)
                         rs = [r for r in (measure(d["world"], d["img_px"]) for d in samples) if r]
-                        start = np.median([r["pinch"] for r in rs], axis=0)
-                        mapper.yaw0 = float(np.median([r["yaw"] for r in rs]))
+                        palm = np.median([r["palm"] for r in rs], axis=0)       # 손바닥 가운데가 + 에서 얼마나
                         with open(a.calib, "w", encoding="utf-8") as f:
-                            json.dump({"table": calib.to_dict(), "scale": s, "yaw0": mapper.yaw0}, f, indent=1)
-                        msg = (f"saved. scale {s:.3f}, start off by x {start[0]*100:+.1f} y {start[1]*100:+.1f} cm"
-                               " (near 0 is good)")
+                            json.dump({"table": calib.to_dict(), "scale": s, "pose": "flat hand",
+                                       "palm_off_m": palm.tolist()}, f, indent=1)
+                        msg = (f"saved. scale {s:.3f}, palm center off the cross by x {palm[0]*100:+.1f}"
+                               f" y {palm[1]*100:+.1f} cm (near 0 is good)")
                         msg_t = t
                         smooth.reset()
                         mode = "run"
@@ -227,11 +244,14 @@ def main():
             if meas:
                 p = meas["pinch"]
                 lines = [f"hand x {p[0]*100:+5.1f}  y {p[1]*100:+5.1f}  z {(p[2])*100:4.1f} cm   "
-                         f"gap {meas['gap']*1000:3.0f} mm   yaw {math.degrees(meas['yaw']-mapper.yaw0):+4.0f} deg"]
+                         f"grip {meas['gap']*1000:3.0f} mm   turn {math.degrees(math.remainder(meas['yaw'] + math.pi / 2, math.pi)):+4.0f} deg"]
             else:
                 lines = ["hand not found"]
             lines.append(f"{fps:4.1f} fps   SPACE follow  R rec  G grip:{'on' if mapper.follow_grip else 'off'}"
                          f"  Y yaw:{'on' if mapper.follow_yaw else 'off'}  [ ] squeeze {mapper.squeeze*1000:.0f}mm")
+        if mode == "hand" and GUIDE is not None:              # 시작 자세 그림을 왼쪽 아래에
+            gh, gw = GUIDE.shape[:2]
+            disp[DISP_H - gh - 8:DISP_H - 8, 8:8 + gw] = GUIDE
         if msg and t - msg_t < 6:
             lines.append(msg)
         for i, s_ in enumerate(lines):
@@ -241,11 +261,11 @@ def main():
         if link:
             # 연구실 PC 로 손 측정 보내기 (보정 중에는 손 없음·따라가기 꺼짐으로 보냄)
             run = mode == "run"
-            hand_out = ([round(float(v), 5) for v in meas["pinch"]] + [round(meas["yaw"] - mapper.yaw0, 4),
+            hand_out = ([round(float(v), 5) for v in meas["pinch"]] + [round(meas["yaw"], 4),
                                                                        round(meas["gap"], 4)]) if (run and meas) else None
             link.send(hand=hand_out, follow=int(run and follow), rec=int(run and rec_req),
                       grip=int(mapper.follow_grip), yawf=int(mapper.follow_yaw), sq=round(mapper.squeeze, 4),
-                      disc=disc_n, bye=0)
+                      ygm=mapper.yaw_gap_min, ypref=round(mapper.yaw_pref, 4), disc=disc_n, bye=0)
             st = link.poll()
             if st and st.get("msg_n") != seen_msg_n:
                 if seen_msg_n is not None and st.get("msg"):
@@ -287,7 +307,7 @@ def main():
             imgs = {k: c.latest() for k, c in extra.items()}
             rec.add(t=t, q=q_now, grip=w_now, q_cmd=mapper.q_cmd.copy(), grip_cmd=mapper.width,
                     hand=(meas["pinch"] if meas else np.full(3, np.nan)),
-                    hand_yaw=(meas["yaw"] - mapper.yaw0 if meas else np.nan),
+                    hand_yaw=(meas["yaw"] if meas else np.nan),
                     hand_gap=(meas["gap"] if meas else np.nan), target=mapper.cur.copy(), tracked=meas is not None,
                     follow=follow, human_jpg=jpeg(frame, 480),
                     **{f"{k}_jpg": jpeg(v, 640) for k, v in imgs.items()})
@@ -300,7 +320,7 @@ def main():
         elif mode == "corners_check":
             if key in (13, 10):
                 mode, collecting, samples = "hand", False, []
-                measure = HandMeasure(calib, 1.0)
+                measure = HandMeasure(calib, 1.0, a.grip)
             elif key in BACKSPACE:
                 clicks.clear()
                 calib, mode = None, "corners"
@@ -346,7 +366,7 @@ def main():
                 follow = False
                 arm.hold()
                 mode, collecting, samples = "hand", False, []
-                measure = HandMeasure(calib, 1.0)
+                measure = HandMeasure(calib, 1.0, a.grip)
 
     if link:
         for _ in range(5):                                   # 연구실 PC 에 "끝" 을 알림 (팔 멈춤·기록 저장)

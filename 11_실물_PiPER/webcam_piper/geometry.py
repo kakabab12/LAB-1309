@@ -6,7 +6,12 @@ y = 사람의 왼쪽, z = 위. A4 는 가로로 놓는다 (사람 기준 좌우 
 1) 종이 네 모서리를 화면에서 누르면 → 초점거리를 추정하고(모르면) 카메라가 책상을 어디서 보는지(자세)를 구한다.
 2) MediaPipe 손 랜드마크 21점은 화면 위치(px)와 "손 기준 3D 좌표(m)" 두 가지가 나온다. 둘을 맞추면(solvePnP)
    카메라에서 손까지의 3D 위치가 나온다. 다만 MediaPipe 는 평균 손 크기를 가정해서 거리가 몇 % 틀릴 수 있다.
-3) 그래서 시작할 때 손가락 끝을 종이 가운데에 대고 한 번 재서, 그 점이 책상 위에 오도록 거리 배율 s 를 맞춘다.
+3) 그래서 시작할 때 손을 종이 위에 펴서 올려놓고 한 번 재서, 손 21점이 책상 바로 위에 오도록 거리 배율 s 를 맞춘다.
+
+쥐는 손 (11/16 사용자: "손가락 전체를 사용하는 게 더 편할 것 같다")
+  기본(whole): 엄지 끝 ↔ 나머지 네 손가락 끝의 가운데. 컵을 쥐듯이 손 전체로 쥔다.
+  집기점 = 두 점의 가운데, 손가락 사이 = 두 점 거리, 집게 방향 = 엄지 → 네 손가락 줄과 같은 줄로 집게가 닫히게.
+  pinch: 엄지 끝 ↔ 검지 끝 (예전 방식, 작은 물체용).
 """
 import math
 
@@ -20,10 +25,19 @@ CORNERS_TABLE = np.array([[-A4_D / 2, +A4_W / 2, 0.0],
                           [+A4_D / 2, -A4_W / 2, 0.0],
                           [+A4_D / 2, +A4_W / 2, 0.0]])
 CORNER_NAMES = ["1 near-left", "2 near-right", "3 far-right", "4 far-left"]
-PINCH_H0 = 0.012                     # 엄지·검지 끝을 종이에 댔을 때 두 손가락 끝 가운데 높이 (m)
+PINCH_H0 = 0.012                     # 사람 시작점(종이 + 위 집기점) 높이 = 로봇 시작점의 집게 끝 높이 (m)
 
 # MediaPipe 손 랜드마크 번호
-WRIST, THUMB_TIP, INDEX_MCP, INDEX_TIP, PINKY_MCP = 0, 4, 5, 8, 17
+WRIST, THUMB_TIP, INDEX_MCP, INDEX_TIP, MIDDLE_MCP, PINKY_MCP = 0, 4, 5, 8, 9, 17
+GRIPS = {"whole": (8, 12, 16, 20), "pinch": (8,)}       # 엄지 맞은편 손가락 끝들
+# 손을 종이에 펴서 올려놓았을 때 21점의 높이 어림 (m). MediaPipe 점은 관절 가운데라 그 자리 살 두께의 절반쯤.
+# 손목 1.8, 손가락 뿌리 1.3, 가운데 마디 1.0, 끝 마디 0.8, 손끝 0.6 cm (어림값, 실제 손으로 잰 것 아님)
+FLAT_H = np.array([0.018,
+                   0.018, 0.014, 0.010, 0.008,
+                   0.013, 0.010, 0.008, 0.006,
+                   0.013, 0.010, 0.008, 0.006,
+                   0.013, 0.010, 0.008, 0.006,
+                   0.012, 0.009, 0.007, 0.006])
 
 
 def intrinsics(f, w, h):
@@ -117,14 +131,6 @@ def hand_pose_cam(world_lm, img_px, K):
     return cv2.Rodrigues(rvec)[0], tvec.reshape(3)
 
 
-def pinch_points_cam(world_lm, pose):
-    """카메라 좌표의 (엄지 끝, 검지 끝, 검지 뿌리, 새끼 뿌리, 손목) — 거리 배율 보정 전."""
-    Rh, th = pose
-    w = np.asarray(world_lm, np.float64)
-    return {k: Rh @ w[i] + th for k, i in (("thumb", THUMB_TIP), ("index", INDEX_TIP), ("index_mcp", INDEX_MCP),
-                                           ("pinky_mcp", PINKY_MCP), ("wrist", WRIST))}
-
-
 def scale_for_start(calib, pinch_cam, h0=PINCH_H0):
     """시작 자세에서 잰 집기점(카메라 좌표)이 책상 위 높이 h0 에 오도록 하는 거리 배율 s.
     카메라 원점에서 뻗은 같은 직선 위를 s 배 늘이거나 줄인다: z_table(s·p) = h0."""
@@ -136,21 +142,37 @@ def scale_for_start(calib, pinch_cam, h0=PINCH_H0):
     return s if 0.5 < s < 2.0 else None
 
 
-class HandMeasure:
-    """한 장면의 손 → 사람 책상 좌표의 집기점, 손 방향(yaw), 엄지·검지 사이 거리."""
+def scale_for_flat(calib, lm_cam, heights=FLAT_H):
+    """손을 종이에 펴서 올려놓은 자세: 21점(카메라 좌표, 배율 1)의 책상 높이가 heights 에 가장 가깝게 하는 배율 s.
+    z_table(s·p) = s·(r3·p) − r3·t 이므로 최소제곱 s = Σ a(h + b) / Σ a²  (a = r3·p, b = r3·t)."""
+    r3 = calib.R[:, 2]
+    a = np.asarray(lm_cam, np.float64).reshape(-1, 3) @ r3
+    b = float(r3 @ calib.t)
+    den = float(a @ a)
+    if den < 1e-12:
+        return None
+    s = float(a @ (np.asarray(heights) + b)) / den
+    return s if 0.5 < s < 2.0 else None
 
-    def __init__(self, calib, scale=1.0):
+
+class HandMeasure:
+    """한 장면의 손 → 사람 책상 좌표의 집기점, 집게 방향(yaw), 손가락 사이 거리, 손바닥 가운데."""
+
+    def __init__(self, calib, scale=1.0, grip="whole"):
         self.calib = calib
         self.scale = scale
+        self.tips = list(GRIPS[grip])
 
     def __call__(self, world_lm, img_px):
         pose = hand_pose_cam(world_lm, img_px, self.calib.K)
         if pose is None:
             return None
-        pts = pinch_points_cam(world_lm, pose)
-        tab = {k: self.calib.cam_to_table(self.scale * v) for k, v in pts.items()}
-        pinch = 0.5 * (tab["thumb"] + tab["index"])
-        knuckle = tab["pinky_mcp"] - tab["index_mcp"]            # 검지 뿌리 → 새끼 뿌리 (손등 가로줄)
-        yaw = math.atan2(knuckle[1], knuckle[0])
-        gap = float(np.linalg.norm(tab["thumb"] - tab["index"]))
-        return {"pinch": pinch, "yaw": yaw, "gap": gap, "pinch_cam_raw": 0.5 * (pts["thumb"] + pts["index"])}
+        Rh, th = pose
+        cam = (Rh @ np.asarray(world_lm, np.float64).reshape(-1, 3).T).T + th      # 21점 카메라 좌표 (배율 1)
+        tab = (self.calib.R.T @ (self.scale * cam - self.calib.t).T).T              # 책상 좌표
+        thumb, other = tab[THUMB_TIP], tab[self.tips].mean(axis=0)
+        axis = other - thumb                                                        # 엄지 → 맞은편 손가락
+        # 로봇 집게는 yaw 0 에서 로봇 y 축(좌우)으로 닫힌다. 엄지 → 손가락 줄과 같은 줄로 닫히게 하는 yaw (180° 마다 같음)
+        yaw = math.atan2(axis[1], axis[0]) - math.pi / 2
+        return {"pinch": 0.5 * (thumb + other), "yaw": yaw, "gap": float(np.linalg.norm(axis)),
+                "palm": 0.5 * (tab[WRIST] + tab[MIDDLE_MCP]), "lm_cam_raw": cam}
