@@ -137,7 +137,6 @@ def rule1():
     arrow(ax, (1.5, 52), (-6, 52), BAD, lw=2.6, ms=16)
     ax.text(-2, 53.5, "3mm", fontsize=FS, ha="center", va="bottom", color=BAD, fontweight="bold")
     badge(ax, 18, 46, False, r=4.6)
-    tag(ax, 15, 36, [((8.6, 37), (4.4, 40))])
     # after: lowered 9 mm outside the wall, the wall fits anywhere in the 0-17 mm opening
     rect(ax, 34, 8, 7, 18, JAW_C, z=5)                    # fixed jaw, 9 mm outside
     rect(ax, 60, 8, 7, 18, JAW2_C, z=5)                   # moving jaw (open)
@@ -172,9 +171,6 @@ def rule2():
     square(ax, 76, 6, 7, "front", OK); square(ax, 106, 6, 9, "front", OK)
     badge(ax, 19, -20, False, r=5.2); badge(ax, 93, -20, True, r=5.2)
     tag(ax, -3, -20, [((-0.5, -15.4), (3.4, -9.6))])   # left of the badge with a clear gap
-    tag(ax, 71, -20, [((73.5, -15.4), (77.4, -9.6))])
-    tag(ax, 40, -20, [((46.6, -15.4), (46.2, 3.0))])      # +9 deg, side jaw (before)
-    tag(ax, 112, -20, [((110.2, -15.4), (108.6, -9.4))])   # +9 deg, front jaw (after)
     fig.savefig(OUT / "rule2.png", facecolor="white")
     plt.close(fig)
 
@@ -199,7 +195,6 @@ def rule3():
     ax.text(64.5, 28.5, "5mm", fontsize=18, ha="center", va="top", color=OK, fontweight="bold")
     arrow(ax, (68.5, 71), (68.5, 51), OK, lw=2.6, ms=16)
     badge(ax, 111, 66, True, r=4.6)
-    tag(ax, 86, 63, [((77.6, 62), (71, 49.8))])
     fig.savefig(OUT / "rule3.png", facecolor="white")
     plt.close(fig)
 
