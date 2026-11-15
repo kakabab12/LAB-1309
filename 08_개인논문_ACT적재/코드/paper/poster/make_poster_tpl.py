@@ -419,7 +419,7 @@ def s_capstone(x, y, w):
     loop.rotation = 180
     textbox(x, y + 55, 3 * (bw + gap), 12, [P("무게 확인 재시도: 저울에 60g 이상 남아 있으면 그 단계를 다시 실행 →", 20, True, WARM_DK, align="r")],
             anchor="ctr", name="retry note")
-    stats = [("86.3%", "숫자 탐지 정확도 (mAP50)"), ("91.7%", "118g 기준 분류 정확도 (55/60)"), ("약 0.81초", "인식부터 로봇 명령까지")]
+    stats = [("86.3%", "숫자 탐지 성능 (mAP50)"), ("91.7%", "118g 기준 분류 정확도 (55/60)"), ("약 0.81초", "인식부터 로봇 명령까지")]
     sw = (w - 2 * 8) / 3
     for i, (num, cap) in enumerate(stats):
         s = shape(MSO_SHAPE.RECTANGLE, x + i * (sw + 8), y + 74, sw, 46, fill="FFFFFF", line=ACC, line_w=1.25, name=f"stat {i + 1}")
@@ -440,7 +440,7 @@ def s_sim(x, y, w):
     label(x + hero_w + 9, y + 3, "손목 카메라", size=20)
     label(x + hero_w + 9, y + hero_h - cam_h + 3, "상단 카메라", size=20)
     textbox(x, y + hero_h + 4, w, PH["sim"] - 2 * PAD - hero_h - 4, [
-        B("로봇팔이 고장 나서 MuJoCo", ("[4]", False, MUTED), "로 ", ("캡스톤 시스템을 그대로 재현", True, DARK), ": 공식 SO-101 모델, 같은 카메라 위치,\v1초에 30번 제어, 적재함 크기 64×64×52mm, 무게 123g",
+        B("실제 로봇팔이 파손되어 MuJoCo", ("[4]", False, MUTED), "로 ", ("캡스톤 시스템을 그대로 재현", True, DARK), ": 공식 SO-101 모델, 같은 카메라 위치,\v1초에 30번 제어, 적재함 크기 64×64×52mm, 무게 123g",
           size=24, after=2),
         B("적재함 위치(±20mm)와 각도(±20°)를 무작위로 바꾸고,\v단계마다 스크립트 시연 100회로 ACT 학습 (LeRobot", ("[2]", False, MUTED), ")", size=24, after=0),
     ], anchor="ctr", name="sim notes")
@@ -451,7 +451,7 @@ RH, RW = 94.0, 128.0
 
 def s_rules(x, y, w):
     rules = [("① 여유 두고 잡기", "집게를 벽에 바짝 붙여 내리면 3mm만 어긋나도 벽 윗면에 얹힘\v→ 벽 바깥 9mm 지점에서 내림", "28% → 62%"),
-             ("② 늘 같은 곳 잡기", "가장 가까운 벽을 잡으면 +7°와 +9°처럼 비슷한 장면에서도 잡는 벽이 바뀜\v→ 늘 같은 부위를 잡음", "62% → 82%"),
+             ("② 늘 같은 곳 잡기", "가장 가까운 벽을 잡으면 +7°와 +9°처럼 비슷한 장면에서도 잡는 벽이 바뀜\v→ 적재함이 돌아가도 늘 같은 벽을 잡음", "62% → 82%"),
              ("③ 놓고 물러나기", "놓자마자 올라가면 집게가 적재함 한쪽을 끌어 올려 기울어짐\v→ 집게를 벌리고 바깥쪽으로 5mm 물러난 뒤 올라감", "82% → 96%")]
     for i, (head, desc, eff) in enumerate(rules):
         ry = y + i * (RH + 5)
@@ -481,9 +481,9 @@ def s_audit(x, y, w):
     picture(IMG / "audit_groups.png", x + (w - AUD_W) / 2, y + 23, w=AUD_W, name="audit figure")
     ty = y + 23 + AUD_W * dh / dw + 2
     textbox(x, ty, w, 23, [
-        {"runs": [("빈 각도가 크면 → 잡는 방식이 엇갈린 시연 → ", 23, True, ORANGE), ("학습 전에 고친다", 23, True, DARK)],
+        {"runs": [("빈 각도가 크면 잡는 방식이 엇갈린 시연 → ", 23, True, ORANGE), ("학습하기 전에 찾아서 다시 만듦", 23, True, DARK)],
          "line": 1.0, "after": 3},
-        P("직사각형 상자·손잡이 컵도 같음 (가까운 벽 시연 52°·66°, 규칙 시연 3°)  ·  빈 각도 G = 손목 각도를 줄 세웠을 때 가장 크게 빈 간격",
+        P("직사각형 상자·손잡이 컵도 마찬가지 (가까운 벽 시연 52°·66°, 규칙 시연 3°)  ·  빈 각도 G = 손목 각도를 줄 세웠을 때 가장 크게 빈 간격",
           19, False, MUTED, line=1.0),
     ], name="audit takeaway")
 
@@ -505,11 +505,11 @@ def s_results(x, y, w):
                  [("연속 성공률", (28, 62, 82, 96, 99.0))], [[GREY, TINT2, ("accent1", 60000, 40000), ACC, DARK]],
                  [["28%", "62%", "82%", "96%", "99.0%"]], name="chart rules")
     textbox(x + aw + 6, cy, w - aw - 6, 10, [P("시연 수를 늘리면?", 21, True, DARK)], name="chart b title")
-    column_chart(x + aw + 4, cy + 9, w - aw - 4, CH_H, ["잡는 곳이\n갈리는 시연", "규칙 시연"],
+    column_chart(x + aw + 4, cy + 9, w - aw - 4, CH_H, ["가까운 벽\n시연", "규칙 시연"],
                  [("시연 100회", (62, 96)), ("시연을 늘림 (200회·1,000회)", (36, 94))], [ACC, GREY],
                  [["62%", "96%"], ["36%", "94%"]], legend=True, name="chart data")
     textbox(x, cy + 9 + CH_H + 2, w, 11, [
-        {"runs": [("잡는 곳이 갈리는 시연은 200회로 늘려도 오히려 36%로 떨어짐 → ", 21, False, INK), ("양보다 일관성", 22, True, ORANGE)], "line": 1.0},
+        {"runs": [("가까운 벽 시연(잡는 벽이 바뀜)은 200회로 늘려도 오히려 36%로 떨어짐 → ", 21, False, INK), ("양보다 일관성", 22, True, ORANGE)], "line": 1.0},
     ], name="result note")
 
 
@@ -528,7 +528,7 @@ def s_envs(x, y, w):
         textbox(tx, ty + th + 0.5, tw, LBL_H - 1, [{"runs": [(name, 21, True, DARK), ("  " + val, 24, True, ACC)], "line": 1.0}],
                 anchor="ctr", name=f"tile label {i + 1}")
     textbox(x, y + 2 * (th + LBL_H + 3) - 2, w, 16, [
-        P("숫자는 세 단계 연속 성공률 (팔레트는 8칸을 다 쌓은 비율, 38/40). *15개 조건의 단계별 평균. 환경마다 시연을 더해 학습", 20, False, MUTED,
+        P("숫자는 세 단계 연속 성공률 (팔레트는 8칸 모두 쌓은 비율 38/40). *조명·책상 15개 조건의 단계별 평균. 조건마다 시연을 더해 학습", 20, False, MUTED,
           line=1.0)], name="tile note")
 
 
@@ -536,7 +536,8 @@ def s_conclusion(x, y, w):
     textbox(x, y, w, PH["concl"] - 2 * PAD, [
         B("모델은 그대로 두고 시연 규칙만 바꿔 세 단계 연속 성공률 ", ("28% → 99.0%", True, DARK), ",\v무게 확인 재시도까지 넣으면 ", ("200/200", True, DARK),
           size=24, after=3),
-        B("학습 전에 손목 각도 간격 G로 서로 어긋나는 시연을 찾아냄 → ", ("시연은 양보다 일관성", True, ORANGE), size=24, after=3),
+        B("시연 수를 늘려도 나아지지 않음 (200회 36%, 1,000회 94%) → ", ("시연은 양보다 일관성", True, ORANGE), size=24, after=3),
+        B("빈 각도 G로 잡는 방식이 엇갈린 시연을 학습하기 전에 찾아낼 수 있음", size=24, after=3),
         B("한계: 로봇 조작 결과는 시뮬레이션과 스크립트 시연에서 얻음 →\v실제 로봇과 사람이 원격조작한 시연으로 검증할 예정", size=24, after=0),
     ], anchor="ctr", name="conclusion")
 
