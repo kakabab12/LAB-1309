@@ -118,6 +118,13 @@ def dashed(ax, x, y, w, h):
 FS = 20  # label size (pt) = 7 mm in print
 
 
+def tag(ax, x, y, leaders):
+    """'집게' label with thin leader lines, so a first-time reader knows the dark bars are the gripper jaws."""
+    ax.text(x, y, "집게", fontsize=FS, ha="center", va="center", color=JAW_C, fontweight="bold", zorder=9)
+    for (x0, y0), (x1, y1) in leaders:
+        ax.plot([x0, x1], [y0, y1], color=JAW_C, lw=1.6, zorder=7, solid_capstyle="round")
+
+
 def rule1():
     fig, ax = canvas((-14, 77), (-10, 64), 104)
     for X in (0, 50):
@@ -129,7 +136,7 @@ def rule1():
     rect(ax, -3, 30, 7, 18, JAW_C, z=5)
     arrow(ax, (1.5, 52), (-6, 52), BAD, lw=2.6, ms=16)
     ax.text(-2, 53.5, "3mm", fontsize=FS, ha="center", va="bottom", color=BAD, fontweight="bold")
-    badge(ax, 18, 42, False, r=4.6)
+    badge(ax, 18, 46, False, r=4.6)
     # after: lowered 9 mm outside the wall, the wall fits anywhere in the 0-17 mm opening
     rect(ax, 34, 8, 7, 18, JAW_C, z=5)                    # fixed jaw, 9 mm outside
     rect(ax, 60, 8, 7, 18, JAW2_C, z=5)                   # moving jaw (open)
@@ -137,7 +144,9 @@ def rule1():
     arrow(ax, (50, 29), (41, 29), NAVY, style="<->", lw=2.2, ms=12)
     ax.text(45.5, 31, "9mm", fontsize=FS, ha="center", va="bottom", color=NAVY, fontweight="bold")
     ax.text(50.5, -1.5, "0~17mm", fontsize=FS, ha="center", va="top", color=OK, fontweight="bold")
-    badge(ax, 68, 42, True, r=4.6)
+    badge(ax, 70, 46, True, r=4.6)
+    # one bracket over both jaws (fixed black, moving grey) = one gripper; kept clear of the 9mm label
+    tag(ax, 50.5, 44.5, [((35.5, 26.6), (35.5, 40)), ((35.5, 40), (63.5, 40)), ((63.5, 40), (63.5, 26.6))])
     fig.savefig(OUT / "rule1.png", facecolor="white")
     plt.close(fig)
 
@@ -160,7 +169,8 @@ def rule2():
     square(ax, 2, 6, 7, "front", BAD); square(ax, 32, 6, 9, "side", BAD)
     sep(ax, 54, -26, 28)
     square(ax, 76, 6, 7, "front", OK); square(ax, 106, 6, 9, "front", OK)
-    badge(ax, 17, -20, False, r=5.2); badge(ax, 91, -20, True, r=5.2)
+    badge(ax, 19, -20, False, r=5.2); badge(ax, 93, -20, True, r=5.2)
+    tag(ax, -3, -20, [((-0.5, -15.4), (3.4, -9.6))])   # left of the badge with a clear gap
     fig.savefig(OUT / "rule2.png", facecolor="white")
     plt.close(fig)
 
@@ -176,6 +186,7 @@ def rule3():
     rect(ax, -7, 40, 5, 15, JAW_C, z=5)
     arrow(ax, (-4.5, 71), (-4.5, 57), BAD, lw=2.6, ms=16)
     badge(ax, 33, 66, False, r=4.6)
+    tag(ax, 12, 69, [((3.5, 66), (-1.8, 54.6))])
     # after: open, move 5 mm outward, then lift
     rect(ax, 78, 26, 40, 26, BIN_F, ec=WALL_C, lw=2.2, z=4)
     dashed(ax, 72, 34, 5, 15)
