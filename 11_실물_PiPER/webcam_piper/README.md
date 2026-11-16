@@ -53,6 +53,8 @@ pip install -r requirements.txt
 ```bash
 python download_models.py
 ```
+한 번 깔면 코드를 다시 받을 일이 없다. `teleop.py`·`check_setup.py` 가 켤 때마다 GitHub 새 코드를 스스로 받고 다시 켠다 (`autoupdate.py`). 끄려면 `--no-update`.
+
 점검은 `python check_setup.py` 하나로 한다 (프로그램, 손 모델, 계산 시험, 웹캠. 마지막 줄 `점검: 모두 됨`).
 11/16 에 새 가상환경에서 Python 3.12 + MediaPipe 1.2.3 + OpenCV 5.0, Python 3.12 + MediaPipe 0.10.21 + OpenCV 4.11 둘 다 시험해서 됐다. MediaPipe 1.x 는 인텔 맥 판이 없어서 인텔 맥은 Python 3.12 이하로 0.10.x 를 쓴다.
 
@@ -233,5 +235,6 @@ sudo ip link set can0 up type can bitrate 1000000
 | `check_setup.py` | 노트북 점검 (프로그램·손 모델·계산 시험·웹캠, `--robot-pc` 연결, `--report` 결과 정리) |
 | `노트북_실행.md` | 노트북 Claude 가 따라 할 순서 |
 | `check_kin.py` | numpy 운동학이 mujoco 와 같은지 확인 (mujoco 있는 환경에서만) |
+| `autoupdate.py` | 노트북에서 켤 때 GitHub 새 코드를 받아 오고 다시 켬 (git 폴더면 `git pull --ff-only`, 아니면 바뀐 파일만). `--no-update` 로 끔 (11/17) |
 | `replay_raw.py` | 기록에 남은 손 21점 원본으로 PnP / OAT 방식을 다시 풀어 비교 (11/17) |
 | `stand/` | Logitech C920 스탠드 STL (나사 없음, 자리 C 55°) 과 만드는 스크립트 `make_stand.py` (11/17) |
