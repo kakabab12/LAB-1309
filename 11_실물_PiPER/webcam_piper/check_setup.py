@@ -233,4 +233,6 @@ def main():
 
 
 if __name__ == "__main__":
+    from autoupdate import update_and_restart
+    update_and_restart()                                    # 켤 때 GitHub 에서 새 코드를 받아 옴 (11/17)
     main()

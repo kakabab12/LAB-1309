@@ -26,7 +26,7 @@ import numpy as np
 from geometry import CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, GRIPS, HandMeasure, TableCalib, flat_fit, scale_for_flat
 from hand import HandTracker, OneEuro, draw_hand
 from mapping import Mapper
-from net import PORT, Link
+from net import PORT, Link, code_version
 from panel import DISP_H, robot_panel
 from piper_kin import HOME_Q, PiperKin
 from recorder import CamGrabber, Recorder, jpeg, open_camera
@@ -203,6 +203,7 @@ def main():
         "note": "사람 책상 좌표: 원점 A4 가운데, x 앞(노트북 쪽), y 사람 왼쪽, z 위. 로봇 좌표: 밑동 (0,0,0.90)"})
     # 연구실 PC 로 보낼 때: 기록은 그쪽에서 한다. 여기서는 바라는 상태만 보내고, 그쪽이 알려 준 실제 상태를 그린다.
     rec_req, disc_n, seen_msg_n = False, 0, None
+    my_ver, ver_warned = code_version(), False
     mismatch = {"follow": None, "rec": None}
     scale_disp = DISP_H / H
     win = "webcam_piper"
@@ -384,6 +385,12 @@ def main():
             if link.connected:
                 extra_txt = [f"robot PC {link.addr[0]}", f"ping {link.rtt*1000:.0f} ms" if link.rtt else "",
                              ("!REAL ARM" if st.get("real") else "preview arm") + (" PAUSED" if st.get("paused") else "")]
+                if st.get("ver") and st["ver"] != my_ver:               # 연구실 PC 와 코드가 다름 (11/17)
+                    extra_txt.append("!code differs from robot PC")
+                    if not ver_warned:
+                        print(f"[버전] 노트북 코드 {my_ver}, 연구실 PC 코드 {st['ver']} — 다릅니다. "
+                              "노트북은 다시 켜면 GitHub 에서 새 코드를 받고, 연구실 PC 는 연구실에서 맞춰야 합니다")
+                        ver_warned = True
             else:
                 extra_txt = [f"!no answer from", f"!{link.addr[0]}:{link.addr[1]}", "!start robot_server.py"]
             panel = robot_panel(kin, q_now, tgt, x0, y0, w_now, fol, rec_on(), extra_txt)
@@ -500,4 +507,6 @@ def main():
 
 
 if __name__ == "__main__":
+    from autoupdate import update_and_restart
+    update_and_restart()                                    # 켤 때 GitHub 에서 새 코드를 받아 오고, 받았으면 다시 켬 (11/17)
     main()

@@ -23,7 +23,7 @@ import cv2
 import numpy as np
 
 from mapping import Mapper
-from net import PORT, Server, my_ips
+from net import PORT, Server, code_version, my_ips
 from panel import robot_panel
 from piper_kin import PiperKin
 from recorder import CamGrabber, Recorder, jpeg
@@ -54,8 +54,13 @@ def parse():
     return ap.parse_args()
 
 
+VER = None
+
+
 def main():
+    global VER
     a = parse()
+    VER = code_version()
     kin = PiperKin()
     arm = make_arm(a.robot, a.can, a.speed)
     if arm.is_real:
@@ -191,7 +196,7 @@ def main():
             srv.reply(q=[round(float(v), 5) for v in q_now], w=(round(float(w_now), 4) if np.isfinite(w_now) else None),
                       tgt=[round(float(v), 4) for v in mapper.cur], follow=int(follow), rec=int(rec.on),
                       real=int(arm.is_real), x0=a.x0, y0=a.y0, stop=stop_n, msg=msg, msg_n=msg_n,
-                      paused=int(paused), eps=len(rec.saved))
+                      paused=int(paused), eps=len(rec.saved), ver=VER)
 
             if win:
                 link = (f"laptop {seen_peer[0]}" if seen_peer else f"waiting :{a.port}")

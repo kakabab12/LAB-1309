@@ -5,3 +5,6 @@ calib.json
 checks.jsonl
 cam_check.jpg
 __pycache__/
+.no-autoupdate
+*.bak
+*.part

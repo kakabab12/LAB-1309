@@ -16,14 +16,31 @@
   bye   노트북 프로그램이 끝남
 연구실 PC → 노트북 (받을 때마다 답장)
   ack 받은 seq, q 실제 관절 6, w 실제 집게 폭, tgt 집게 끝 목표, follow·rec 실제로 켜져 있는지, real 실물 팔인지,
-  x0·y0 로봇 종이 가운데, stop 연구실 PC 가 따라가기를 강제로 끈 횟수, msg·msg_n 알릴 말
+  x0·y0 로봇 종이 가운데, stop 연구실 PC 가 따라가기를 강제로 끈 횟수, msg·msg_n 알릴 말,
+  ver 연구실 PC 코드 버전 (code_version, 노트북 것과 다르면 노트북 화면에 알림)
 """
+import hashlib
 import json
+import os
 import random
 import socket
 import time
 
 PORT = 5005
+HERE = os.path.dirname(os.path.abspath(__file__))
+# 노트북과 연구실 PC 가 같은 코드인지 보는 파일들 (줄바꿈 차이는 무시)
+RUNTIME_FILES = ("net.py", "geometry.py", "mapping.py", "piper_kin.py", "robots.py", "recorder.py", "panel.py",
+                 "hand.py", "teleop.py", "robot_server.py")
+
+
+def code_version():
+    h = hashlib.sha1()
+    for f in RUNTIME_FILES:
+        p = os.path.join(HERE, f)
+        if os.path.exists(p):
+            with open(p, "rb") as fh:
+                h.update(fh.read().replace(b"\r\n", b"\n"))
+    return h.hexdigest()[:7]
 
 
 def _sock():
