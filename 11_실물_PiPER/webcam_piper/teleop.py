@@ -11,6 +11,7 @@ PiPER 는 팔 길이가 사람과 달라 관절 각도를 옮기면 집게가 �
 화면 글자는 영어다 (OpenCV 가 한글을 못 그림). 키:
   SPACE 따라가기 켜기/끄기   R 기록 시작/끝   X 마지막 기록 지우기   G 집게 따라가기   Y 손 돌림 따라가기
   [ 집게 약하게 ] 세게 (5 mm)   --grip pinch 면 엄지·검지로 집음 (기본은 손 전체)   C 종이 모서리 다시   S 손 시작 자세 다시   Q 또는 ESC 끝
+  P 위치 확인: 다섯 손가락 끝을 모아 종이 모서리나 + 에 대고 누르면, 가장 가까운 점과 몇 cm 다른지 띄우고 checks.jsonl 에 남김
 """
 import argparse
 import json
@@ -27,11 +28,29 @@ from mapping import Mapper
 from net import PORT, Link
 from panel import DISP_H, robot_panel
 from piper_kin import HOME_Q, PiperKin
-from recorder import CamGrabber, Recorder, jpeg
+from recorder import CamGrabber, Recorder, jpeg, open_camera
 from robots import make_arm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BACKSPACE = (8, 127)                                       # 127 = 맥의 delete 키
+# P 로 위치를 확인할 점: 종이 네 모서리와 + (사람 책상 좌표)
+CHECK_PTS = [(n.split(" ", 1)[1], CORNERS_TABLE[i]) for i, n in enumerate(CORNER_NAMES)] + [("center", np.zeros(3))]
+
+
+def check_point(meas, scale, path):
+    """P (11/16): 다섯 손가락 끝을 모아 종이 모서리나 + 에 댄 채 누른다. 가장 가까운 점과의 차이를 돌려주고 path 에 한 줄 더한다.
+    손가락 끝을 모으면 집기점이 그 끝에 오므로, 차이가 곧 위치 오차다 (높이는 손가락 끝 살 두께만큼, 1 cm 안팎이 맞음)."""
+    if not meas:
+        return "P: hand not found"
+    p = np.asarray(meas["pinch"], float)
+    name, ref = min(CHECK_PTS, key=lambda c: np.linalg.norm(p[:2] - c[1][:2]))
+    d = (p - ref) * 100
+    row = {"t": round(time.time(), 1), "time": time.strftime("%Y-%m-%d %H:%M:%S"), "point": name, "scale": round(scale, 4),
+           "hand_cm": np.round(p * 100, 2).tolist(), "off_cm": np.round(d, 2).tolist(), "gap_mm": round(meas["gap"] * 1000, 1)}
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(row) + "\n")
+    print(f"[확인] {name}: x {d[0]:+.1f} y {d[1]:+.1f} cm 차이, 높이 {p[2] * 100:.1f} cm, 손가락 사이 {meas['gap'] * 1000:.0f} mm")
+    return f"P: {name} off by x {d[0]:+.1f} y {d[1]:+.1f} cm, z {p[2] * 100:.1f} cm (saved)"
 
 
 def _load_guide(width=400):
@@ -67,6 +86,7 @@ def parse():
                     help="집게 폭 = 엄지와 맞은편 손가락 사이 − 이 값 (m). 기본 whole 0.025, pinch 0.02")
     ap.add_argument("--calib", default=os.path.join(HERE, "calib.json"))
     ap.add_argument("--out", default=os.path.join(HERE, "data"))
+    ap.add_argument("--checks", default=os.path.join(HERE, "checks.jsonl"), help="P 로 잰 위치 확인을 남길 파일")
     ap.add_argument("--wrist-cam", type=int, default=None, help="기록할 로봇 손목 카메라 번호 (선택)")
     ap.add_argument("--front-cam", type=int, default=None, help="기록할 로봇 앞/위 카메라 번호 (선택)")
     return ap.parse_args()
@@ -145,12 +165,9 @@ def main():
                     yaw_pref=math.radians(-60 if a.hand == "right" else 60))
     mapper.sync_to(arm.joints())
 
-    cap = cv2.VideoCapture(a.cam)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, a.width)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, a.height)
-    ok, frame = cap.read()
-    if not ok:
-        raise SystemExit(f"웹캠 {a.cam} 을 못 엶")
+    cap, frame = open_camera(a.cam, a.width, a.height)
+    if cap is None:
+        raise SystemExit(f"웹캠 {a.cam} 을 못 엶 (다른 프로그램이 쓰는 중인지, 카메라 권한, --cam 1 을 보세요)")
     H, W = frame.shape[:2]
     extra = {} if link else {k: CamGrabber(i) for k, i in (("wrist", a.wrist_cam), ("front", a.front_cam))
                              if i is not None}
@@ -164,6 +181,8 @@ def main():
         if saved["table"]["w"] == W and saved["table"]["h"] == H:
             calib = TableCalib.from_dict(saved["table"])
             measure = HandMeasure(calib, saved["scale"], a.grip, saved.get("mirror", False))
+            if saved.get("label") and saved.get("hand", "right") == a.hand:
+                tracker.want_label = saved["label"]
             mode = "run"
             print(f"[보정] {a.calib} 불러옴 (거리 배율 {saved['scale']:.3f})")
     rec = None if link else Recorder(a.out, {
@@ -229,8 +248,9 @@ def main():
             lines = ["Check: blue dots must sit on the paper.  ENTER = ok,  BACKSPACE = redo",
                      f"focal {calib.f:.0f}px ({calib.focal_source}), corner error {calib.reproj_px:.1f}px"]
         if mode == "hand":
-            lines = ["CALIBRATION 2/2: lay your right hand FLAT on the paper,",
-                     "palm center on the cross, fingers toward the laptop. Hold still, press S"]
+            lines = [f"CALIBRATION 2/2: lay your {a.hand} hand FLAT on the paper,",
+                     "palm center on the cross, fingers toward the laptop. Hold still, press S",
+                     "(keep the other hand out of view)"]
             if collecting:
                 lines.append(f"measuring... {len(samples)}/20  (keep still)")
                 if det is not None:
@@ -245,6 +265,11 @@ def main():
                         if r0 and r1:
                             votes.append(flat_fit(calib, r1["lm_cam_raw"])[1] < flat_fit(calib, r0["lm_cam_raw"])[1])
                     mirror = bool(votes) and sum(votes) > 0.7 * len(votes)
+                    # 이 손을 MediaPipe 가 뭐라고 부르는지 (두 손이 다 보일 때 이 표시로 고름)
+                    labels = [d["label"] for d in samples]
+                    label = max(set(labels), key=labels.count)
+                    if labels.count(label) >= 0.8 * len(labels):
+                        tracker.want_label = label
                     m1 = HandMeasure(calib, 1.0, a.grip, mirror)
                     raws = [m1(d["world"], d["img_px"]) for d in samples]
                     raws = [r for r in raws if r]
@@ -258,12 +283,13 @@ def main():
                         with open(a.calib, "w", encoding="utf-8") as f:
                             json.dump({"table": calib.to_dict(), "scale": s, "pose": "flat hand", "mirror": mirror,
                                        "mirror_votes": [int(sum(votes)), len(votes)],
-                                       "palm_off_m": palm.tolist()}, f, indent=1)
+                                       "palm_off_m": palm.tolist(), "hand": a.hand, "label": tracker.want_label,
+                                       "label_votes": [labels.count(label), len(labels), label]}, f, indent=1)
                         msg = (f"saved. scale {s:.3f}, palm center off the cross by x {palm[0]*100:+.1f}"
                                f" y {palm[1]*100:+.1f} cm (near 0 is good), 3D {'MIRRORED' if mirror else 'ok'}"
                                f" {len(votes) - sum(votes)}/{len(votes)}")
                         print(f"[보정] 배율 {s:.3f}, 손 3D {'거울상으로 판단해 뒤집어 씀' if mirror else '화면과 같은 손'}"
-                              f" (거울상 표 {sum(votes)}/{len(votes)})")
+                              f" (거울상 표 {sum(votes)}/{len(votes)}), MediaPipe 표시 '{label}' {labels.count(label)}/{len(labels)}")
                         msg_t = t
                         smooth.reset()
                         mode = "run"
@@ -404,6 +430,8 @@ def main():
                 arm.hold()
                 mode, collecting, samples = "hand", False, []
                 measure = HandMeasure(calib, 1.0, a.grip)
+            elif key == ord("p"):
+                msg, msg_t = check_point(meas, measure.scale, a.checks), t
 
     if link:
         for _ in range(5):                                   # 연구실 PC 에 "끝" 을 알림 (팔 멈춤·기록 저장)

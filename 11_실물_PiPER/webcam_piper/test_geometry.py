@@ -6,6 +6,7 @@
 마지막으로 사람이 손을 펴고 → 물체로 가서 손 전체로 쥐고 → 들고 → 옮기고 → 놓을 때 가상 팔 집게가 같은 길을 가는지 본다.
 
 실행: python test_geometry.py   (mediapipe·웹캠·mujoco 필요 없음, opencv 필요)
+맨 끝 줄이 "결과: 모두 통과 (n개)" 면 이 컴퓨터에서 계산이 제대로 도는 것이다 (11/16 더함, 노트북 Claude 가 판단할 수 있게).
 6~8 은 11/16 검토에서 더함: 엉뚱한 첫 장면, MediaPipe 손 3D 모양 오차, 손 3D 거울상 판별.
 """
 import math
@@ -22,6 +23,11 @@ from robots import Preview
 RNG = np.random.default_rng(0)
 W, H = 1280, 720
 TIPS_Y = (0.022, 0.007, -0.008, -0.022)          # 검지·중지·약지·새끼 끝 (쥘 때, 손 기준 y)
+CHECKS = []                                       # (무엇, 통과?) — 맨 끝에 모아서 알려 줌
+
+
+def check(name, ok):
+    CHECKS.append((name, bool(ok)))
 
 
 def look_at(cam_pos, target):
@@ -92,6 +98,8 @@ def main():
         c = TableCalib(img, W, H)
         print(f"  모서리 잡음 {noise:.0f}px: 초점 {c.f:.0f}px (참 {K_true[0, 0]:.0f}, {c.focal_source}), "
               f"카메라 위치 오차 {np.linalg.norm(c.cam_pos - cam_pos) * 100:.1f} cm")
+        if noise == 1.0:
+            check("1 종이 모서리 → 카메라 위치 3 cm 안", np.linalg.norm(c.cam_pos - cam_pos) < 0.03)
     calib = TableCalib(shoot(R, t, K_true, CORNERS_TABLE, 1.0), W, H)
 
     print("== 2. 손 펴서 올려놓기 → 거리 배율 (참 %.3f)" % (1 / 1.10))
@@ -105,6 +113,8 @@ def main():
                                                               lift=lift))["palm"] for _ in range(20)], axis=0)
             print(f"  손 점 잡음 {noise:.0f}px, 실제 손이 어림보다 {lift * 1000:+.0f} mm: 배율 {s:.3f}, "
                   f"손바닥 가운데 오차 x {palm[0] * 100:+.1f} y {palm[1] * 100:+.1f} cm")
+            if noise == 1.0 and lift == 0.0:
+                check("2 손 펴서 보정한 배율 (참 0.909 ± 0.02)", abs(s - 1 / 1.10) < 0.02)
 
     print("== 3. 손 전체로 쥐는 손 (손 점 잡음 1·3 px, 손 크기 10% 틀림)")
     cams = [m1(*hand_obs(R, t, K_true, (0, 0, 0), 0.0, "flat", noise_px=1.0))["lm_cam_raw"] for _ in range(20)]
@@ -119,6 +129,8 @@ def main():
             e = np.array([r["pinch"] - p for r in rs])
             ye = np.array([axis_err_deg(r["yaw"], yaw - math.pi / 2) for r in rs])
             ge = np.array([r["gap"] - w for r in rs]) * 1000
+            if noise == 1.0:
+                check(f"3 {name}: 집기점 1 cm 안", np.linalg.norm(e.mean(0)) < 0.01)
             print(f"    {name:22s} 집기점 오차 평균 {np.linalg.norm(e.mean(0)) * 100:4.1f} cm, 흔들림 "
                   f"{np.linalg.norm(e.std(0)) * 100:4.1f} cm | 집게 방향 {ye.mean():+4.0f}°±{ye.std():.0f} | "
                   f"엄지↔손가락 {ge.mean():+3.0f}±{ge.std():.0f} mm")
@@ -151,11 +163,13 @@ def main():
         tip, mat = kin.fk(mp.q_cmd)
         want = mp.human_to_robot(goal)
         tilt = math.degrees(math.acos(np.clip(-mat[2, 2], -1, 1)))
+        check(f"4 집게 끝이 목표 {np.round(goal * 100, 1)} cm 에 2 mm 안", np.linalg.norm(tip - want) < 0.002)
         close_dir = math.degrees(math.atan2(mat[1, 0], mat[0, 0]))          # 집게가 닫히는 줄의 방향 (사이트 x 축)
         print(f"  사람 {np.round(goal * 100, 1)} cm, 엄지↔손가락 {gap * 1000:.0f} mm, 손 줄 {math.degrees(yaw):+.0f}° → "
               f"집게 끝 {np.round((tip - [0, 0, TABLE_Z]) * 100, 1)} cm (목표와 {np.linalg.norm(tip - want) * 1000:.1f} mm), "
               f"닫히는 줄 {axis_err_deg(math.radians(close_dir), yaw):+.0f}° 차, 기울기 {tilt:.0f}°, 집게 폭 {wdt * 1000:.0f} mm")
     print(f"  관절 최고 속도 {worst_step:.2f} rad/s (제한 {mp.max_joint_rate})")
+    check("4 관절 속도 제한 지킴", worst_step <= mp.max_joint_rate + 1e-6)
 
     print("== 5. 손 돌림 훑기: 손 줄을 오른쪽 45° → 왼쪽 110° 로 천천히 (손 벌림 9 cm, 높이 5 cm)")
     for name, p in (("종이 가운데", (0.0, 0.0, 0.05)), ("왼쪽 앞", (0.08, 0.12, 0.05)), ("오른쪽 뒤", (-0.08, -0.12, 0.05))):
@@ -173,6 +187,7 @@ def main():
             _, mat = kin.fk(mp.q_cmd)
             errs.append(abs(axis_err_deg(math.atan2(mat[1, 0], mat[0, 0]), math.radians(deg))))
         errs = np.array(errs)
+        check(f"5 {name}: 집게가 반 바퀴 돌지 않음", flips == 0)
         print(f"  {name:8s} 닫히는 줄 차이: 중간값 {np.median(errs):.0f}°, 10° 넘는 때 {np.mean(errs > 10) * 100:.0f}%, "
               f"최대 {errs.max():.0f}°, 반 바퀴 돎 {flips}번")
 
@@ -189,6 +204,7 @@ def check_hard_cases():
     first = next(i for i, o in enumerate(outs) if o is not None)
     print(f"  처음 내보낸 장면 {first} (x {outs[first]['pinch'][0] * 100:.1f} cm), 1초 뒤 x {outs[-1]['pinch'][0] * 100:.1f} cm, "
           f"엉뚱한 값을 내보낸 장면 {sum(o is not None and o['pinch'][0] > 0.2 for o in outs)}개")
+    check("6 엉뚱한 첫 장면을 내보내지 않음", sum(o is not None and o['pinch'][0] > 0.2 for o in outs) == 0)
     sm = Smoother()
     seq = [{"pinch": np.array([0.0, 0.0, 0.05]), "yaw": 0.0, "gap": 0.08}] * 10 + \
           [{"pinch": np.array([0.20, 0.0, 0.05]), "yaw": 0.0, "gap": 0.08}] * 10
@@ -220,6 +236,8 @@ def check_hard_cases():
                 r = meas(*obs("grasp", p, yaw, w, wn))
                 errs.append(np.linalg.norm(r["pinch"] - p))
                 yerr.append(abs(axis_err_deg(r["yaw"], yaw - math.pi / 2)))
+        if wn == 0.0:
+            check("7 손 3D 모양이 맞을 때 집기점 중간값 0.6 cm 안", np.median(errs) < 0.006)
         print(f"  점마다 {wn * 1000:2.0f} mm 틀림: 배율 {s:.3f} (참 0.909), 집기점 오차 중간값 {np.median(errs) * 100:.1f} cm "
               f"/ 열에 아홉은 {np.percentile(errs, 90) * 100:.1f} cm 안, 집게 방향 {np.median(yerr):.0f}° / {np.percentile(yerr, 90):.0f}°")
 
@@ -235,8 +253,22 @@ def check_hard_cases():
                     votes.append(flat_fit(calib, r1["lm_cam_raw"])[1] < flat_fit(calib, r0["lm_cam_raw"])[1])
                 right += (sum(votes) > 0.7 * len(votes)) == truth
             print(f"  점마다 {wn * 1000:.0f} mm 틀림, 실제로 거울상 {str(truth):5s}: 30번 중 {right}번 맞게 판단")
+            check(f"8 거울상 판별 ({wn * 1000:.0f} mm, {truth}) 30번 중 27번 넘게", right >= 27)
+
+
+def verdict():
+    bad = [n for n, ok in CHECKS if not ok]
+    print()
+    if bad:
+        print(f"결과: 이상 있음 ({len(bad)}/{len(CHECKS)}개 실패)")
+        for n in bad:
+            print("  실패:", n)
+    else:
+        print(f"결과: 모두 통과 ({len(CHECKS)}개)")
+    return not bad
 
 
 if __name__ == "__main__":
     main()
     check_hard_cases()
+    raise SystemExit(0 if verdict() else 1)

@@ -72,6 +72,24 @@ class Recorder:
         return None
 
 
+def open_camera(index, width=None, height=None):
+    """웹캠을 열고 첫 장을 읽는다. 윈도우 노트북 중에는 기본 방식으로 안 열리는 것이 있어 DirectShow 로 한 번 더 해 본다.
+    돌려줌: (cap, 첫 장) 또는 (None, None)."""
+    apis = [cv2.CAP_ANY] + ([cv2.CAP_DSHOW] if os.name == "nt" else [])
+    for api in apis:
+        cap = cv2.VideoCapture(index, api)
+        if cap.isOpened():
+            if width:
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+            if height:
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+            ok, frame = cap.read()
+            if ok and frame is not None:
+                return cap, frame
+        cap.release()
+    return None, None
+
+
 class CamGrabber:
     """로봇 쪽 카메라를 따로 읽는 일꾼. 기록할 때 기다리지 않고 가장 새 사진을 꺼낸다."""
 

@@ -56,6 +56,9 @@ class HandTracker:
             raise FileNotFoundError(f"손 모델이 없음: {model}\n  python download_models.py 를 먼저 실행하세요")
         self.mp = mp
         self.want = hand
+        # 두 손이 다 보일 때 고를 MediaPipe 표시. 처음에는 '원본 사진이면 오른손이 Left' 로 어림하고,
+        # 보정 때 손 하나만 보일 때 실제로 나온 표시로 바꾼다 (teleop.py, calib.json 의 label). 11/16
+        self.want_label = "Left" if hand == "right" else "Right"
         self.det = vision.HandLandmarker.create_from_options(vision.HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=model),
             running_mode=vision.RunningMode.VIDEO, num_hands=2,
@@ -65,8 +68,9 @@ class HandTracker:
 
     def detect(self, frame_bgr, t_ms):
         """돌려줌: dict(img_px 21×2, world 21×3, label, score) 또는 None.
-        MediaPipe 의 왼손·오른손 표시는 거울(셀카) 사진을 가정한다. 여기서는 뒤집지 않은 원본을 넣으므로
-        사용자의 오른손이 'Left' 로 나온다. 손이 하나만 보이면 그 손을 쓴다."""
+        손이 하나만 보이면 그 손을 쓴다. 둘이면 표시가 want_label 인 손을 쓴다.
+        MediaPipe 문서는 표시가 거울(셀카) 사진을 가정한다고 하지만, 11/16 에 예시 사진으로 보니 그대로가 아닐 수 있어서
+        어느 쪽이라고 정해 두지 않고 보정 때 잰 표시를 쓴다."""
         h, w = frame_bgr.shape[:2]
         ts = max(int(t_ms), self._last_ts + 1)
         self._last_ts = ts
@@ -74,11 +78,10 @@ class HandTracker:
         res = self.det.detect_for_video(self.mp.Image(image_format=self.mp.ImageFormat.SRGB, data=rgb), ts)
         if not res.hand_landmarks:
             return None
-        want_label = "Left" if self.want == "right" else "Right"
         pick = 0
         if len(res.hand_landmarks) > 1:
             for i, hd in enumerate(res.handedness):
-                if hd and hd[0].category_name == want_label:
+                if hd and hd[0].category_name == self.want_label:
                     pick = i
                     break
         lm = res.hand_landmarks[pick]
