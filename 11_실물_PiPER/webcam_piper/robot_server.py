@@ -77,7 +77,11 @@ def main():
     print(f"[대기] 노트북에서:  python teleop.py --send <이 PC 주소>:{a.port}    이 PC 주소: {ips}")
     win = None if a.headless else "robot_server"
     if win:
-        cv2.namedWindow(win)
+        try:
+            cv2.namedWindow(win)
+        except cv2.error:                                # 찬혁님 .venv 의 opencv 는 창을 못 띄우는 판 (11/16 실물 첫 시험에서 걸림)
+            print("[창] 이 opencv 는 창을 못 띄움 — 창 없이 돕니다. 멈춤은 노트북 SPACE, 끝은 여기서 Ctrl+C")
+            win = None
 
     follow, paused = False, False
     prev_req = None                    # 노트북이 바로 전에 보낸 follow (None = 아직 못 받음 → 껐다 켜야 움직임)
@@ -114,6 +118,8 @@ def main():
                 say(f"laptop {seen_peer[0]} connected")
             if m is not None:
                 last = m
+                if m.get("cal"):
+                    rec.extra["laptop_calib"] = m["cal"]          # 에피소드마다 ep_XXX.json 으로 (11/17)
                 h = m.get("hand")
                 hand = {"pinch": np.array(h[:3], float), "yaw": float(h[3]), "gap": float(h[4])} if h else None
                 mapper.follow_grip = bool(m.get("grip", 1))
@@ -176,6 +182,9 @@ def main():
                         grip_cmd=mapper.width, hand=(np.array(lh[:3], float) if lh else np.full(3, np.nan)),
                         hand_yaw=(float(lh[3]) if lh else np.nan), hand_gap=(float(lh[4]) if lh else np.nan),
                         target=mapper.cur.copy(), tracked=lh is not None and fresh, follow=follow, link_age=age,
+                        lm2d=(np.array(last["l2"], float).reshape(21, 2) if last and last.get("l2") else np.full((21, 2), np.nan)),
+                        lm3d=(np.array(last["l3"], float).reshape(21, 3) if last and last.get("l3") else np.full((21, 3), np.nan)),
+                        hand_raw=(np.array(last["hr"], float) if last and last.get("hr") else np.full(5, np.nan)),
                         **{f"{k}_jpg": jpeg(v, 640) for k, v in imgs.items()})
 
             srv.reply(q=[round(float(v), 5) for v in q_now], w=(round(float(w_now), 4) if np.isfinite(w_now) else None),

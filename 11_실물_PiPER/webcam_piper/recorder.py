@@ -4,6 +4,8 @@
   t (초), q (실제 관절 6, rad), grip (실제 집게 폭, m), q_cmd (보낸 관절 목표 6), grip_cmd (보낸 집게 폭),
   hand (사람 집기점, 사람 책상 좌표 m), hand_yaw (rad), hand_gap (엄지·검지 사이, m), target (로봇 집게 끝 목표, 로봇 좌표 m),
   tracked (손을 찾았는지), human_jpg (웹캠 사진 JPEG, 가로 480), 그리고 로봇 쪽 카메라가 있으면 wrist_jpg / front_jpg.
+11/17 부터: lm2d (손 21점 화면 px), lm3d (MediaPipe 손 3D, m), hand_raw (거르기 전 집기점 x y z, yaw, gap) — 손을 못 찾은 장면은 nan.
+연구실 PC 기록은 노트북 보정 값을 ep_XXX.json 에 같이 남긴다. replay_raw.py 로 다른 방식(PnP / OAT)으로 다시 풀어 볼 수 있다.
 찬혁님 VR 조종 기록(zarr: obs/qpos = 관절 6 + 집게 폭, action/qpos, obs/wrist_img·front_img)과 같은 값이 다 들어 있어서
 나중에 같은 형식으로 바꿀 수 있다. 사진은 JPEG 바이트라 np.load(..., allow_pickle=True) 로 읽는다.
 """
@@ -30,6 +32,7 @@ class Recorder:
         self.meta = meta                                     # 폴더는 첫 기록을 저장할 때 만든다
         self.rows = None
         self.saved = []
+        self.extra = {}                                      # 있으면 ep_XXX.json 으로 같이 저장 (노트북 보정 등, 11/17)
 
     @property
     def on(self):
@@ -61,6 +64,9 @@ class Recorder:
                 json.dump(self.meta, f, ensure_ascii=False, indent=1)
         path = os.path.join(self.dir, f"ep_{len(self.saved):03d}.npz")
         np.savez(path, **out)
+        if self.extra:
+            with open(path[:-4] + ".json", "w", encoding="utf-8") as f:
+                json.dump(self.extra, f, ensure_ascii=False, indent=1)
         self.saved.append(path)
         return path, len(rows)
 

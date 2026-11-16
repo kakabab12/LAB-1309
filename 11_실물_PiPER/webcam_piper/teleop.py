@@ -87,6 +87,9 @@ def parse():
     ap.add_argument("--calib", default=os.path.join(HERE, "calib.json"))
     ap.add_argument("--out", default=os.path.join(HERE, "data"))
     ap.add_argument("--checks", default=os.path.join(HERE, "checks.jsonl"), help="P 로 잰 위치 확인을 남길 파일")
+    ap.add_argument("--solver", choices=["pnp", "oat"], default="pnp",
+                    help="손 위치 푸는 법. pnp: 회전+이동 (기본), oat: 이동만 + 앞 장면 벌점 (OAT, ICRA 2026). 바꾸면 S 로 다시 보정")
+    ap.add_argument("--pen", type=float, default=0.5, help="oat 의 앞 장면 벌점 (클수록 덜 흔들리고 더 늦게 따라감)")
     ap.add_argument("--wrist-cam", type=int, default=None, help="기록할 로봇 손목 카메라 번호 (선택)")
     ap.add_argument("--front-cam", type=int, default=None, help="기록할 로봇 앞/위 카메라 번호 (선택)")
     return ap.parse_args()
@@ -180,7 +183,9 @@ def main():
             saved = json.load(f)
         if saved["table"]["w"] == W and saved["table"]["h"] == H:
             calib = TableCalib.from_dict(saved["table"])
-            measure = HandMeasure(calib, saved["scale"], a.grip, saved.get("mirror", False))
+            measure = HandMeasure(calib, saved["scale"], a.grip, saved.get("mirror", False), a.solver, a.pen)
+            if saved.get("solver", "pnp") != a.solver:
+                print(f"[보정] 저장된 보정은 --solver {saved.get('solver', 'pnp')} 로 한 것. 손 크기 배율이 조금 다를 수 있으니 S 로 다시 보정하세요")
             if saved.get("label") and saved.get("hand", "right") == a.hand:
                 tracker.want_label = saved["label"]
             mode = "run"
@@ -213,6 +218,8 @@ def main():
         fps = 0.9 * fps + 0.1 / max(dt, 1e-3)
         det = tracker.detect(frame, t * 1000)
         raw = measure(det["world"], det["img_px"]) if (measure and det) else None
+        if measure and not det:
+            measure.reset()
         meas = smooth(t, raw)
         view = frame.copy()
 
@@ -260,8 +267,8 @@ def main():
                     # MediaPipe 손 3D 가 화면과 같은 손인지 거울상인지: 펴서 올려놓은 21점이 종이 높이에 더 잘 맞는 쪽 (다수결)
                     votes = []
                     for d in samples:
-                        r0, r1 = HandMeasure(calib, 1.0, a.grip, False)(d["world"], d["img_px"]), \
-                            HandMeasure(calib, 1.0, a.grip, True)(d["world"], d["img_px"])
+                        r0, r1 = HandMeasure(calib, 1.0, a.grip, False, a.solver)(d["world"], d["img_px"]), \
+                            HandMeasure(calib, 1.0, a.grip, True, a.solver)(d["world"], d["img_px"])
                         if r0 and r1:
                             votes.append(flat_fit(calib, r1["lm_cam_raw"])[1] < flat_fit(calib, r0["lm_cam_raw"])[1])
                     mirror = bool(votes) and sum(votes) > 0.7 * len(votes)
@@ -270,21 +277,22 @@ def main():
                     label = max(set(labels), key=labels.count)
                     if labels.count(label) >= 0.8 * len(labels):
                         tracker.want_label = label
-                    m1 = HandMeasure(calib, 1.0, a.grip, mirror)
+                    m1 = HandMeasure(calib, 1.0, a.grip, mirror, a.solver)
                     raws = [m1(d["world"], d["img_px"]) for d in samples]
                     raws = [r for r in raws if r]
                     s = scale_for_flat(calib, np.median([r["lm_cam_raw"] for r in raws], axis=0)) if raws else None
                     if s is None:
                         msg, msg_t = "hand calibration failed - try again (S)", t
                     else:
-                        measure = HandMeasure(calib, s, a.grip, mirror)
+                        measure = HandMeasure(calib, s, a.grip, mirror, a.solver, a.pen)
                         rs = [r for r in (measure(d["world"], d["img_px"]) for d in samples) if r]
                         palm = np.median([r["palm"] for r in rs], axis=0)       # 손바닥 가운데가 + 에서 얼마나
                         with open(a.calib, "w", encoding="utf-8") as f:
                             json.dump({"table": calib.to_dict(), "scale": s, "pose": "flat hand", "mirror": mirror,
                                        "mirror_votes": [int(sum(votes)), len(votes)],
                                        "palm_off_m": palm.tolist(), "hand": a.hand, "label": tracker.want_label,
-                                       "label_votes": [labels.count(label), len(labels), label]}, f, indent=1)
+                                       "label_votes": [labels.count(label), len(labels), label],
+                                       "solver": a.solver}, f, indent=1)
                         msg = (f"saved. scale {s:.3f}, palm center off the cross by x {palm[0]*100:+.1f}"
                                f" y {palm[1]*100:+.1f} cm (near 0 is good), 3D {'MIRRORED' if mirror else 'ok'}"
                                f" {len(votes) - sum(votes)}/{len(votes)}")
@@ -326,9 +334,19 @@ def main():
             run = mode == "run"
             hand_out = ([round(float(v), 5) for v in meas["pinch"]] + [round(meas["yaw"], 4),
                                                                        round(meas["gap"], 4)]) if (run and meas) else None
+            # 11/17: 기록 중이면 손 21점 원본(화면 px, MediaPipe 3D m)과 거르기 전 측정도 보낸다 → 연구실에서 다른 방식으로 다시 풀어 볼 수 있게
+            raw_out = {}
+            if run and rec_req and det is not None:
+                raw_out = {"l2": [round(float(v), 1) for v in np.ravel(det["img_px"])],
+                           "l3": [round(float(v), 4) for v in np.ravel(det["world"])], "lb": det["label"]}
+                if raw:
+                    raw_out["hr"] = [round(float(v), 5) for v in raw["pinch"]] + [round(raw["yaw"], 4), round(raw["gap"], 4)]
+            if run and link.seq % 30 == 0:                        # 1초에 한 번 노트북 보정 값
+                raw_out["cal"] = {**calib.to_dict(), "scale": measure.scale, "mirror": measure.mirror,
+                                  "label": tracker.want_label, "solver": a.solver, "pen": a.pen, "grip": a.grip}
             link.send(hand=hand_out, follow=int(run and follow), rec=int(run and rec_req),
                       grip=int(mapper.follow_grip), yawf=int(mapper.follow_yaw), sq=round(mapper.squeeze, 4),
-                      ygm=mapper.yaw_gap_min, ypref=round(mapper.yaw_pref, 4), disc=disc_n, bye=0)
+                      ygm=mapper.yaw_gap_min, ypref=round(mapper.yaw_pref, 4), disc=disc_n, bye=0, **raw_out)
             st = link.poll()
             if st and st.get("msg_n") != seen_msg_n:
                 if seen_msg_n is not None and st.get("msg"):
@@ -373,6 +391,9 @@ def main():
                     hand_yaw=(meas["yaw"] if meas else np.nan),
                     hand_gap=(meas["gap"] if meas else np.nan), target=mapper.cur.copy(), tracked=meas is not None,
                     follow=follow, human_jpg=jpeg(frame, 480),
+                    lm2d=(det["img_px"] if det else np.full((21, 2), np.nan)),
+                    lm3d=(det["world"] if det else np.full((21, 3), np.nan)),
+                    hand_raw=(np.r_[raw["pinch"], raw["yaw"], raw["gap"]] if raw else np.full(5, np.nan)),
                     **{f"{k}_jpg": jpeg(v, 640) for k, v in imgs.items()})
 
         key = cv2.waitKey(1) & 0xFF
@@ -383,7 +404,7 @@ def main():
         elif mode == "corners_check":
             if key in (13, 10):
                 mode, collecting, samples = "hand", False, []
-                measure = HandMeasure(calib, 1.0, a.grip)
+                measure = HandMeasure(calib, 1.0, a.grip, solver=a.solver)
             elif key in BACKSPACE:
                 clicks.clear()
                 calib, mode = None, "corners"
@@ -429,7 +450,7 @@ def main():
                 follow = False
                 arm.hold()
                 mode, collecting, samples = "hand", False, []
-                measure = HandMeasure(calib, 1.0, a.grip)
+                measure = HandMeasure(calib, 1.0, a.grip, solver=a.solver)
             elif key == ord("p"):
                 msg, msg_t = check_point(meas, measure.scale, a.checks), t
 

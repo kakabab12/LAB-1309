@@ -131,6 +131,28 @@ def hand_pose_cam(world_lm, img_px, K):
     return cv2.Rodrigues(rvec)[0], tvec.reshape(3)
 
 
+def hand_trans_cam(world_lm, img_px, K, prev=None, beta=0.0):
+    """OAT (Chen et al., ICRA 2026) 식 (2): MediaPipe 손 3D 가 카메라와 같은 방향이라고 보고 이동 p 만 푼다.
+    화면 정규 좌표 x_i = (X_i + px)/(Z_i + pz) 를 x_i (Z_i + pz) = X_i + px 로 바꾸면 p 에 대해 선형이라 한 번에 풀린다.
+    prev 가 있으면 beta·(p − prev) 줄을 더해 앞 장면에서 크게 벗어나지 않게 한다 (화면 점이 잘 못 잡는 깊이 쪽이 주로 눌림).
+    11/17 MediaPipe 1.2.3 예시 사진에서 3D 와 화면의 손 방향이 1~5° 안으로 맞는 것을 확인. 돌려줌: (21점 카메라 좌표, p) 또는 None."""
+    world = np.asarray(world_lm, np.float64).reshape(-1, 3)
+    n = np.c_[np.asarray(img_px, np.float64).reshape(-1, 2), np.ones(len(world))] @ np.linalg.inv(K).T
+    A = np.zeros((2 * len(world), 3))
+    A[0::2, 0], A[1::2, 1] = 1.0, 1.0
+    A[0::2, 2], A[1::2, 2] = -n[:, 0], -n[:, 1]
+    b = np.empty(2 * len(world))
+    b[0::2] = n[:, 0] * world[:, 2] - world[:, 0]
+    b[1::2] = n[:, 1] * world[:, 2] - world[:, 1]
+    if prev is not None and beta > 0:
+        A = np.vstack([A, beta * np.eye(3)])
+        b = np.r_[b, beta * np.asarray(prev, np.float64)]
+    p = np.linalg.lstsq(A, b, rcond=None)[0]
+    if p[2] + world[:, 2].min() <= 0.05:                    # 카메라 뒤나 코앞이면 실패
+        return None
+    return world + p, p
+
+
 def scale_for_start(calib, pinch_cam, h0=PINCH_H0):
     """시작 자세에서 잰 집기점(카메라 좌표)이 책상 위 높이 h0 에 오도록 하는 거리 배율 s.
     카메라 원점에서 뻗은 같은 직선 위를 s 배 늘이거나 줄인다: z_table(s·p) = h0."""
@@ -164,21 +186,34 @@ def scale_for_flat(calib, lm_cam, heights=FLAT_H):
 class HandMeasure:
     """한 장면의 손 → 사람 책상 좌표의 집기점, 집게 방향(yaw), 손가락 사이 거리, 손바닥 가운데."""
 
-    def __init__(self, calib, scale=1.0, grip="whole", mirror=False):
+    def __init__(self, calib, scale=1.0, grip="whole", mirror=False, solver="pnp", beta=0.0):
         self.calib = calib
         self.scale = scale
         self.tips = list(GRIPS[grip])
         self.mirror = mirror        # MediaPipe 손 3D 가 화면과 거울상이면 z 를 뒤집어 쓴다 (보정 때 판별)
+        self.solver = solver        # "pnp": 회전+이동 (11/15~), "oat": 이동만 + 앞 장면 벌점 beta (11/17, OAT 논문)
+        self.beta = beta
+        self.prev_p = None
+
+    def reset(self):
+        """손을 놓쳤을 때: 앞 장면 벌점을 끊는다."""
+        self.prev_p = None
 
     def __call__(self, world_lm, img_px):
         world = np.asarray(world_lm, np.float64).reshape(-1, 3)
         if self.mirror:
             world = world * np.array([1.0, 1.0, -1.0])
-        pose = hand_pose_cam(world, img_px, self.calib.K)
-        if pose is None:
-            return None
-        Rh, th = pose
-        cam = (Rh @ world.T).T + th                                                 # 21점 카메라 좌표 (배율 1)
+        if self.solver == "oat":
+            r = hand_trans_cam(world, img_px, self.calib.K, self.prev_p, self.beta)
+            if r is None:
+                return None
+            cam, self.prev_p = r
+        else:
+            pose = hand_pose_cam(world, img_px, self.calib.K)
+            if pose is None:
+                return None
+            Rh, th = pose
+            cam = (Rh @ world.T).T + th                                             # 21점 카메라 좌표 (배율 1)
         tab = (self.calib.R.T @ (self.scale * cam - self.calib.t).T).T              # 책상 좌표
         thumb, other = tab[THUMB_TIP], tab[self.tips].mean(axis=0)
         axis = other - thumb                                                        # 엄지 → 맞은편 손가락
