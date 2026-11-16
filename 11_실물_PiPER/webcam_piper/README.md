@@ -233,3 +233,4 @@ sudo ip link set can0 up type can bitrate 1000000
 | `노트북_실행.md` | 노트북 Claude 가 따라 할 순서 |
 | `check_kin.py` | numpy 운동학이 mujoco 와 같은지 확인 (mujoco 있는 환경에서만) |
 | `replay_raw.py` | 기록에 남은 손 21점 원본으로 PnP / OAT 방식을 다시 풀어 비교 (11/17) |
+| `stand/` | Logitech C920 스탠드 STL (나사 없음, 자리 C 55°) 과 만드는 스크립트 `make_stand.py` (11/17) |
