@@ -17,7 +17,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from geometry import HandMeasure, TableCalib          # noqa: E402
+from geometry import GRIPS, HandMeasure, TableCalib   # noqa: E402
 from teleop import Smoother                            # noqa: E402
 
 
@@ -38,6 +38,8 @@ def solve(d, keep, calib, cal, solver, beta):
     sm, raw_out, out = Smoother(), [], []
     for i in keep:
         l2, l3 = d["lm2d"][i], d["lm3d"][i]
+        if "grip_mode" in d.files and d["grip_mode"][i] in (0, 1):      # 기록 중에 TAB 으로 손 모양을 바꿨으면 따라 바꿈
+            meas.tips = list(GRIPS["pinch" if d["grip_mode"][i] == 1 else "whole"])
         r = meas(l3, l2) if np.isfinite(l2).all() else None
         if r is None:
             meas.reset()

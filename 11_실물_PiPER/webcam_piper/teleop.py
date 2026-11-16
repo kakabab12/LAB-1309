@@ -12,6 +12,7 @@ PiPER 는 팔 길이가 사람과 달라 관절 각도를 옮기면 집게가 �
   SPACE 따라가기 켜기/끄기   R 기록 시작/끝   X 마지막 기록 지우기   G 집게 따라가기   Y 손 돌림 따라가기
   [ 집게 약하게 ] 세게 (5 mm)   --grip pinch 면 엄지·검지로 집음 (기본은 손 전체)   C 종이 모서리 다시   S 손 시작 자세 다시   Q 또는 ESC 끝
   P 위치 확인: 다섯 손가락 끝을 모아 종이 모서리나 + 에 대고 누르면, 가장 가까운 점과 몇 cm 다른지 띄우고 checks.jsonl 에 남김
+  TAB (또는 H) 손 모양 바꾸기: 손 전체 ↔ 엄지·검지 (11/17). 따라가기 중이면 멈추므로 SPACE 로 다시. 쥐는 세기는 모양마다 따로 기억
 """
 import argparse
 import json
@@ -22,7 +23,7 @@ import time
 import cv2
 import numpy as np
 
-from geometry import CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, HandMeasure, TableCalib, flat_fit, scale_for_flat
+from geometry import CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, GRIPS, HandMeasure, TableCalib, flat_fit, scale_for_flat
 from hand import HandTracker, OneEuro, draw_hand
 from mapping import Mapper
 from net import PORT, Link
@@ -33,6 +34,11 @@ from robots import make_arm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BACKSPACE = (8, 127)                                       # 127 = 맥의 delete 키
+GRIP_KEYS = (9, ord("h"))                                  # TAB 은 한글 입력 상태에서도 먹힘
+# 손 모양마다: 집게를 더 닫는 양 기본값, 손가락 사이가 이보다 좁으면 집게 방향을 새로 읽지 않음, 화면 이름
+GRIP_SQUEEZE = {"whole": 0.025, "pinch": 0.02}
+GRIP_YGM = {"whole": 0.05, "pinch": 0.025}
+GRIP_NAME = {"whole": "WHOLE HAND", "pinch": "THUMB+INDEX"}
 # P 로 위치를 확인할 점: 종이 네 모서리와 + (사람 책상 좌표)
 CHECK_PTS = [(n.split(" ", 1)[1], CORNERS_TABLE[i]) for i, n in enumerate(CORNER_NAMES)] + [("center", np.zeros(3))]
 
@@ -161,10 +167,12 @@ def main():
         print("\n[안전] 실물 팔입니다. 팔 둘레를 비우고, 전원 스위치 옆에 사람이 있어야 합니다.")
         print("       SPACE 를 눌러야 따라가기 시작하고, 손을 1초 넘게 놓치면 멈춥니다. 속도 %d%%" % a.speed)
         input("       준비됐으면 Enter (취소 Ctrl+C) ")
-    if a.squeeze is None:
-        a.squeeze = 0.025 if a.grip == "whole" else 0.02
-    mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, squeeze=a.squeeze,
-                    yaw_gap_min=0.05 if a.grip == "whole" else 0.025,
+    grip_mode = a.grip                                     # TAB 으로 프로그램 켠 채 바꿈
+    squeeze_by = dict(GRIP_SQUEEZE)
+    if a.squeeze is not None:
+        squeeze_by[grip_mode] = a.squeeze
+    mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, squeeze=squeeze_by[grip_mode],
+                    yaw_gap_min=GRIP_YGM[grip_mode],
                     yaw_pref=math.radians(-60 if a.hand == "right" else 60))
     mapper.sync_to(arm.joints())
 
@@ -183,7 +191,7 @@ def main():
             saved = json.load(f)
         if saved["table"]["w"] == W and saved["table"]["h"] == H:
             calib = TableCalib.from_dict(saved["table"])
-            measure = HandMeasure(calib, saved["scale"], a.grip, saved.get("mirror", False), a.solver, a.pen)
+            measure = HandMeasure(calib, saved["scale"], grip_mode, saved.get("mirror", False), a.solver, a.pen)
             if saved.get("solver", "pnp") != a.solver:
                 print(f"[보정] 저장된 보정은 --solver {saved.get('solver', 'pnp')} 로 한 것. 손 크기 배율이 조금 다를 수 있으니 S 로 다시 보정하세요")
             if saved.get("label") and saved.get("hand", "right") == a.hand:
@@ -225,7 +233,7 @@ def main():
 
         # 화면에 그릴 것 (원본 좌표에 먼저 그린 뒤 거울로 뒤집는다)
         if det:
-            draw_hand(view, det["img_px"])
+            draw_hand(view, det["img_px"], tips=(4,) + GRIPS[grip_mode])
         if calib:
             grid = calib.project(np.array([[x, y, 0.0] for x in np.linspace(-A4_D / 2, A4_D / 2, 4)
                                            for y in np.linspace(-A4_W / 2, A4_W / 2, 5)]))
@@ -267,8 +275,8 @@ def main():
                     # MediaPipe 손 3D 가 화면과 같은 손인지 거울상인지: 펴서 올려놓은 21점이 종이 높이에 더 잘 맞는 쪽 (다수결)
                     votes = []
                     for d in samples:
-                        r0, r1 = HandMeasure(calib, 1.0, a.grip, False, a.solver)(d["world"], d["img_px"]), \
-                            HandMeasure(calib, 1.0, a.grip, True, a.solver)(d["world"], d["img_px"])
+                        r0, r1 = HandMeasure(calib, 1.0, grip_mode, False, a.solver)(d["world"], d["img_px"]), \
+                            HandMeasure(calib, 1.0, grip_mode, True, a.solver)(d["world"], d["img_px"])
                         if r0 and r1:
                             votes.append(flat_fit(calib, r1["lm_cam_raw"])[1] < flat_fit(calib, r0["lm_cam_raw"])[1])
                     mirror = bool(votes) and sum(votes) > 0.7 * len(votes)
@@ -277,14 +285,14 @@ def main():
                     label = max(set(labels), key=labels.count)
                     if labels.count(label) >= 0.8 * len(labels):
                         tracker.want_label = label
-                    m1 = HandMeasure(calib, 1.0, a.grip, mirror, a.solver)
+                    m1 = HandMeasure(calib, 1.0, grip_mode, mirror, a.solver)
                     raws = [m1(d["world"], d["img_px"]) for d in samples]
                     raws = [r for r in raws if r]
                     s = scale_for_flat(calib, np.median([r["lm_cam_raw"] for r in raws], axis=0)) if raws else None
                     if s is None:
                         msg, msg_t = "hand calibration failed - try again (S)", t
                     else:
-                        measure = HandMeasure(calib, s, a.grip, mirror, a.solver, a.pen)
+                        measure = HandMeasure(calib, s, grip_mode, mirror, a.solver, a.pen)
                         rs = [r for r in (measure(d["world"], d["img_px"]) for d in samples) if r]
                         palm = np.median([r["palm"] for r in rs], axis=0)       # 손바닥 가운데가 + 에서 얼마나
                         with open(a.calib, "w", encoding="utf-8") as f:
@@ -317,8 +325,9 @@ def main():
                          f"grip {meas['gap']*1000:3.0f} mm   turn {math.degrees(math.remainder(meas['yaw'] + math.pi / 2, math.pi)):+4.0f} deg"]
             else:
                 lines = ["hand not found"]
-            lines.append(f"{fps:4.1f} fps   SPACE follow  R rec  G grip:{'on' if mapper.follow_grip else 'off'}"
-                         f"  Y yaw:{'on' if mapper.follow_yaw else 'off'}  [ ] squeeze {mapper.squeeze*1000:.0f}mm")
+            lines.append(f"{fps:4.1f} fps   SPACE follow  R rec  TAB hand: {GRIP_NAME[grip_mode]}")
+            lines.append(f"G grip:{'on' if mapper.follow_grip else 'off'}  Y yaw:{'on' if mapper.follow_yaw else 'off'}"
+                         f"  [ ] squeeze {mapper.squeeze*1000:.0f}mm")
         if mode == "hand" and GUIDE is not None and GUIDE.shape[0] + 16 <= disp.shape[0] \
                 and GUIDE.shape[1] + 16 <= disp.shape[1]:          # 시작 자세 그림을 왼쪽 아래에 (화면이 작으면 생략)
             gh, gw = GUIDE.shape[:2]
@@ -343,10 +352,11 @@ def main():
                     raw_out["hr"] = [round(float(v), 5) for v in raw["pinch"]] + [round(raw["yaw"], 4), round(raw["gap"], 4)]
             if run and link.seq % 30 == 0:                        # 1초에 한 번 노트북 보정 값
                 raw_out["cal"] = {**calib.to_dict(), "scale": measure.scale, "mirror": measure.mirror,
-                                  "label": tracker.want_label, "solver": a.solver, "pen": a.pen, "grip": a.grip}
+                                  "label": tracker.want_label, "solver": a.solver, "pen": a.pen, "grip": grip_mode}
             link.send(hand=hand_out, follow=int(run and follow), rec=int(run and rec_req),
                       grip=int(mapper.follow_grip), yawf=int(mapper.follow_yaw), sq=round(mapper.squeeze, 4),
-                      ygm=mapper.yaw_gap_min, ypref=round(mapper.yaw_pref, 4), disc=disc_n, bye=0, **raw_out)
+                      ygm=mapper.yaw_gap_min, ypref=round(mapper.yaw_pref, 4), disc=disc_n, bye=0,
+                      gm=int(grip_mode == "pinch"), **raw_out)
             st = link.poll()
             if st and st.get("msg_n") != seen_msg_n:
                 if seen_msg_n is not None and st.get("msg"):
@@ -394,6 +404,7 @@ def main():
                     lm2d=(det["img_px"] if det else np.full((21, 2), np.nan)),
                     lm3d=(det["world"] if det else np.full((21, 3), np.nan)),
                     hand_raw=(np.r_[raw["pinch"], raw["yaw"], raw["gap"]] if raw else np.full(5, np.nan)),
+                    grip_mode=int(grip_mode == "pinch"),
                     **{f"{k}_jpg": jpeg(v, 640) for k, v in imgs.items()})
 
         key = cv2.waitKey(1) & 0xFF
@@ -404,7 +415,7 @@ def main():
         elif mode == "corners_check":
             if key in (13, 10):
                 mode, collecting, samples = "hand", False, []
-                measure = HandMeasure(calib, 1.0, a.grip, solver=a.solver)
+                measure = HandMeasure(calib, 1.0, grip_mode, solver=a.solver)
             elif key in BACKSPACE:
                 clicks.clear()
                 calib, mode = None, "corners"
@@ -433,6 +444,19 @@ def main():
                 else:
                     p = rec.discard_last()
                     msg, msg_t = (f"deleted {os.path.basename(p)}" if p else "no episode to delete"), t
+            elif key in GRIP_KEYS:                       # 손 모양 바꾸기: 쥐는 점이 몇 cm 옮겨 가므로 따라가기는 멈춘다
+                squeeze_by[grip_mode] = mapper.squeeze
+                grip_mode = "pinch" if grip_mode == "whole" else "whole"
+                measure.tips = list(GRIPS[grip_mode])
+                mapper.squeeze, mapper.yaw_gap_min = squeeze_by[grip_mode], GRIP_YGM[grip_mode]
+                smooth.reset()
+                paused_now = follow
+                if follow:
+                    follow = False
+                    arm.hold()
+                msg = f"hand: {GRIP_NAME[grip_mode]}" + ("  (follow paused - SPACE to resume)" if paused_now else "")
+                msg_t = t
+                print(f"[손 모양] {'엄지·검지' if grip_mode == 'pinch' else '손 전체'}" + (" — 따라가기 멈춤, SPACE 로 다시" if paused_now else ""))
             elif key == ord("g"):
                 mapper.follow_grip = not mapper.follow_grip
             elif key == ord("y"):
@@ -450,7 +474,7 @@ def main():
                 follow = False
                 arm.hold()
                 mode, collecting, samples = "hand", False, []
-                measure = HandMeasure(calib, 1.0, a.grip, solver=a.solver)
+                measure = HandMeasure(calib, 1.0, grip_mode, solver=a.solver)
             elif key == ord("p"):
                 msg, msg_t = check_point(meas, measure.scale, a.checks), t
 

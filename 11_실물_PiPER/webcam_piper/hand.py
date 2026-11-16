@@ -95,8 +95,9 @@ class HandTracker:
         self.det.close()
 
 
-def draw_hand(img, img_px, color=(0, 255, 0)):
+def draw_hand(img, img_px, color=(0, 255, 0), tips=(4, 8)):
+    """tips: 빨간 점으로 표시할 손가락 끝 (지금 쓰는 손 모양을 화면에서 바로 알 수 있게)."""
     for a, b in HAND_LINKS:
         cv2.line(img, tuple(int(v) for v in img_px[a]), tuple(int(v) for v in img_px[b]), color, 2)
-    for i in (4, 8):
+    for i in tips:
         cv2.circle(img, tuple(int(v) for v in img_px[i]), 6, (0, 0, 255), -1)

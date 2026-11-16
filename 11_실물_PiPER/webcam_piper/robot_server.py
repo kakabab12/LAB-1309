@@ -185,6 +185,7 @@ def main():
                         lm2d=(np.array(last["l2"], float).reshape(21, 2) if last and last.get("l2") else np.full((21, 2), np.nan)),
                         lm3d=(np.array(last["l3"], float).reshape(21, 3) if last and last.get("l3") else np.full((21, 3), np.nan)),
                         hand_raw=(np.array(last["hr"], float) if last and last.get("hr") else np.full(5, np.nan)),
+                        grip_mode=(int(last.get("gm", -1)) if last else -1),
                         **{f"{k}_jpg": jpeg(v, 640) for k, v in imgs.items()})
 
             srv.reply(q=[round(float(v), 5) for v in q_now], w=(round(float(w_now), 4) if np.isfinite(w_now) else None),
