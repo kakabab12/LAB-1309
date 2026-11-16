@@ -42,6 +42,8 @@ def parse():
     ap.add_argument("--y0", type=float, default=0.0, help="로봇 종이 가운데: 밑동에서 왼쪽으로 (m)")
     ap.add_argument("--gain", type=float, default=1.0, help="사람 1 cm → 로봇 몇 cm")
     ap.add_argument("--max-speed", type=float, default=0.12, help="집게 끝 최고 속도 (m/s)")
+    ap.add_argument("--min-z", type=float, default=0.006,
+                    help="집게 끝을 책상 위 이 높이(m) 아래로 내리지 않음. 실물 첫 시험은 0.10 처럼 높게 (11/16)")
     ap.add_argument("--hz", type=float, default=30.0, help="팔에 명령 보내고 기록하는 박자")
     ap.add_argument("--timeout", type=float, default=0.5, help="노트북 패킷이 이만큼(초) 안 오면 멈춤")
     ap.add_argument("--out", default=os.path.join(HERE, "data"))
@@ -59,8 +61,9 @@ def main():
     if arm.is_real:
         print("\n[안전] 실물 팔입니다. 팔 둘레를 비우고, 전원 스위치 옆에 사람이 있어야 합니다.")
         print("       노트북에서 SPACE 를 눌러야 따라가고, 통신이 %.1f초 끊기면 멈춥니다. 속도 %d%%" % (a.timeout, a.speed))
+        print("       집게 끝 최고 속도 %.0f cm/s, 책상 위 %.0f cm 아래로는 내려가지 않음" % (a.max_speed * 100, a.min_z * 100))
         input("       준비됐으면 Enter (취소 Ctrl+C) ")
-    mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed)
+    mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, min_z=a.min_z)
     mapper.yaw0 = 0.0                                   # 노트북이 집게 방향(yaw)을 그대로 보냄
     mapper.sync_to(arm.joints())
     srv = Server(a.port)
