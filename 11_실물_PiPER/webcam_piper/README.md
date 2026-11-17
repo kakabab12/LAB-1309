@@ -4,6 +4,7 @@ My_portfolio `2026/05. 웹캠 로봇팔 원격조종` (SO-ARM101, LeRobot) 을 �
 
 > 처음 쓰는 사람은 [사용설명서.md](사용설명서.md) 부터 본다 (책상 놓기, 보정, 연구실 PC 연결, 실물 기록 순서, 문제 해결).
 > 노트북의 Claude 에 맡길 때는 [노트북_실행.md](노트북_실행.md) 링크를 준다 (받기, 설치, 점검, 켜기, 결과 정리 순서).
+> 웹캠 대신 Quest 컨트롤러만 들고 조종하려면 [VR_손잡이.md](VR_손잡이.md) (11/17, 헤드셋은 머리에 쓰지 않고 옆에 세워 둠, 종이 + 기준은 같음).
 
 ## 원래 코드와 달라진 점
 
@@ -238,3 +239,4 @@ sudo ip link set can0 up type can bitrate 1000000
 | `autoupdate.py` | 노트북에서 켤 때 GitHub 새 코드를 받아 오고 다시 켬 (git 폴더면 `git pull --ff-only`, 아니면 바뀐 파일만). `--no-update` 로 끔 (11/17) |
 | `replay_raw.py` | 기록에 남은 손 21점 원본으로 PnP / OAT 방식을 다시 풀어 비교 (11/17) |
 | `stand/` | Logitech C920 스탠드 STL (나사 없음, 자리 C 55°) 과 만드는 스크립트 `make_stand.py` (11/17) |
+| `vr_handle.py`, `VR_손잡이.md` | Quest 컨트롤러로 조종 (헤드셋은 옆에): 이 PC 가 https 조종 화면을 내주고, 종이 + 기준(B 1초)으로 같은 자리, 쥐기 버튼 = 따라감, 방아쇠 = 집게. `--selftest` 가짜 컨트롤러 시험, `--report` 늦음·빠르기 (11/17) |

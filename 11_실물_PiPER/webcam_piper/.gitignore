@@ -8,3 +8,4 @@ __pycache__/
 .no-autoupdate
 *.bak
 *.part
+vr_cert/

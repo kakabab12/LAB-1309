@@ -13,6 +13,9 @@
   손을 오므리는 중(손가락 사이 < yaw_gap_min)에는 방향을 새로 읽지 않는다. 쥐는 순간 엄지·손가락 줄이 흔들리기 때문.
 
 안전: 목표를 작업 상자 안으로 자르고, 목표가 움직이는 속도와 관절이 한 박자에 바뀌는 양을 제한한다.
+
+VR 손잡이 (11/17, vr_handle.py): step_robot 은 로봇 좌표 목표를 바로 받는다 (사람 손 → 로봇 바꾸기는 vr_handle 이 함).
+  작업 상자·속도·관절 제한·역기구학은 같고, 집게 방향은 한 박자에 도는 양을 제한해 따라가기를 켤 때 손목이 휙 돌지 않게 한다.
 """
 import math
 
@@ -27,10 +30,29 @@ def wrap(a):
     return (a + math.pi) % (2 * math.pi) - math.pi
 
 
+def rotate_toward(cur, goal, max_angle):
+    """회전 행렬 cur 를 goal 쪽으로 최대 max_angle (rad) 만큼 돌린 것 (축-각, numpy 만)."""
+    err = goal @ cur.T
+    c = float(np.clip((np.trace(err) - 1.0) / 2.0, -1.0, 1.0))
+    ang = math.acos(c)
+    if ang <= max_angle or ang < 1e-9:
+        return goal.copy()
+    w = np.array([err[2, 1] - err[1, 2], err[0, 2] - err[2, 0], err[1, 0] - err[0, 1]])
+    if np.linalg.norm(w) < 1e-6:                      # 거의 반 바퀴: 대칭 부분에서 축을 고름
+        sym = (err + np.eye(3)) / 2.0
+        w = sym[:, int(np.argmax(np.diag(sym)))]
+    k = w / np.linalg.norm(w)
+    K = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+    step = np.eye(3) + math.sin(max_angle) * K + (1 - math.cos(max_angle)) * (K @ K)
+    out = step @ cur
+    u, _, vt = np.linalg.svd(out)                     # 반올림이 쌓이지 않게 다시 직교로
+    return u @ vt
+
+
 class Mapper:
     def __init__(self, kin, x0=0.30, y0=0.0, gain=1.0, max_speed=0.12, max_yaw_rate=math.radians(60),
                  max_joint_rate=1.0, squeeze=0.025, yaw_limit=math.radians(112), yaw_gap_min=0.05,
-                 yaw_pref=math.radians(-60), min_z=0.006):
+                 yaw_pref=math.radians(-60), min_z=0.006, max_z=0.25):
         self.kin = kin
         self.robot_start = np.array([x0, y0, TABLE_Z + PINCH_H0])
         self.gain = gain
@@ -39,7 +61,7 @@ class Mapper:
         self.yaw_fresh = True
         # 집게 끝이 책상에 박히지 않게 min_z 위까지 (기본 6 mm). 실물 첫 시험은 robot_server --min-z 0.10 처럼 높여서
         self.box_lo = np.array([0.14, -0.25, TABLE_Z + min_z])
-        self.box_hi = np.array([0.50, 0.25, TABLE_Z + 0.25])
+        self.box_hi = np.array([0.50, 0.25, TABLE_Z + max_z])
         self.reach = 0.55                                            # 밑동 어깨(높이 0.12 m) 에서 이 거리까지
         self.yaw0 = 0.0                                              # 예전 방식(손등 가로줄 기준)의 흔적. 지금은 0
         self.follow_yaw = True
@@ -49,12 +71,21 @@ class Mapper:
         self.cur = pos.copy()                                        # 지금 보내는 목표 (속도 제한을 거친 것)
         self.cur_yaw = self.yaw_of(self.q_cmd)
         self.yaw_goal = self.cur_yaw
+        self.cur_mat = kin.fk(self.q_cmd)[1]                         # step_robot 이 역기구학에 주는 집게 방향 (11/17)
         self.width = GRIP_MAX
         self.desired = self.cur.copy()
 
     def human_to_robot(self, pinch):
         p = self.robot_start + self.gain * (np.asarray(pinch) - np.array([0.0, 0.0, PINCH_H0]))
-        p = np.clip(p, self.box_lo, self.box_hi)
+        return self.clip_robot(p)
+
+    def inside(self, p, tol=0.005):
+        """p 가 작업 상자(와 팔 닿는 거리) 안인지."""
+        return bool(np.linalg.norm(self.clip_robot(p) - np.asarray(p)) < tol)
+
+    def clip_robot(self, p):
+        """로봇 좌표 목표를 작업 상자와 팔이 닿는 거리 안으로 자른다."""
+        p = np.clip(np.asarray(p, np.float64), self.box_lo, self.box_hi)
         shoulder = np.array([0.0, 0.0, TABLE_Z + 0.12])
         v = p - shoulder
         n = np.linalg.norm(v)
@@ -92,6 +123,39 @@ class Mapper:
         self.q_cmd = self.q_cmd + dq
         return self.q_cmd.copy(), self.width
 
+    def step_robot(self, target, dt, yaw=None, width=None, max_speed=None, max_rot_rate=None, ik_iters=10):
+        """VR 손잡이 (11/17): 로봇 좌표의 집게 끝 목표를 바로 받는다. target None 이면 그 자리에 멈춘다.
+        yaw: 집게를 아래로 세운 채 이 방향 (팔이 향한 방향 ±yaw_limit 안으로 자름, None 이면 지금 방향 그대로).
+        max_speed, max_rot_rate: 이번 박자만 다른 끝 속도(m/s)·방향 도는 속도(rad/s) — 따라가기 시작할 때 천천히 다가가기.
+        집게 방향은 지금 방향에서 목표 방향으로 한 박자에 max_rot_rate·dt 까지만 돈다 (켤 때 집게가 옆을 보고 있어도 휙 돌지 않음).
+        돌려줌 (관절 목표, 집게 폭)."""
+        dt = float(np.clip(dt, 1e-3, 0.2))
+        if target is None:                                   # 그 자리: 위치·방향을 그대로 둔다 (역기구학도 안 풂)
+            self.desired = self.cur.copy()
+            self.yaw_goal = self.cur_yaw
+            return self.q_cmd.copy(), self.width
+        else:
+            self.desired = self.clip_robot(target)
+            if width is not None:
+                self.width = float(np.clip(width, 0.0, GRIP_MAX))
+            if yaw is not None:
+                j1 = math.atan2(self.desired[1], self.desired[0])
+                self.yaw_goal = float(np.clip(yaw, j1 - self.yaw_limit, j1 + self.yaw_limit))
+        step = self.desired - self.cur
+        n = np.linalg.norm(step)
+        lim = (self.max_speed if max_speed is None else max_speed) * dt
+        if n > lim:
+            step *= lim / n
+        self.cur = self.cur + step
+        rate = self.max_yaw_rate if max_rot_rate is None else max_rot_rate
+        self.cur_yaw += float(np.clip(self.yaw_goal - self.cur_yaw, -rate * dt, rate * dt))
+        self.cur_mat = rotate_toward(self.cur_mat, grip_orientation(self.cur_yaw), rate * dt)
+        # 박자가 빨라(100 Hz) 한 박자에 조금씩만 풀어도 된다 (웹캠 30 Hz 는 40번). 한 박자 7 ms → 2 ms 쯤 (11/17)
+        q = self.kin.ik(self.cur, self.cur_mat, self.q_cmd, iters=ik_iters)
+        dq = np.clip(q - self.q_cmd, -self.max_joint_rate * dt, self.max_joint_rate * dt)
+        self.q_cmd = self.q_cmd + dq
+        return self.q_cmd.copy(), self.width
+
     def yaw_of(self, q):
         """관절 → 집게 yaw (grip_orientation 의 yaw, ±90° 로 접음)."""
         _, m = self.kin.fk(q)
@@ -100,7 +164,7 @@ class Mapper:
     def sync_to(self, q):
         """실물 팔의 지금 관절에서 출발하도록 맞춘다 (시작할 때)."""
         self.q_cmd = np.asarray(q, np.float64).copy()
-        self.cur, _ = self.kin.fk(self.q_cmd)
+        self.cur, self.cur_mat = self.kin.fk(self.q_cmd)
         self.desired = self.cur.copy()
         self.cur_yaw = self.yaw_goal = self.yaw_of(self.q_cmd)
         self.yaw_fresh = True
