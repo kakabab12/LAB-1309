@@ -178,8 +178,7 @@ set_xfrm(lay["Rectangle 9"]._element, 0, 0, 25, H)            # left side bar
 set_xfrm(lay["Rectangle 10"]._element, W - 25, 0, 25, H)      # right side bar
 set_xfrm(lay["Rectangle 6"]._element, 0, 0, W, BAND_H)        # title band
 set_xfrm(lay["Rectangle 7"]._element, 0, BOT_Y, W, H - BOT_Y)  # bottom band
-set_xfrm(lay["Picture 2"]._element, 744.0 * S, 1207.7 * S, 147.15 * S, 5.16 * S)  # template credit line, kept
-for name in ("Instructions", "Group 1"):                       # off-slide instructions of the template
+for name in ("Instructions", "Group 1", "Picture 2"):         # off-slide instructions; tiny credit image (credit is a reference line instead)                       # off-slide instructions of the template
     el = lay[name]._element
     rids = el.xpath(".//@r:embed")
     el.getparent().remove(el)
@@ -299,7 +298,7 @@ def column_chart(x, y0, w, h, cats, series, colors, labels, legend=False, name=N
     if name:
         gf.name = name
     ch = gf.chart
-    ch.font.size = Pt(18)
+    ch.font.size = Pt(22)
     set_color(ch.font.color, INK)
     ch.has_title = False
     ch.has_legend = False
@@ -322,13 +321,13 @@ def column_chart(x, y0, w, h, cats, series, colors, labels, legend=False, name=N
         etree.SubElement(ml, qn(tag)).set("val", val)
     slot = w / len(cats)
     for i, c in enumerate(cats):
-        textbox(x + i * slot, y0 + ch_h + 0.8, slot, lab_h - 0.8, [P(c.replace("\n", "\v"), 18, False, INK, align="ctr", line=1.0)],
+        textbox(x + i * slot, y0 + ch_h + 0.8, slot, lab_h - 0.8, [P(c.replace("\n", "\v"), 22, False, INK, align="ctr", line=1.0)],
                 name=f"{name} label {i + 1}")
     if legend:
         for k, ((sname, _), col) in enumerate(zip(series, colors)):
             ly = y0 + 10.0 * k
             shape(MSO_SHAPE.RECTANGLE, x + 4, ly + 2.2, 5, 5, fill=col, name=f"{name} legend key")
-            textbox(x + 10.5, ly, w - 10.5, 9.5, [P(sname, 18, False, INK, line=1.0)], anchor="ctr", name=f"{name} legend")
+            textbox(x + 10.5, ly, w - 10.5, 9.5, [P(sname, 22, False, INK, line=1.0)], anchor="ctr", name=f"{name} legend")
     plot = ch.plots[0]
     plot.gap_width = 55
     plot.overlap = -10 if len(series) > 1 else 0
@@ -404,27 +403,27 @@ def s_background(x, y, w):
 
 
 def s_capstone(x, y, w):
-    steps = [(["색 분류", "컨베이어"], ["파란 큐브만 통과"]), (["저울 숫자 인식"], ["YOLOv8n ·", "Jetson Orin Nano"]),
+    steps = [(["색 분류", "컨베이어"], ["파란 큐브만 통과"]), (["저울 숫자 인식"], ["YOLOv8n", "Jetson", "Orin Nano"]),
              (["118g 이상이면"], ["TCP 트리거"]), (["SO-101 로봇팔"], ["단계별 ACT 모델"]), (["1층 → 옆 → 2층"], ["순차 적재"])]
-    bw = 62.0
+    bw = 66.0
     gap = (w - 5 * bw) / 4
     for i, (head, tail) in enumerate(steps):
         bx = x + i * (bw + gap)
         s = shape(MSO_SHAPE.RECTANGLE, bx, y, bw, 52, fill=TINT if i != 3 else TINT2, line=ACC, line_w=1.25, name=f"flow {i + 1}")
         shape_text(s, [P(h_, 22, True, DARK, align="ctr", line=1.0) for h_ in head]
-                   + [P(t_, 18, False, MUTED, align="ctr", line=1.0) for t_ in tail], inset=1.2)
+                   + [P(t_, 22, False, MUTED, align="ctr", line=1.0) for t_ in tail], inset=1.2)
         if i < len(steps) - 1:
             shape(MSO_SHAPE.RIGHT_ARROW, bx + bw + 2.5, y + 20, gap - 5, 12, fill=DARK)
     loop = shape(MSO_SHAPE.U_TURN_ARROW, x + 3 * (bw + gap) + 8, y + 54, bw + gap + bw - 16, 14, fill=WARM, name="retry loop")
     loop.rotation = 180
-    textbox(x, y + 55, 3 * (bw + gap), 12, [P("무게 확인 재시도: 저울에 60g 이상 남아 있으면 그 단계를 다시 실행 →", 20, True, WARM_DK, align="r")],
+    textbox(x, y + 55, 3 * (bw + gap), 12, [P("무게 확인 재시도: 저울에 60g 이상 남으면 그 단계를 다시 실행 →", 22, True, WARM_DK, align="r")],
             anchor="ctr", name="retry note")
     stats = [("86.3%", "숫자 탐지 성능 (mAP50)"), ("91.7%", "118g 기준 분류 정확도 (55/60)"), ("약 0.81초", "인식부터 로봇 명령까지")]
     sw = (w - 2 * 8) / 3
     for i, (num, cap) in enumerate(stats):
         s = shape(MSO_SHAPE.RECTANGLE, x + i * (sw + 8), y + 74, sw, 46, fill="FFFFFF", line=ACC, line_w=1.25, name=f"stat {i + 1}")
-        shape_text(s, [P(num, 44, True, DARK, align="ctr", line=1.0), P(cap, 19, False, MUTED, align="ctr", line=1.0)], inset=1.0)
-    textbox(x, y + 122, w, 10, [P("분류 정확도는 실제 장치에서 잰 값 (조건별 20회, 총 60회)", 20, False, MUTED)], name="real note")
+        shape_text(s, [P(num, 44, True, DARK, align="ctr", line=1.0), P(cap, 22, False, MUTED, align="ctr", line=1.0)], inset=1.0)
+    textbox(x, y + 122, w, 10, [P("분류 정확도는 실제 장치에서 잰 값 (조건별 20회, 총 60회)", 22, False, MUTED)], name="real note")
 
 
 def s_sim(x, y, w):
@@ -437,8 +436,8 @@ def s_sim(x, y, w):
     picture(IMG / "basic_cam_top.png", x + hero_w + 6, y + hero_h - cam_h, w=cw, name="top cam")
     label(x + 7, y + hero_h - 21, "저울 (집는 곳)")
     label(x + hero_w - 92, y + 0.658 * hero_h, "팔레트 (쌓는 곳)")
-    label(x + hero_w + 9, y + 3, "손목 카메라", size=20)
-    label(x + hero_w + 9, y + hero_h - cam_h + 3, "상단 카메라", size=20)
+    label(x + hero_w + 9, y + 3, "손목 카메라", size=22)
+    label(x + hero_w + 9, y + hero_h - cam_h + 3, "상단 카메라", size=22)
     textbox(x, y + hero_h + 4, w, PH["sim"] - 2 * PAD - hero_h - 4, [
         B("실제 로봇팔이 파손되어 MuJoCo", ("[4]", False, MUTED), "로 ", ("캡스톤 시스템을 그대로 재현", True, DARK), ": 공식 SO-101 모델, 같은 카메라 위치,\v1초에 30번 제어, 적재함 크기 64×64×52mm, 무게 123g",
           size=24, after=2),
@@ -475,7 +474,7 @@ G_CH = 64.0   # per-object gap chart (incl. category names)
 def s_audit(x, y, w):
     textbox(x, y, w, 21, [
         P("학습 전에 시연만 보고, 잡는 방식이 엇갈렸는지 확인", 24, True, INK, line=1.0, after=2),
-        P("정사각형 적재함 1층 시연 100번, 집게가 닫힐 때 로봇 손목을 비튼 각도 (0° = 기본 자세)  ·  그림: 위에서 본 적재함, 아래가 로봇 쪽", 19, False, MUTED, line=1.0),
+        P("정사각형 적재함 1층 시연 100번, 집게가 닫힐 때 로봇 손목을 비튼 각도 (0° = 기본 자세)", 22, False, MUTED, line=1.0),
     ], name="audit intro")
     dw, dh = Image.open(IMG / "audit_groups.png").size
     picture(IMG / "audit_groups.png", x + (w - AUD_W) / 2, y + 23, w=AUD_W, name="audit figure")
@@ -483,10 +482,10 @@ def s_audit(x, y, w):
     textbox(x, ty, w, 31, [
         {"runs": [("손목 각도 빈 구간이 크면 잡는 방식이 엇갈린 시연 → ", 23, True, ORANGE), ("학습하기 전에 찾아서 다시 만듦", 23, True, DARK)],
          "line": 1.0, "after": 3},
-        P("손목 각도 빈 구간 G: 시연 100번의 손목 각도를 작은 순서로 늘어놓았을 때, 이웃한 두 시연의 손목 각도 차이 중 가장 큰 값",
-          19, False, INK, line=1.0, after=2),
-        P("잡는 벽이 바뀌면 로봇 손목을 비트는 각도도 크게 달라지기 때문  ·  상자·컵도 마찬가지 (손목 각도 빈 구간 52°·66° 대 3°)",
-          19, False, MUTED, line=1.0),
+        P("손목 각도 빈 구간 G = 손목 각도를 크기순으로 세웠을 때, 이웃한 두 시연 사이의 가장 큰 차이",
+          22, False, INK, line=1.0, after=2),
+        P("직사각형 상자·손잡이 컵의 손목 각도 빈 구간도 52°·66° 대 3° (가까운 벽 시연 대 규칙 시연)",
+          22, False, MUTED, line=1.0),
     ], name="audit takeaway")
 
 
@@ -498,7 +497,7 @@ def s_results(x, y, w):
     cw = (w - 8) / 2
     for i, (num, cap) in enumerate(callouts):
         s = shape(MSO_SHAPE.RECTANGLE, x + i * (cw + 8), y, cw, 44, fill=TINT, line=ACC, line_w=1.25, name=f"callout {i + 1}")
-        shape_text(s, [P(num, 50, True, DARK, align="ctr", line=1.0), P(cap, 20, False, MUTED, align="ctr", line=1.0)], inset=1.0)
+        shape_text(s, [P(num, 50, True, DARK, align="ctr", line=1.0), P(cap, 22, False, MUTED, align="ctr", line=1.0)], inset=1.0)
     cy = y + 50
     aw = 238.0
     textbox(x, cy, aw, 10, [P("규칙을 하나씩 더하면 (단계마다 시연 100회, 50개 장면)", 21, True, DARK)], name="chart a title")
@@ -529,9 +528,9 @@ def s_envs(x, y, w):
         picture(IMG / f, tx, ty, w=tw, name=f"tile {name}")
         textbox(tx, ty + th + 0.5, tw, LBL_H - 1, [{"runs": [(name, 21, True, DARK), ("  " + val, 24, True, ACC)], "line": 1.0}],
                 anchor="ctr", name=f"tile label {i + 1}")
-    textbox(x, y + 2 * (th + LBL_H + 3) - 2, w, 16, [
-        P("숫자는 세 단계 연속 성공률 (팔레트는 8칸 모두 쌓은 비율 38/40). *조명·책상 15개 조건의 단계별 평균. 조건마다 시연을 더해 학습", 20, False, MUTED,
-          line=1.0)], name="tile note")
+    textbox(x, y + 2 * (th + LBL_H + 3) - 2, w, 20, [
+        P("숫자는 세 단계 연속 성공률, 팔레트는 8칸을 모두 쌓은 비율 (38/40)", 22, False, MUTED, line=1.0, after=1),
+        P("*조명·책상 15개 조건의 단계별 평균  ·  조건마다 그 장면의 시연을 더해 학습", 22, False, MUTED, line=1.0)], name="tile note")
 
 
 def s_conclusion(x, y, w):
@@ -556,7 +555,7 @@ PH = {
     "rules": 3 * RH + 2 * 5 + 2 * PAD,
     "audit": 23 + AUD_W * _aud[1] / _aud[0] + 2 + 33 + 2 * PAD,
     "res": 50 + 9 + CH_H + 2 + 11 + 2 * PAD,
-    "envs": 2 * (_tw * 836 / 1400 + LBL_H + 3) + 14 + 2 * PAD,
+    "envs": 2 * (_tw * 836 / 1400 + LBL_H + 3) + 20 + 2 * PAD,
     "concl": 84.0,
 }
 LEFT = [("연구 배경 및 목표", "bg", s_background), ("캡스톤 시스템 구성", "cap", s_capstone),
@@ -588,11 +587,12 @@ textbox(COL_L, BOT_Y + 25, COL_W, 40, [
       "결과입니다.(과제관리번호: 2026-RISE-03-002)", 21, False, INK, line=1.1)], name="acknowledgement")
 el = clone(P_BHEAD, COL_R, BOT_Y + 6, COL_W, 17, "references heading")
 fill_text(el, [P("참고문헌", 44, True, INK, line=1.0)], anchor="ctr")
-textbox(COL_R, BOT_Y + 25, COL_W + 10, 40, [
-    P("[1] T. Z. Zhao et al., “Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware,” RSS, 2023.", 19, line=1.05),
-    P("[2] R. Cadene et al., “LeRobot,” 2024, github.com/huggingface/lerobot", 19, line=1.05),
-    P("[3] S. Belkhale, Y. Cui, D. Sadigh, “Data Quality in Imitation Learning,” NeurIPS, 2023.", 19, line=1.05),
-    P("[4] E. Todorov, T. Erez, Y. Tassa, “MuJoCo: A Physics Engine for Model-Based Control,” IROS, 2012.", 19, line=1.05),
+textbox(COL_R, BOT_Y + 23, COL_W + 10, 46, [
+    P("[1] T. Z. Zhao et al., “Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware,” RSS, 2023.", 22, line=1.05),
+    P("[2] R. Cadene et al., “LeRobot,” 2024, github.com/huggingface/lerobot", 22, line=1.05),
+    P("[3] S. Belkhale, Y. Cui, D. Sadigh, “Data Quality in Imitation Learning,” NeurIPS, 2023.", 22, line=1.05),
+    P("[4] E. Todorov, T. Erez, Y. Tassa, “MuJoCo: A Physics Engine for Model-Based Control,” IROS, 2012.", 22, line=1.05),
+    P("포스터 틀: Genigraphics 연구 포스터 템플릿 (genigraphics.com, CC BY-SA 4.0)", 22, False, MUTED, line=1.05),
 ], name="references")
 
 # document properties: ours, not the template's (attribution stays in the credit line and the comments)

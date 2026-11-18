@@ -192,7 +192,7 @@ def rule3():
     dashed(ax, 72, 34, 5, 15)
     rect(ax, 66, 34, 5, 15, JAW_C, z=5)
     arrow(ax, (65.5, 31), (72, 31), OK, lw=2.4, ms=14)
-    ax.text(64.5, 28.5, "5mm", fontsize=18, ha="center", va="top", color=OK, fontweight="bold")
+    ax.text(64.5, 28.5, "5mm", fontsize=FS, ha="center", va="top", color=OK, fontweight="bold")
     arrow(ax, (68.5, 71), (68.5, 51), OK, lw=2.6, ms=16)
     badge(ax, 111, 66, True, r=4.6)
     fig.savefig(OUT / "rule3.png", facecolor="white")
@@ -371,7 +371,7 @@ def audit_groups(width_mm=380, height_mm=150):
             cx = (X(g.min()) + X(g.max())) / 2
             icon(cx, yb + 30, yaw, wall, col)
             ax.plot([cx, cx], [yb + 4.5, yb + 12], color=col, lw=1.6, zorder=2)
-            ax.text(cx + 21, yb + 36, text, fontsize=19, ha="left", va="center", color=INK_C)
+            ax.text(cx + 21, yb + 36, text, fontsize=22, ha="left", va="center", color=INK_C)
             ax.text(cx + 21, yb + 24, f"{len(g)}번", fontsize=26, ha="left", va="center", color=NAVY, fontweight="bold")
         if len(groups) == 2:
             lo, hi = X(roll[i]), X(roll[i + 1])
@@ -379,23 +379,24 @@ def audit_groups(width_mm=380, height_mm=150):
             arrow(ax, (lo + 1, yb - 10), (hi - 1, yb - 10), col, style="<->", lw=2.2, ms=14)
             ax.text((lo + hi) / 2, yb - 13, f"손목 각도 빈 구간 {d[i]:.0f}°", fontsize=24, ha="center", va="top", color=col,
                     fontweight="bold")
-            ax.text((lo + hi) / 2, yb - 23, f"손목 각도 {roll[i]:+.0f}°~{roll[i + 1]:+.0f}°로 잡은 시연: 0번".replace("-", "−"), fontsize=19, ha="center",
+            ax.text((lo + hi) / 2, yb - 23, f"손목 각도 {roll[i]:+.0f}°~{roll[i + 1]:+.0f}°로 잡은 시연: 0번".replace("-", "−"), fontsize=22, ha="center",
                     va="top", color=GREY)
         else:
             ax.text(X(roll.min()) - 4, yb, f"손목 각도 빈 구간 {d[i]:.0f}°", fontsize=24, ha="right", va="center", color=col,
                     fontweight="bold", bbox=dict(fc="white", ec="none", pad=2), zorder=6)
-            ax.text(X(roll.min()) - 4, yb + 10, "손목 각도가 촘촘히 이어짐", fontsize=19, ha="right", va="center", color=GREY)
+            ax.text(X(roll.min()) - 4, yb + 10, "손목 각도가 촘촘히 이어짐", fontsize=22, ha="right", va="center", color=GREY)
         ax.text(2, yb + 36, name, fontsize=26, ha="left", va="center", color=col, fontweight="bold")
-        ax.text(2, yb + 25, f"({how})", fontsize=19, ha="left", va="center", color=GREY)
+        ax.text(2, yb + 25, f"({how})", fontsize=22, ha="left", va="center", color=GREY)
         ax.text(2, yb + 6, f"→ 잡는 방식 {len(groups)}가지", fontsize=23, ha="left", va="center", color=col, fontweight="bold")
 
     INK_C = "#222222"
-    row(get(True), 100, HUMAN, "가까운 벽 시연", "그때그때 잡는 벽이 바뀜", [(15, "side", "옆벽을 잡음"), (-4, "front", "앞벽을 잡음")])
-    row(get(False), 24, RULE, "규칙 시연", "늘 같은 벽을 잡음", [(15, "front", "늘 앞벽을 잡음")])
+    row(get(True), 100, HUMAN, "가까운 벽 시연", "잡는 벽이 바뀜", [(15, "side", "옆벽을 잡음"), (-4, "front", "앞벽을 잡음")])
+    row(get(False), 24, RULE, "규칙 시연", "늘 같은 벽을 잡음", [(15, "front", "앞벽만 잡음")])
     for a in range(-40, 81, 20):   # one shared angle scale under the bottom row
         ax.plot([X(a), X(a)], [24 - 5.5, 24 - 7.5], color="#9aa5b1", lw=1.4)
-        ax.text(X(a), 24 - 9, f"{a:+d}°".replace("-", "−") if a else "0°", fontsize=17, ha="center", va="top", color=GREY)
-    ax.text(2, 24 - 12.5, "로봇 손목을 비튼 각도 →", fontsize=18, ha="left", va="center", color=GREY)
+        ax.text(X(a), 24 - 9, f"{a:+d}°".replace("-", "−") if a else "0°", fontsize=22, ha="center", va="top", color=GREY)
+    ax.text(2, 24 - 8, "로봇 손목을", fontsize=22, ha="left", va="center", color=GREY)
+    ax.text(2, 24 - 17, "비튼 각도 →", fontsize=22, ha="left", va="center", color=GREY)
     fig.savefig(OUT / "audit_groups.png", facecolor="white")
     plt.close(fig)
 
