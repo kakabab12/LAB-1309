@@ -93,8 +93,9 @@ class Mapper:
             p = shoulder + v * (self.reach / n)
         return p
 
-    def step(self, meas, dt, follow):
-        """meas = 거른 손 측정 dict(pinch, yaw, gap) 또는 None(손 못 찾음). 돌려줌 (관절 목표, 집게 폭)."""
+    def step(self, meas, dt, follow, ik_iters=40):
+        """meas = 거른 손 측정 dict(pinch, yaw, gap) 또는 None(손 못 찾음). 돌려줌 (관절 목표, 집게 폭).
+        ik_iters: 한 박자에 역기구학 반복 수. 박자가 빠르면(연구실 PC 100 Hz) 10 이면 된다 (앞 박자 답에서 이어 풀기 때문)."""
         dt = float(np.clip(dt, 1e-3, 0.2))
         if follow and meas is not None:
             self.desired = self.human_to_robot(meas["pinch"])
@@ -118,7 +119,7 @@ class Mapper:
             step *= lim / n
         self.cur = self.cur + step
         self.cur_yaw += float(np.clip(yaw_d - self.cur_yaw, -self.max_yaw_rate * dt, self.max_yaw_rate * dt))
-        q = self.kin.ik(self.cur, grip_orientation(self.cur_yaw), self.q_cmd)
+        q = self.kin.ik(self.cur, grip_orientation(self.cur_yaw), self.q_cmd, iters=ik_iters)
         dq = np.clip(q - self.q_cmd, -self.max_joint_rate * dt, self.max_joint_rate * dt)
         self.q_cmd = self.q_cmd + dq
         return self.q_cmd.copy(), self.width

@@ -256,6 +256,87 @@ def check_hard_cases():
             check(f"8 거울상 판별 ({wn * 1000:.0f} mm, {truth}) 30번 중 27번 넘게", right >= 27)
 
 
+def rot_axis(axis, a):
+    k = np.asarray(axis, float) / np.linalg.norm(axis)
+    K = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+    return np.eye(3) + math.sin(a) * K + (1 - math.cos(a)) * (K @ K)
+
+
+def grasp_like_flat(curl=(0.9, 1.1, 0.6), less=0.0, cup=0.0):
+    """종이에 편 손(hand_model flat)과 뼈 길이·손바닥이 같은 쥔 손 (손바닥 아래로, 집기점이 원점).
+    네 손가락을 뿌리·가운데·끝 마디에서 아래로 굽히고 엄지는 손바닥 아래로 내린다.
+    less: 손가락이 덜 굽은 만큼 (rad) — 쥘 때 MediaPipe 가 손가락 모양을 틀리게 내는 것을 흉내. cup: 약지·새끼 뿌리가 오므라듦 (m)."""
+    p = hand_model("flat").copy()
+    for ch in ((5, 6, 7, 8), (9, 10, 11, 12), (13, 14, 15, 16), (17, 18, 19, 20)):
+        for j in range(3):
+            R = rot_axis([0, 1.0, 0], max(curl[j] - less, 0.0))
+            base = p[ch[j]].copy()
+            for c in ch[j + 1:]:
+                p[c] = base + R @ (p[c] - base)
+    for c, d in zip((2, 3, 4), ((0.012, -0.006, -0.032), (0.014, -0.008, -0.026), (0.012, -0.008, -0.022))):
+        p[c] = p[c - 1] + np.array(d) * (1 + 0.6 * less)
+    if cup:
+        p[13] += np.array([0, cup, -cup * 0.5]) * 0.5
+        p[17] += np.array([0, cup, -cup * 0.5])
+    return p - 0.5 * (p[4] + p[[8, 12, 16, 20]].mean(axis=0))
+
+
+def check_finger_shape():
+    """11/18: 11/16 실물에서 손 높이가 책상 아래 5~20 cm 로 나온 까닭을 흉내. 쥘 때 MediaPipe 손 3D 의 손가락이 덜 굽게 나오면
+    21점으로 방향·위치를 다 푸는 pnp 는 그 틀림이 카메라 쪽 거리로 커지고, 방향은 MediaPipe 것을 쓰고 위치만 푸는 oat 는 덜 커진다.
+    MediaPipe 손 3D 는 카메라와 같은 방향으로 준다 (OAT 의 가정, 11/17 예시 사진에서 1~5° 안). 여기서는 5° 를 일부러 틀리게 준다."""
+    from geometry import backproject_height, palm_size
+    print("== 9. 쥘 때 손가락 모양이 틀릴 때 (손 방향 5° 틀림, 점마다 3 mm, 화면 2 px, 다섯 자리 × 12번)")
+    K_true = intrinsics(focal_from_hfov(70.0, W), W, H)
+    R, t = look_at(np.array([0.65, 0.0, 0.25]), np.array([-0.05, 0.0, 0.05]))
+    calib = TableCalib(shoot(R, t, K_true, CORNERS_TABLE, 1.0), W, H)
+    rng = np.random.default_rng(3)
+
+    def flat_obs():
+        local = hand_model("flat")
+        world = (R @ (local * 1.10).T).T + rng.normal(0, 0.003, local.shape)
+        return world - world.mean(axis=0), shoot(R, t, K_true, local, 2.0)
+
+    def grasp_obs(pos, yaw, tilt, less, cup):
+        Rh = rotz(yaw) @ rot_axis([0, 1.0, 0], tilt)
+        img = shoot(R, t, K_true, (Rh @ grasp_like_flat(cup=cup).T).T + np.asarray(pos, float), 2.0)
+        Re = rot_axis(rng.normal(0, 1, 3), math.radians(5))
+        world = (Re @ R @ Rh @ (grasp_like_flat(less=less) * 1.10).T).T + rng.normal(0, 0.003, (21, 3))
+        return world - world.mean(axis=0), img
+
+    flats = [flat_obs() for _ in range(20)]
+    flat21 = np.median([backproject_height(calib, o[1], FLAT_H) for o in flats], axis=0)
+    (pw, pl), (tw, tl) = palm_size(flat21), palm_size(hand_model("flat"))
+    print(f"  손바닥 보정: 폭 {pw * 100:.2f} cm (참 {tw * 100:.2f}), 길이 {pl * 100:.2f} cm (참 {tl * 100:.2f})")
+    check("9 종이에 편 손으로 잰 손바닥 크기 2 mm 안", abs(pw - tw) < 0.002 and abs(pl - tl) < 0.002)
+    ms = {}
+    for solver in ("pnp", "oat"):
+        cams = [HandMeasure(calib, 1.0, solver=solver)(*o)["lm_cam_raw"] for o in flats]
+        ms[solver] = HandMeasure(calib, scale_for_flat(calib, np.median(cams, axis=0)), solver=solver)
+    ms["palm"] = HandMeasure(calib, 1.0, solver="palm", flat=flat21)
+    spots = [((0, 0, 0.03), 0.0, 0.0), ((0.15, 0.10, 0.03), 0.3, 0.2), ((0.05, -0.05, 0.12), 0.4, -0.2),
+             ((0.10, -0.12, 0.20), 0.0, 0.3), ((-0.08, 0.12, 0.05), -0.4, 0.0)]
+    res = {}
+    for cup in (0.0, 0.01):
+        for less_deg in (0, 15, 30):
+            row = []
+            for name, m in ms.items():
+                e, ez = [], []
+                for pos, yaw, tilt in spots:
+                    for _ in range(12):
+                        r = m(*grasp_obs(pos, yaw, tilt, math.radians(less_deg), cup))
+                        if r is not None:
+                            e.append(np.linalg.norm(r["pinch"] - pos))
+                            ez.append(r["pinch"][2] - pos[2])
+                res[(cup, less_deg, name)] = (np.median(e), np.median(np.abs(ez)))
+                row.append(f"{name} {np.median(e) * 100:4.1f} cm (높이 {np.median(ez) * 100:+4.1f})")
+            print(f"  손바닥 오므림 {cup * 100:.0f} cm, 손가락 {less_deg:2d}° 덜 굽게: 집기점 오차 중간값  " + " | ".join(row))
+    check("9 손가락 모양이 15·30° 틀릴 때 oat 집기점 오차가 pnp 의 절반 아래",
+          all(res[(c, l, "oat")][0] < 0.5 * res[(c, l, "pnp")][0] for c in (0.0, 0.01) for l in (15, 30)))
+    check("9 oat: 손가락 30° 틀려도 높이 오차 중간값 2.5 cm 안",
+          all(res[(c, 30, "oat")][1] < 0.025 for c in (0.0, 0.01)))
+
+
 def verdict():
     bad = [n for n, ok in CHECKS if not ok]
     print()
@@ -271,4 +352,5 @@ def verdict():
 if __name__ == "__main__":
     main()
     check_hard_cases()
+    check_finger_shape()
     raise SystemExit(0 if verdict() else 1)

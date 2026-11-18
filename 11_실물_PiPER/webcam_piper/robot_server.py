@@ -16,6 +16,7 @@ mediapipe·mujoco 가 필요 없다 (numpy, opencv + 실물이면 agx-bus 나 pi
   - 창이 있으면 이 PC 에서도 SPACE 로 멈춤/풀기, Q 로 끝.
 """
 import argparse
+import math
 import os
 import time
 
@@ -41,10 +42,16 @@ def parse():
     ap.add_argument("--x0", type=float, default=0.30, help="로봇 종이 가운데: 밑동에서 앞으로 (m)")
     ap.add_argument("--y0", type=float, default=0.0, help="로봇 종이 가운데: 밑동에서 왼쪽으로 (m)")
     ap.add_argument("--gain", type=float, default=1.0, help="사람 1 cm → 로봇 몇 cm")
-    ap.add_argument("--max-speed", type=float, default=0.12, help="집게 끝 최고 속도 (m/s)")
+    # 11/18: 사람 손 속도로 따라가게 기본값을 올림 (11/16 실물 첫 시험은 6 cm/s·관절 1 rad/s 라 손보다 한참 느렸다).
+    # 노트북은 초당 18~30번 보내므로, 100 Hz 로 돌며 이 속도 제한 안에서 다음 값까지 이어 준다 (뚝뚝 끊기지 않게)
+    ap.add_argument("--max-speed", type=float, default=1.0, help="집게 끝 최고 속도 (m/s). 사람 손 빠르기 ~1")
+    ap.add_argument("--joint-rate", type=float, default=3.0, help="관절 최고 속도 (rad/s). 11/17 까지 1.0")
+    ap.add_argument("--rot-rate", type=float, default=180.0, help="집게가 도는 최고 속도 (도/s). 11/17 까지 60")
+    ap.add_argument("--lift", type=float, default=0.0,
+                    help="집게를 사람 손보다 이만큼 높이 따라가게 (m). 실물 첫 시험은 0.10 (높이 바닥 --min-z 대신)")
     ap.add_argument("--min-z", type=float, default=0.006,
                     help="집게 끝을 책상 위 이 높이(m) 아래로 내리지 않음. 실물 첫 시험은 0.10 처럼 높게 (11/16)")
-    ap.add_argument("--hz", type=float, default=30.0, help="팔에 명령 보내고 기록하는 박자")
+    ap.add_argument("--hz", type=float, default=100.0, help="팔에 명령 보내고 기록하는 박자 (11/17 까지 30)")
     ap.add_argument("--timeout", type=float, default=0.5, help="노트북 패킷이 이만큼(초) 안 오면 멈춤")
     ap.add_argument("--out", default=os.path.join(HERE, "data"))
     ap.add_argument("--wrist-cam", type=int, default=None, help="기록할 손목 카메라 번호 (선택)")
@@ -66,9 +73,13 @@ def main():
     if arm.is_real:
         print("\n[안전] 실물 팔입니다. 팔 둘레를 비우고, 전원 스위치 옆에 사람이 있어야 합니다.")
         print("       노트북에서 SPACE 를 눌러야 따라가고, 통신이 %.1f초 끊기면 멈춥니다. 속도 %d%%" % (a.timeout, a.speed))
-        print("       집게 끝 최고 속도 %.0f cm/s, 책상 위 %.0f cm 아래로는 내려가지 않음" % (a.max_speed * 100, a.min_z * 100))
+        print("       집게 끝 최고 속도 %.0f cm/s, 관절 %.1f rad/s, 책상 위 %.0f cm 아래로는 내려가지 않음, 손보다 %.0f cm 위에서 따라감"
+              % (a.max_speed * 100, a.joint_rate, a.min_z * 100, a.lift * 100))
         input("       준비됐으면 Enter (취소 Ctrl+C) ")
-    mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, min_z=a.min_z)
+    mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, min_z=a.min_z, max_joint_rate=a.joint_rate,
+                    max_yaw_rate=math.radians(a.rot_rate))
+    mapper.robot_start[2] += a.lift                     # 11/18: 손 높이 + lift 로 따라감
+    ik_iters = 10 if a.hz >= 60 else 40                 # 100 Hz 면 한 박자 10번이면 됨 (40번은 7~12 ms 라 박자를 못 지킴)
     mapper.yaw0 = 0.0                                   # 노트북이 집게 방향(yaw)을 그대로 보냄
     mapper.sync_to(arm.joints())
     srv = Server(a.port)
@@ -174,7 +185,7 @@ def main():
                 rec_req_prev = False
                 say(f"link lost, saved {os.path.basename(r[0])} ({r[1]} frames)" if r else "link lost")
             fresh = age < 0.25
-            q_cmd, width = mapper.step(hand if (follow and fresh) else None, dt, follow)
+            q_cmd, width = mapper.step(hand if (follow and fresh) else None, dt, follow, ik_iters)
             if follow:
                 arm.send(q_cmd, width)
             q_now = arm.joints()

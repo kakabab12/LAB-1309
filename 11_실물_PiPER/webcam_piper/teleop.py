@@ -23,7 +23,8 @@ import time
 import cv2
 import numpy as np
 
-from geometry import CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, GRIPS, HandMeasure, TableCalib, flat_fit, scale_for_flat
+from geometry import (CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, FLAT_H, GRIPS, HandMeasure, TableCalib, backproject_height,
+                      flat_fit, palm_size, scale_for_flat)
 from hand import HandTracker, OneEuro, draw_hand
 from mapping import Mapper
 from net import PORT, Link, code_version
@@ -93,9 +94,11 @@ def parse():
     ap.add_argument("--calib", default=os.path.join(HERE, "calib.json"))
     ap.add_argument("--out", default=os.path.join(HERE, "data"))
     ap.add_argument("--checks", default=os.path.join(HERE, "checks.jsonl"), help="P 로 잰 위치 확인을 남길 파일")
-    ap.add_argument("--solver", choices=["pnp", "oat"], default="pnp",
-                    help="손 위치 푸는 법. pnp: 회전+이동 (기본), oat: 이동만 + 앞 장면 벌점 (OAT, ICRA 2026). 바꾸면 S 로 다시 보정")
-    ap.add_argument("--pen", type=float, default=0.5, help="oat 의 앞 장면 벌점 (클수록 덜 흔들리고 더 늦게 따라감)")
+    ap.add_argument("--solver", choices=["oat", "pnp", "palm"], default="oat",
+                    help="손 위치 푸는 방식. oat: 손 방향은 MediaPipe 것, 위치만 풂 (OAT 논문, 11/18 기본) / "
+                         "pnp: 21점으로 방향·위치 다 풂 (11/15~17, 손가락 모양이 틀리면 높이가 크게 틀림) / palm: 손바닥 다섯 점으로 거리")
+    ap.add_argument("--pen", type=float, default=0.0,
+                    help="oat 의 앞 장면 벌점 (클수록 덜 흔들리고 더 늦게 따라감). 11/18 부터 0: 흔들림은 1€ 필터가 거름")
     ap.add_argument("--wrist-cam", type=int, default=None, help="기록할 로봇 손목 카메라 번호 (선택)")
     ap.add_argument("--front-cam", type=int, default=None, help="기록할 로봇 앞/위 카메라 번호 (선택)")
     return ap.parse_args()
@@ -108,7 +111,9 @@ class Smoother:
     ACQUIRE_N, REJUMP_N, AGREE = 3, 5, 0.03
 
     def __init__(self):
-        self.pinch, self.yaw, self.gap = OneEuro(1.5, 0.5), OneEuro(1.0, 0.3), OneEuro(1.5, 0.3)
+        # 11/18: beta 를 m·rad 단위에 맞춤. 예전 (1.5, 0.5) 는 라디안용이라 손을 빨리 움직이면 70 ms 늦고 3 cm 뒤처졌다
+        # (20 fps·잡음 3 mm 흉내: 멈춤 흔들림 4.8 → 1.6 mm, 움직일 때 늦음 70 → 15 ms)
+        self.pinch, self.yaw, self.gap = OneEuro(1.0, 20.0), OneEuro(1.0, 5.0), OneEuro(1.0, 20.0)
         self.last = None
         self.yaw_unwrapped = None
         self.lost_since = None
@@ -168,6 +173,7 @@ def main():
         print("       SPACE 를 눌러야 따라가기 시작하고, 손을 1초 넘게 놓치면 멈춥니다. 속도 %d%%" % a.speed)
         input("       준비됐으면 Enter (취소 Ctrl+C) ")
     grip_mode = a.grip                                     # TAB 으로 프로그램 켠 채 바꿈
+    cal_solver = "oat" if a.solver == "palm" else a.solver  # 보정 중 거울상 판별·배율은 이 방식으로 (palm 은 보정이 끝나야 쓸 수 있음)
     squeeze_by = dict(GRIP_SQUEEZE)
     if a.squeeze is not None:
         squeeze_by[grip_mode] = a.squeeze
@@ -191,13 +197,20 @@ def main():
             saved = json.load(f)
         if saved["table"]["w"] == W and saved["table"]["h"] == H:
             calib = TableCalib.from_dict(saved["table"])
-            measure = HandMeasure(calib, saved["scale"], grip_mode, saved.get("mirror", False), a.solver, a.pen)
-            if saved.get("solver", "pnp") != a.solver:
-                print(f"[보정] 저장된 보정은 --solver {saved.get('solver', 'pnp')} 로 한 것. 손 크기 배율이 조금 다를 수 있으니 S 로 다시 보정하세요")
             if saved.get("label") and saved.get("hand", "right") == a.hand:
                 tracker.want_label = saved["label"]
-            mode = "run"
-            print(f"[보정] {a.calib} 불러옴 (거리 배율 {saved['scale']:.3f})")
+            if a.solver == "palm" and not saved.get("flat_hand_m"):
+                # 종이 모서리는 그대로 쓰고 손 펴서 올려놓기만 다시 (손바닥 다섯 점의 진짜 크기를 재야 함)
+                measure, mode = HandMeasure(calib, 1.0, grip_mode, solver="oat"), "hand"
+                print("[보정] --solver palm 은 손바닥 보정이 있어야 합니다: 손을 종이에 펴서 S")
+            else:
+                measure = HandMeasure(calib, 1.0 if a.solver == "palm" else saved["scale"], grip_mode,
+                                      saved.get("mirror", False), a.solver, a.pen, flat=saved.get("flat_hand_m"))
+                if saved.get("solver", "pnp") != a.solver:
+                    print(f"[보정] 저장된 보정은 --solver {saved.get('solver', 'pnp')} 로 한 것 (지금 {a.solver}). "
+                          "손 크기 배율이 조금 다를 수 있으니 S 로 손 보정만 다시 하세요")
+                mode = "run"
+                print(f"[보정] {a.calib} 불러옴 (거리 배율 {saved['scale']:.3f}, 방식 {a.solver})")
     rec = None if link else Recorder(a.out, {
         "args": vars(a), "robot_start": mapper.robot_start.tolist(),
         "note": "사람 책상 좌표: 원점 A4 가운데, x 앞(노트북 쪽), y 사람 왼쪽, z 위. 로봇 좌표: 밑동 (0,0,0.90)"})
@@ -276,8 +289,8 @@ def main():
                     # MediaPipe 손 3D 가 화면과 같은 손인지 거울상인지: 펴서 올려놓은 21점이 종이 높이에 더 잘 맞는 쪽 (다수결)
                     votes = []
                     for d in samples:
-                        r0, r1 = HandMeasure(calib, 1.0, grip_mode, False, a.solver)(d["world"], d["img_px"]), \
-                            HandMeasure(calib, 1.0, grip_mode, True, a.solver)(d["world"], d["img_px"])
+                        r0, r1 = HandMeasure(calib, 1.0, grip_mode, False, cal_solver)(d["world"], d["img_px"]), \
+                            HandMeasure(calib, 1.0, grip_mode, True, cal_solver)(d["world"], d["img_px"])
                         if r0 and r1:
                             votes.append(flat_fit(calib, r1["lm_cam_raw"])[1] < flat_fit(calib, r0["lm_cam_raw"])[1])
                     mirror = bool(votes) and sum(votes) > 0.7 * len(votes)
@@ -286,14 +299,18 @@ def main():
                     label = max(set(labels), key=labels.count)
                     if labels.count(label) >= 0.8 * len(labels):
                         tracker.want_label = label
-                    m1 = HandMeasure(calib, 1.0, grip_mode, mirror, a.solver)
+                    m1 = HandMeasure(calib, 1.0, grip_mode, mirror, cal_solver)
                     raws = [m1(d["world"], d["img_px"]) for d in samples]
                     raws = [r for r in raws if r]
                     s = scale_for_flat(calib, np.median([r["lm_cam_raw"] for r in raws], axis=0)) if raws else None
-                    if s is None:
+                    # 11/18: 종이에 편 손 21점의 진짜 자리 (화면 점을 어림 높이 FLAT_H 평면에 내림) → palm 방식과 기록 다시 풀기에 씀
+                    flat21 = np.median([backproject_height(calib, d["img_px"], FLAT_H) for d in samples], axis=0)
+                    pw, pl = palm_size(flat21)
+                    if s is None or not np.all(np.isfinite(flat21)):
                         msg, msg_t = "hand calibration failed - try again (S)", t
                     else:
-                        measure = HandMeasure(calib, s, grip_mode, mirror, a.solver, a.pen)
+                        measure = HandMeasure(calib, 1.0 if a.solver == "palm" else s, grip_mode, mirror, a.solver, a.pen,
+                                              flat=flat21)
                         rs = [r for r in (measure(d["world"], d["img_px"]) for d in samples) if r]
                         palm = np.median([r["palm"] for r in rs], axis=0)       # 손바닥 가운데가 + 에서 얼마나
                         with open(a.calib, "w", encoding="utf-8") as f:
@@ -301,11 +318,13 @@ def main():
                                        "mirror_votes": [int(sum(votes)), len(votes)],
                                        "palm_off_m": palm.tolist(), "hand": a.hand, "label": tracker.want_label,
                                        "label_votes": [labels.count(label), len(labels), label],
-                                       "solver": a.solver}, f, indent=1)
-                        msg = (f"saved. scale {s:.3f}, palm center off the cross by x {palm[0]*100:+.1f}"
+                                       "solver": a.solver, "flat_hand_m": np.round(flat21, 5).tolist(),
+                                       "palm_w_l_m": [round(pw, 4), round(pl, 4)]}, f, indent=1)
+                        msg = (f"saved. scale {s:.3f}, palm {pw*100:.1f} x {pl*100:.1f} cm, off the cross x {palm[0]*100:+.1f}"
                                f" y {palm[1]*100:+.1f} cm (near 0 is good), 3D {'MIRRORED' if mirror else 'ok'}"
                                f" {len(votes) - sum(votes)}/{len(votes)}")
-                        print(f"[보정] 배율 {s:.3f}, 손 3D {'거울상으로 판단해 뒤집어 씀' if mirror else '화면과 같은 손'}"
+                        print(f"[보정] 방식 {a.solver}, 배율 {s:.3f}, 손바닥 폭 {pw*100:.1f} cm·길이 {pl*100:.1f} cm (어른 보통 7~9, 9~11),"
+                              f" 손 3D {'거울상으로 판단해 뒤집어 씀' if mirror else '화면과 같은 손'}"
                               f" (거울상 표 {sum(votes)}/{len(votes)}), MediaPipe 표시 '{label}' {labels.count(label)}/{len(labels)}")
                         msg_t = t
                         smooth.reset()
@@ -353,7 +372,8 @@ def main():
                     raw_out["hr"] = [round(float(v), 5) for v in raw["pinch"]] + [round(raw["yaw"], 4), round(raw["gap"], 4)]
             if run and link.seq % 30 == 0:                        # 1초에 한 번 노트북 보정 값
                 raw_out["cal"] = {**calib.to_dict(), "scale": measure.scale, "mirror": measure.mirror,
-                                  "label": tracker.want_label, "solver": a.solver, "pen": a.pen, "grip": grip_mode}
+                                  "label": tracker.want_label, "solver": a.solver, "pen": a.pen, "grip": grip_mode,
+                                  "flat": (None if measure.flat is None else np.round(measure.flat, 4).ravel().tolist())}
             link.send(hand=hand_out, follow=int(run and follow), rec=int(run and rec_req),
                       grip=int(mapper.follow_grip), yawf=int(mapper.follow_yaw), sq=round(mapper.squeeze, 4),
                       ygm=mapper.yaw_gap_min, ypref=round(mapper.yaw_pref, 4), disc=disc_n, bye=0,
@@ -422,7 +442,7 @@ def main():
         elif mode == "corners_check":
             if key in (13, 10):
                 mode, collecting, samples = "hand", False, []
-                measure = HandMeasure(calib, 1.0, grip_mode, solver=a.solver)
+                measure = HandMeasure(calib, 1.0, grip_mode, solver=cal_solver)
             elif key in BACKSPACE:
                 clicks.clear()
                 calib, mode = None, "corners"
@@ -481,7 +501,7 @@ def main():
                 follow = False
                 arm.hold()
                 mode, collecting, samples = "hand", False, []
-                measure = HandMeasure(calib, 1.0, grip_mode, solver=a.solver)
+                measure = HandMeasure(calib, 1.0, grip_mode, solver=cal_solver)
             elif key == ord("p"):
                 msg, msg_t = check_point(meas, measure.scale, a.checks), t
 

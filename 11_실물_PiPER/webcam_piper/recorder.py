@@ -82,17 +82,23 @@ def open_camera(index, width=None, height=None):
     """웹캠을 열고 첫 장을 읽는다. 윈도우 노트북 중에는 기본 방식으로 안 열리는 것이 있어 DirectShow 로 한 번 더 해 본다.
     돌려줌: (cap, 첫 장) 또는 (None, None)."""
     apis = [cv2.CAP_ANY] + ([cv2.CAP_DSHOW] if os.name == "nt" else [])
-    for api in apis:
-        cap = cv2.VideoCapture(index, api)
-        if cap.isOpened():
-            if width:
-                cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-            if height:
-                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-            ok, frame = cap.read()
-            if ok and frame is not None:
-                return cap, frame
-        cap.release()
+    # 11/18: 먼저 MJPG·초당 30장을 청해 본다 (노트북 기본 방식은 1280x720 에서 초당 18장쯤이었음). 안 되면 예전처럼
+    for mjpg in (True, False):
+        for api in apis:
+            cap = cv2.VideoCapture(index, api)
+            if cap.isOpened():
+                if mjpg:
+                    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+                if width:
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+                if height:
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+                if mjpg:
+                    cap.set(cv2.CAP_PROP_FPS, 30)
+                ok, frame = cap.read()
+                if ok and frame is not None:
+                    return cap, frame
+            cap.release()
     return None, None
 
 

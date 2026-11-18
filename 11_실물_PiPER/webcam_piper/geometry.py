@@ -30,6 +30,7 @@ PINCH_H0 = 0.012                     # 사람 시작점(종이 + 위 집기점) 
 # MediaPipe 손 랜드마크 번호
 WRIST, THUMB_TIP, INDEX_MCP, INDEX_TIP, MIDDLE_MCP, PINKY_MCP = 0, 4, 5, 8, 9, 17
 GRIPS = {"whole": (8, 12, 16, 20), "pinch": (8,)}       # 엄지 맞은편 손가락 끝들
+PALM = (WRIST, INDEX_MCP, MIDDLE_MCP, 13, PINKY_MCP)      # 손목·네 손가락 뿌리: 쥐어도 거의 안 변하는 손바닥 점 (11/18)
 # 손을 종이에 펴서 올려놓았을 때 21점의 높이 어림 (m). MediaPipe 점은 관절 가운데라 그 자리 살 두께의 절반쯤.
 # 손목 1.8, 손가락 뿌리 1.3, 가운데 마디 1.0, 끝 마디 0.8, 손끝 0.6 cm (어림값, 실제 손으로 잰 것 아님)
 FLAT_H = np.array([0.018,
@@ -153,6 +154,55 @@ def hand_trans_cam(world_lm, img_px, K, prev=None, beta=0.0):
     return world + p, p
 
 
+def backproject_height(calib, img_px, heights):
+    """화면 점 → 책상 좌표. 점 i 가 책상 위 heights[i] 높이에 있다고 보고, 카메라에서 그 점으로 뻗은 광선이 그 높이와 만나는 곳.
+    손을 종이에 펴서 올려놓았을 때 21점의 진짜 3D 자리를 MediaPipe 손 크기 가정 없이 구한다 (11/18)."""
+    uv1 = np.c_[np.asarray(img_px, np.float64).reshape(-1, 2), np.ones(len(heights))]
+    d = (uv1 @ np.linalg.inv(calib.K).T) @ calib.R            # 광선 방향 (책상 좌표) = Rᵀ K⁻¹ [u v 1]
+    dz = np.where(np.abs(d[:, 2]) < 1e-9, np.nan, d[:, 2])
+    lam = (np.asarray(heights, np.float64) - calib.cam_pos[2]) / dz
+    return calib.cam_pos + lam[:, None] * d
+
+
+def kabsch(A, B):
+    """가운데를 뺀 점 A, B (n×3) 에서 R @ A_i ≈ B_i 인 회전 R (거울 없음)."""
+    U, _, Vt = np.linalg.svd(np.asarray(A).T @ np.asarray(B))
+    D = np.diag([1.0, 1.0, float(np.sign(np.linalg.det(Vt.T @ U.T)) or 1.0)])
+    return Vt.T @ D @ U.T
+
+
+def palm_size(pts21):
+    """손바닥 크기 (m): 검지 뿌리 ↔ 새끼 뿌리 폭, 손목 ↔ 가운데 손가락 뿌리 길이. 보정이 그럴듯한지 보는 데 쓴다."""
+    p = np.asarray(pts21, np.float64).reshape(-1, 3)
+    return float(np.linalg.norm(p[INDEX_MCP] - p[PINKY_MCP])), float(np.linalg.norm(p[MIDDLE_MCP] - p[WRIST]))
+
+
+def hand_palm_cam(world_lm, img_px, K, tpl):
+    """손바닥 다섯 점으로만 거리를 잰다 (11/18, 11/16 실물에서 손 높이가 책상 아래 5~20 cm 로 나온 것을 고치려고).
+    손가락은 쥘 때마다 모양이 바뀌어 MediaPipe 손 3D 가 틀리기 쉽고, 21점 전체로 풀면 그 틀림이 카메라 방향 거리로 커진다.
+    손바닥(손목, 네 손가락 뿌리)은 쥐어도 거의 안 변하므로, 보정 때 종이 위에서 잰 진짜 손바닥 tpl (5×3, 가운데 뺀 것, m) 을 쓴다.
+      1) MediaPipe 손바닥 다섯 점에 tpl 을 겹치는 회전 → 손바닥이 카메라에 어떻게 놓였는지 (MediaPipe 3D 는 카메라와 같은 방향)
+      2) 그렇게 돌린 진짜 손바닥이 화면 다섯 점에 맞는 위치 p (OAT 식 (2) 와 같은 직선 풀이, 이동만)
+      3) 손가락은 MediaPipe 3D 를 진짜 손바닥 크기에 맞춰 늘이거나 줄여 그 손바닥에 붙인다 (손가락 모양 틀림은 그만큼만 남음)
+    돌려줌: (21점 카메라 좌표, p) 또는 None."""
+    world = np.asarray(world_lm, np.float64).reshape(-1, 3)
+    W = world[list(PALM)]
+    wc = W.mean(axis=0)
+    X = (kabsch(tpl, W - wc) @ np.asarray(tpl).T).T                  # 진짜 손바닥, 카메라 방향, 가운데가 원점
+    n = np.c_[np.asarray(img_px, np.float64).reshape(-1, 2)[list(PALM)], np.ones(len(PALM))] @ np.linalg.inv(K).T
+    A = np.zeros((2 * len(PALM), 3))
+    A[0::2, 0], A[1::2, 1] = 1.0, 1.0
+    A[0::2, 2], A[1::2, 2] = -n[:, 0], -n[:, 1]
+    b = np.empty(2 * len(PALM))
+    b[0::2] = n[:, 0] * X[:, 2] - X[:, 0]
+    b[1::2] = n[:, 1] * X[:, 2] - X[:, 1]
+    p = np.linalg.lstsq(A, b, rcond=None)[0]
+    if p[2] + X[:, 2].min() <= 0.05:                              # 카메라 뒤나 코앞이면 실패
+        return None
+    k = math.sqrt(float((X ** 2).sum()) / max(float(((W - wc) ** 2).sum()), 1e-12))   # 진짜 손바닥 / MediaPipe 손바닥 크기
+    return p + k * (world - wc), p
+
+
 def scale_for_start(calib, pinch_cam, h0=PINCH_H0):
     """시작 자세에서 잰 집기점(카메라 좌표)이 책상 위 높이 h0 에 오도록 하는 거리 배율 s.
     카메라 원점에서 뻗은 같은 직선 위를 s 배 늘이거나 줄인다: z_table(s·p) = h0."""
@@ -186,14 +236,22 @@ def scale_for_flat(calib, lm_cam, heights=FLAT_H):
 class HandMeasure:
     """한 장면의 손 → 사람 책상 좌표의 집기점, 집게 방향(yaw), 손가락 사이 거리, 손바닥 가운데."""
 
-    def __init__(self, calib, scale=1.0, grip="whole", mirror=False, solver="pnp", beta=0.0):
+    def __init__(self, calib, scale=1.0, grip="whole", mirror=False, solver="pnp", beta=0.0, flat=None):
         self.calib = calib
         self.scale = scale
         self.tips = list(GRIPS[grip])
         self.mirror = mirror        # MediaPipe 손 3D 가 화면과 거울상이면 z 를 뒤집어 쓴다 (보정 때 판별)
-        self.solver = solver        # "pnp": 회전+이동 (11/15~), "oat": 이동만 + 앞 장면 벌점 beta (11/17, OAT 논문)
+        # "pnp": 회전+이동 (11/15~), "oat": 이동만 + 앞 장면 벌점 beta (11/17, OAT 논문),
+        # "palm": 손바닥 다섯 점으로 거리 (11/18 기본). palm 은 flat (종이에 편 손 21점의 책상 좌표, 보정 때 잼) 이 있어야 하고 배율은 1
+        self.solver = solver
         self.beta = beta
         self.prev_p = None
+        self.flat = None if flat is None else np.asarray(flat, np.float64).reshape(21, 3)
+        if solver == "palm":
+            if self.flat is None or not np.all(np.isfinite(self.flat)):
+                raise ValueError("palm 방식은 손바닥 보정(flat)이 있어야 함 — 손을 종이에 펴서 S")
+            tpl = self.flat[list(PALM)]
+            self.palm_tpl = tpl - tpl.mean(axis=0)
 
     def reset(self):
         """손을 놓쳤을 때: 앞 장면 벌점을 끊는다."""
@@ -208,6 +266,11 @@ class HandMeasure:
             if r is None:
                 return None
             cam, self.prev_p = r
+        elif self.solver == "palm":
+            r = hand_palm_cam(world, img_px, self.calib.K, self.palm_tpl)
+            if r is None:
+                return None
+            cam = r[0]
         else:
             pose = hand_pose_cam(world, img_px, self.calib.K)
             if pose is None:

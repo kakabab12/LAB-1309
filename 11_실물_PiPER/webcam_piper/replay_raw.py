@@ -3,7 +3,8 @@
   python replay_raw.py data/날짜_시각/ep_000.npz            # 표만
   python replay_raw.py data/날짜_시각/ep_000.npz --png 그림.png
 
-방식: pnp (회전+이동, 11/15~ 기본), oat (OAT 논문: 이동만), oat+벌점 (이동만 + 앞 장면과의 차이 벌점).
+방식: pnp (회전+이동, 11/15~17 기본), oat (OAT 논문: 이동만, 11/18 기본), oat+벌점 (이동만 + 앞 장면과의 차이 벌점),
+palm (손바닥 다섯 점으로 거리, 11/18 — 노트북 보정에 손바닥 자리(flat)가 있을 때만).
 모두 노트북과 같은 Smoother(1€ 필터, 튀는 값 버리기)를 거친 뒤 비교한다. 노트북 보정 값은 같은 이름의 .json 에서 읽는다.
 손 크기 배율은 노트북이 보정한 값을 그대로 쓴다 (방식마다 1~2% 다를 수 있음).
 """
@@ -34,7 +35,9 @@ def load(path):
 
 
 def solve(d, keep, calib, cal, solver, beta):
-    meas = HandMeasure(calib, cal["scale"], cal.get("grip", "whole"), cal.get("mirror", False), solver, beta)
+    flat = np.array(cal["flat"], float).reshape(21, 3) if cal.get("flat") else None
+    meas = HandMeasure(calib, 1.0 if solver == "palm" else cal["scale"], cal.get("grip", "whole"), cal.get("mirror", False),
+                       solver, beta, flat=flat)
     sm, raw_out, out = Smoother(), [], []
     for i in keep:
         l2, l3 = d["lm2d"][i], d["lm3d"][i]
@@ -62,13 +65,13 @@ def stats(p, t):
     det = np.array(det).T
     jump = np.linalg.norm(np.diff(q, axis=0), axis=1)
     return {"found": ok.mean(), "below": np.mean(q[:, 2] < -0.03), "jit": det.std(0), "jump99": np.percentile(jump, 99),
-            "jumpmax": jump.max(), "z_med": np.median(q[:, 2])}
+            "jumpmax": jump.max(), "z_med": np.median(q[:, 2]), "z5": np.percentile(q[:, 2], 5), "z95": np.percentile(q[:, 2], 95)}
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("episode")
-    ap.add_argument("--pen", type=float, default=0.5)
+    ap.add_argument("--pen", type=float, default=0.5, help="oat+벌점 줄의 벌점")
     ap.add_argument("--png", default=None)
     a = ap.parse_args()
     d, cal, calib, keep = load(a.episode)
@@ -78,10 +81,13 @@ def main():
           f"배율 {cal['scale']:.3f}, 초점 {cal['f']:.0f}px ({cal['focal_source']}), 카메라 자리 "
           f"{np.round(np.array(cal['cam_pos_table_m']) * 100)} cm")
     rows = [("노트북이 보낸 값", d["hand"][keep])]
-    for name, solver, beta in (("pnp", "pnp", 0.0), ("oat 이동만", "oat", 0.0), (f"oat+벌점{a.pen}", "oat", a.pen)):
+    ways = [("pnp", "pnp", 0.0), ("oat 이동만", "oat", 0.0), (f"oat+벌점{a.pen}", "oat", a.pen)]
+    if cal.get("flat"):
+        ways.append(("palm 손바닥", "palm", 0.0))
+    for name, solver, beta in ways:
         _, out = solve(d, keep, calib, cal, solver, beta)
         rows.append((name, out))
-    print("방식              | 손 찾음 | 책상 3cm 아래 | 흔들림 std 앞뒤/좌우/높이 cm | 장면간 이동 99%/최대 cm | 높이 가운데 cm")
+    print("방식              | 손 찾음 | 책상 3cm 아래 | 흔들림 std 앞뒤/좌우/높이 cm | 장면간 이동 99%/최대 cm | 높이 가운데 (5~95%) cm")
     for name, p in rows:
         s = stats(p, t)
         if s is None:
@@ -89,7 +95,8 @@ def main():
             continue
         j = s["jit"] * 100
         print(f"{name:16s} | {s['found'] * 100:5.0f}% | {s['below'] * 100:9.0f}%  | {j[0]:.2f}/{j[1]:.2f}/{j[2]:.2f}"
-              f"                | {s['jump99'] * 100:.1f}/{s['jumpmax'] * 100:.1f}            | {s['z_med'] * 100:.1f}")
+              f"                | {s['jump99'] * 100:.1f}/{s['jumpmax'] * 100:.1f}            | {s['z_med'] * 100:.1f}"
+              f" ({s['z5'] * 100:.1f}~{s['z95'] * 100:.1f})")
     if a.png:
         import matplotlib
         matplotlib.use("Agg")
