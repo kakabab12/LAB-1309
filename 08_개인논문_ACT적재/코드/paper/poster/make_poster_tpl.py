@@ -458,7 +458,7 @@ def s_rules(x, y, w):
         k = min(RW / iw_, (RH - 4) / ih_)
         picture(IMG / f"p_rule{i + 1}.png", x + (RW - iw_ * k) / 2, ry + (RH - ih_ * k) / 2, w=iw_ * k, name=f"rule {i + 1}")
         textbox(x + RW + 8, ry, w - RW - 8, RH, [
-            P(head, 30, True, DARK, line=1.0, after=3),
+            P(head, 28, True, DARK, line=1.0, after=3),
             P(desc, 22, False, INK, line=1.1, after=3),
             {"runs": [("연속 성공률 ", 22, False, MUTED), (eff, 26, True, DARK)], "line": 1.0},
         ], anchor="ctr", name=f"rule text {i + 1}")
