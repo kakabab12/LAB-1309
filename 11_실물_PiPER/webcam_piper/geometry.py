@@ -49,13 +49,14 @@ def focal_from_hfov(hfov_deg, w):
     return (w / 2.0) / math.tan(math.radians(hfov_deg) / 2.0)
 
 
-def estimate_focal(img_pts, w, h):
-    """종이 한 장(평면) 한 장면에서 초점거리 추정 (Zhang 방식, 주점 = 화면 가운데, 정사각 화소 가정).
-    호모그래피 H = K [r1 r2 t] 에서 r1·r2 = 0, |r1| = |r2| 두 식을 f 에 대해 풀어 평균. 못 풀면 None."""
+def focal_candidates(img_pts, w, h):
+    """종이 한 장(평면) 한 장면에서 초점거리 후보 (Zhang 방식, 주점 = 화면 가운데, 정사각 화소 가정).
+    호모그래피 H = K [r1 r2 t] 에서 r1·r2 = 0, |r1| = |r2| 두 식을 f 에 대해 따로 푼 값 (풀린 것만, 0.4w~3w).
+    모서리 순서가 A4 가로 비율과 맞으면 두 값이 거의 같고, 틀리면 어긋난다 (paper.py 가 순서 고를 때 씀, 11/18)."""
     src = CORNERS_TABLE[:, :2].astype(np.float64)
     H, _ = cv2.findHomography(src, np.asarray(img_pts, np.float64))
     if H is None:
-        return None
+        return []
     cx, cy = w / 2.0, h / 2.0
     T = np.array([[1, 0, -cx], [0, 1, -cy], [0, 0, 1.0]])
     Hc = T @ H                                    # 주점을 원점으로 옮김 → K = diag(f, f, 1)
@@ -73,8 +74,30 @@ def estimate_focal(img_pts, w, h):
         f2 = -((h1[0] ** 2 + h1[1] ** 2) - (h2[0] ** 2 + h2[1] ** 2)) / den
         if f2 > 0:
             cands.append(math.sqrt(f2))
-    cands = [f for f in cands if 0.4 * w < f < 3.0 * w]
-    return float(np.mean(cands)) if cands else None
+    return [f for f in cands if 0.4 * w < f < 3.0 * w]
+
+
+def corner_reproj_px(img_pts, f, w, h):
+    """초점거리 f 로 종이 자세를 풀었을 때 네 모서리가 화면 점과 가장 많이 어긋난 거리 (px)."""
+    K = intrinsics(f, w, h)
+    pts = np.asarray(img_pts, np.float64).reshape(4, 2)
+    ok, rvec, tvec = cv2.solvePnP(CORNERS_TABLE, pts, K, None, flags=cv2.SOLVEPNP_IPPE)
+    if not ok:
+        return float("inf")
+    p, _ = cv2.projectPoints(CORNERS_TABLE, rvec, tvec, K, None)
+    return float(np.max(np.linalg.norm(p.reshape(-1, 2) - pts, axis=1)))
+
+
+def estimate_focal(img_pts, w, h):
+    """후보(와 두 후보의 평균) 중 네 모서리에 가장 잘 맞는 것. 못 풀면 None.
+    11/18: 예전에는 두 후보를 그냥 평균했는데, 카메라가 종이를 거의 정면에서 보면 r1·r2 = 0 쪽 식이 잘 안 풀려
+    (가짜 화면: 참 914 px 에 후보 908·1028) 평균이 6% 틀렸다. 어긋남이 가장 작은 것을 고른다."""
+    cands = focal_candidates(img_pts, w, h)
+    if not cands:
+        return None
+    if len(cands) == 2:
+        cands.append(float(np.mean(cands)))
+    return float(min(cands, key=lambda f: corner_reproj_px(img_pts, f, w, h)))
 
 
 class TableCalib:
@@ -233,6 +256,123 @@ def scale_for_flat(calib, lm_cam, heights=FLAT_H):
     return s if s is not None and 0.5 < s < 2.0 else None
 
 
+def proj_matrix(calib):
+    """책상 좌표 → 화면 px 투영 행렬 P = K [R | t] (3×4)."""
+    return calib.K @ np.c_[calib.R, calib.t]
+
+
+def triangulate(Ps, pts):
+    """카메라 여러 대의 같은 점들 → 책상 좌표 3D (DLT, 교수님 논문 Point Policy 부록 B1 과 같은 식, 11/18).
+    카메라마다 x(p3·X) − p1·X = 0, y(p3·X) − p2·X = 0 두 줄을 쌓은 AX = 0 을 SVD 로 푼다 (가장 작은 특이값의 벡터).
+    Ps: [3×4 투영 행렬], pts: [(n,2) 화면 점] → ((n,3) 책상 좌표, (n,) 카메라 중 가장 크게 어긋난 재투영 거리 px)."""
+    pts = [np.asarray(p, np.float64).reshape(-1, 2) for p in pts]
+    n = len(pts[0])
+    X = np.full((n, 3), np.nan)
+    err = np.full(n, np.inf)
+    for i in range(n):
+        A = []
+        for P, p in zip(Ps, pts):
+            A.append(p[i, 0] * P[2] - P[0])
+            A.append(p[i, 1] * P[2] - P[1])
+        A = np.array(A)
+        A /= np.linalg.norm(A, axis=1, keepdims=True)
+        Xh = np.linalg.svd(A)[2][-1]
+        if abs(Xh[3]) < 1e-12:
+            continue
+        X[i] = Xh[:3] / Xh[3]
+        e = 0.0
+        for P, p in zip(Ps, pts):
+            q = P @ np.r_[X[i], 1.0]
+            e = max(e, float(np.linalg.norm(q[:2] / q[2] - p[i])) if q[2] > 0 else float("inf"))
+        err[i] = e
+    return X, err
+
+
+def hand_summary(tab, tips):
+    """손 21점 (책상 좌표) → 집기점·집게 방향(yaw)·손가락 사이·손바닥 가운데 (HandMeasure 와 같은 식)."""
+    thumb, other = tab[THUMB_TIP], tab[list(tips)].mean(axis=0)
+    axis = other - thumb                                                        # 엄지 → 맞은편 손가락
+    # 로봇 집게는 yaw 0 에서 로봇 y 축(좌우)으로 닫힌다. 엄지 → 손가락 줄과 같은 줄로 닫히게 하는 yaw (180° 마다 같음)
+    yaw = math.atan2(axis[1], axis[0]) - math.pi / 2
+    return {"pinch": 0.5 * (thumb + other), "yaw": yaw, "gap": float(np.linalg.norm(axis)),
+            "palm": 0.5 * (tab[WRIST] + tab[MIDDLE_MCP])}
+
+
+class StereoHand:
+    """카메라 두 대의 손 21점 → 삼각측량한 책상 좌표 손 (11/18, ABKO APC930 두 대).
+    MediaPipe 손 크기 가정도, 손 펴서 재는 배율도 필요 없다 (두 광선이 만나는 곳이 곧 거리).
+    두 화면의 손이 같은 손이 아니거나(다른 손을 고름) 크게 틀리면 재투영이 커지므로 max_err_px 로 거른다."""
+
+    def __init__(self, calib1, calib2, grip="whole", max_err_px=12.0):
+        self.calibs = (calib1, calib2)
+        self.Ps = [proj_matrix(calib1), proj_matrix(calib2)]
+        self.tips = list(GRIPS[grip])
+        self.max_err = max_err_px
+        self.last_err = None
+
+    def __call__(self, img1, img2):
+        X, err = triangulate(self.Ps, [img1, img2])
+        self.last_err = float(np.median(err))
+        if not np.isfinite(self.last_err) or self.last_err > self.max_err:
+            return None
+        out = hand_summary(X, self.tips)
+        out["tab21"] = X
+        out["err_px"] = self.last_err
+        return out
+
+
+class FlatHandGate:
+    """손 보정 저절로 시작 (11/18): 손이 종이 + 위에 펴진 채 가만히 있으면 True.
+      - 손바닥 가운데(손목과 가운데 손가락 뿌리 사이)를 종이 높이로 내린 자리가 + 에서 center_m 안
+      - 손목 → 가운데 손가락 뿌리가 노트북 쪽(책상 +x) 을 향함 (±angle_deg)
+      - 편 손: MediaPipe 3D 21점이 '종이에 편 손' 높이(FLAT_H)에 rms_m 안으로 맞음 (거울상 두 경우 중 잘 맞는 쪽)
+      - 가만히: hold 장면 동안 손바닥 다섯 점의 평균 자리가 still_px 안에서만 움직임
+        (점 하나하나로 보면 MediaPipe 의 1 px 흔들림에도 걸려서 11/18 가짜 카메라 시험에서 끝내 시작하지 않았음)
+    부를 때마다 (됐는지, 화면에 띄울 짧은 영어 안내) 를 돌려준다. 손이 들려 있으면 종이 높이로 내린 자리가
+    카메라 반대쪽으로 크게 밀려나 + 에서 벗어나므로 '종이 위에 올려놓음' 도 같이 걸러진다."""
+
+    def __init__(self, calib, solver="oat", hold=12, still_px=4.0, center_m=0.04, angle_deg=40.0, rms_m=0.012):
+        self.calib, self.solver = calib, solver
+        self.hold, self.still, self.center, self.angle, self.rms_max = hold, still_px, center_m, angle_deg, rms_m
+        self.hist = []
+        self.last_rms = None
+
+    def reset(self):
+        self.hist = []
+
+    def __call__(self, world_lm, img_px):
+        img = np.asarray(img_px, np.float64).reshape(21, 2)
+        flat = backproject_height(self.calib, img, FLAT_H)
+        if not np.all(np.isfinite(flat)):
+            self.reset()
+            return False, "show your hand over the paper"
+        palm = 0.5 * (flat[WRIST] + flat[MIDDLE_MCP])
+        off = float(np.linalg.norm(palm[:2]))
+        if off > self.center:
+            self.reset()
+            return False, f"palm center onto the cross ({off * 100:.0f} cm off)"
+        d = flat[MIDDLE_MCP] - flat[WRIST]
+        if abs(math.degrees(math.atan2(d[1], d[0]))) > self.angle:
+            self.reset()
+            return False, "point your fingers toward the laptop"
+        rms = float("inf")
+        for mirror in (False, True):
+            r = HandMeasure(self.calib, 1.0, "whole", mirror, self.solver)(world_lm, img)
+            if r is not None:
+                s, e = flat_fit(self.calib, r["lm_cam_raw"])
+                if s is not None and 0.6 < s < 1.6:
+                    rms = min(rms, e)
+        self.last_rms = rms
+        if rms > self.rms_max:
+            self.reset()
+            return False, "lay the hand FLAT, fingers straight" + (f" ({rms * 1000:.0f} mm)" if np.isfinite(rms) else "")
+        c = img[list(PALM)].mean(axis=0)
+        self.hist = [h for h in self.hist if np.linalg.norm(h - c) <= self.still] + [c]
+        if len(self.hist) < self.hold:
+            return False, f"hold still {len(self.hist)}/{self.hold}"
+        return True, "ok"
+
+
 class HandMeasure:
     """한 장면의 손 → 사람 책상 좌표의 집기점, 집게 방향(yaw), 손가락 사이 거리, 손바닥 가운데."""
 
@@ -278,9 +418,6 @@ class HandMeasure:
             Rh, th = pose
             cam = (Rh @ world.T).T + th                                             # 21점 카메라 좌표 (배율 1)
         tab = (self.calib.R.T @ (self.scale * cam - self.calib.t).T).T              # 책상 좌표
-        thumb, other = tab[THUMB_TIP], tab[self.tips].mean(axis=0)
-        axis = other - thumb                                                        # 엄지 → 맞은편 손가락
-        # 로봇 집게는 yaw 0 에서 로봇 y 축(좌우)으로 닫힌다. 엄지 → 손가락 줄과 같은 줄로 닫히게 하는 yaw (180° 마다 같음)
-        yaw = math.atan2(axis[1], axis[0]) - math.pi / 2
-        return {"pinch": 0.5 * (thumb + other), "yaw": yaw, "gap": float(np.linalg.norm(axis)),
-                "palm": 0.5 * (tab[WRIST] + tab[MIDDLE_MCP]), "lm_cam_raw": cam}
+        out = hand_summary(tab, self.tips)
+        out["lm_cam_raw"] = cam
+        return out

@@ -103,15 +103,22 @@ def open_camera(index, width=None, height=None):
 
 
 class CamGrabber:
-    """로봇 쪽 카메라를 따로 읽는 일꾼. 기록할 때 기다리지 않고 가장 새 사진을 꺼낸다."""
+    """카메라를 따로 읽는 일꾼. 기다리지 않고 가장 새 사진을 꺼낸다 (로봇 쪽 기록 카메라, 11/18 부터 두 번째 손 카메라).
+    mjpg: MJPG·초당 fps 장을 청함 (ABKO APC930 은 압축 안 하면 1280x720 에서 초당 10장).
+    lock_focus_after: 켠 뒤 이 초가 지나면 자동 초점을 끈다 (초점이 움직이면 초점거리도 조금 바뀌어 삼각측량이 틀어짐)."""
 
-    def __init__(self, index, width=640, height=480):
+    def __init__(self, index, width=640, height=480, mjpg=False, fps=None, lock_focus_after=None):
         import threading
         self.cap = cv2.VideoCapture(index)
+        if mjpg:
+            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        if fps:
+            self.cap.set(cv2.CAP_PROP_FPS, fps)
         self.ok = self.cap.isOpened()
-        self.frame = None
+        self.frame, self.t, self.n = None, None, 0
+        self.lock_focus_after = lock_focus_after
         self.lock = threading.Lock()
         self.running = self.ok
         self.thread = threading.Thread(target=self._run, daemon=True)
@@ -119,17 +126,26 @@ class CamGrabber:
             self.thread.start()
 
     def _run(self):
+        t0 = time.monotonic()
         while self.running:
             ok, f = self.cap.read()
             if ok:
                 with self.lock:
-                    self.frame = f
+                    self.frame, self.t, self.n = f, time.monotonic(), self.n + 1
             else:
                 time.sleep(0.01)
+            if self.lock_focus_after is not None and time.monotonic() - t0 > self.lock_focus_after:
+                self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)            # 읽는 쓰레드에서 바꿔야 안전
+                self.lock_focus_after = None
 
     def latest(self):
         with self.lock:
             return self.frame
+
+    def latest_with_time(self):
+        """(사진, 찍힌 때 monotonic, 몇 번째 사진) — 같은 사진을 두 번 쓰지 않게."""
+        with self.lock:
+            return self.frame, self.t, self.n
 
     def close(self):
         self.running = False

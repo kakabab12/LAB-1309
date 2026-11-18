@@ -202,6 +202,10 @@ def main():
                         lm3d=(np.array(last["l3"], float).reshape(21, 3) if last and last.get("l3") else np.full((21, 3), np.nan)),
                         hand_raw=(np.array(last["hr"], float) if last and last.get("hr") else np.full(5, np.nan)),
                         grip_mode=(int(last.get("gm", -1)) if last else -1),
+                        # 11/18 카메라 두 대: 손 측정이 어디서 왔나 (2 삼각측량, 1 한 대, 0 없음), 두 번째 화면 21점, 삼각측량 21점(책상 좌표)
+                        src=(int(last.get("src", -1)) if last else -1),
+                        lm2d_b=(np.array(last["l2b"], float).reshape(21, 2) if last and last.get("l2b") else np.full((21, 2), np.nan)),
+                        tri3d=(np.array(last["t3"], float).reshape(21, 3) if last and last.get("t3") else np.full((21, 3), np.nan)),
                         **{f"{k}_jpg": jpeg(v, 640) for k, v in imgs.items()})
 
             srv.reply(q=[round(float(v), 5) for v in q_now], w=(round(float(w_now), 4) if np.isfinite(w_now) else None),

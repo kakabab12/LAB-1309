@@ -14,7 +14,7 @@ import math
 import cv2
 import numpy as np
 
-from geometry import (CORNERS_TABLE, FLAT_H, PINCH_H0, HandMeasure, TableCalib, focal_from_hfov, intrinsics,
+from geometry import (A4_D, A4_W, CORNERS_TABLE, FLAT_H, PINCH_H0, HandMeasure, TableCalib, focal_from_hfov, intrinsics,
                       scale_for_flat)
 from mapping import Mapper
 from piper_kin import TABLE_Z, PiperKin
@@ -337,6 +337,107 @@ def check_finger_shape():
           all(res[(c, 30, "oat")][1] < 0.025 for c in (0.0, 0.01)))
 
 
+def check_auto_calib():
+    """11/18 저절로 보정: 그린 책상 사진에서 A4 모서리 찾기, 손을 + 위에 펴서 가만히 두었는지 알아채기."""
+    import cv2
+    from fake_scene import project, render_desk
+    from geometry import FlatHandGate
+    from paper import find_paper
+    print("== 10. 종이 저절로 찾기 (그린 책상 사진 1280x720, 카메라 자리 6 × 책상 색 3)")
+    K_true = intrinsics(focal_from_hfov(70.0, W), W, H)
+    rng = np.random.default_rng(5)
+    poses = {"노트북 정면 (앞 65, 높이 25)": ((0.65, 0, 0.25), (-0.05, 0, 0.05)),
+             "노트북 낮게 (앞 55, 높이 18)": ((0.55, 0.0, 0.18), (-0.05, 0, 0.03)),
+             "노트북 조금 비낌": ((0.60, -0.05, 0.28), (0.0, 0.0, 0.03)),
+             "C920 위 (앞 45, 높이 55)": ((0.45, 0.0, 0.55), (0.0, 0, 0.0)),
+             "비스듬히 (앞 50 왼 30)": ((0.50, 0.30, 0.40), (0.0, 0, 0.0)),
+             "옆으로 돌림 (앞 60 오른 20)": ((0.60, -0.20, 0.28), (0.0, 0.0, 0.03))}
+    worst, wrong, missed, cam_err = 0.0, 0, 0, 0.0
+    for name, (cp, tgt) in poses.items():
+        R, t = look_at(np.array(cp), np.array(tgt))
+        true = project(R, t, K_true, CORNERS_TABLE)
+        errs = []
+        for desk in ((60, 85, 115), (150, 150, 150), (205, 205, 200)):
+            r = find_paper(render_desk(R, t, K_true, W, H, rng, desk=desk))
+            if r is None:
+                missed += 1
+                continue
+            e = float(np.max(np.linalg.norm(r[0] - true, axis=1)))
+            wrong += e > 20                                     # 순서가 틀리면 수십~수백 px
+            worst = max(worst, e)
+            cam_err = max(cam_err, float(np.linalg.norm(r[1].cam_pos - np.array(cp))))
+            errs.append(e)
+        print(f"  {name:22s} 찾음 {len(errs)}/3, 모서리 오차 최대 {max(errs) if errs else float('nan'):.1f} px")
+    print(f"  모두: 못 찾음 {missed}, 순서 틀림 {wrong}, 모서리 오차 최대 {worst:.1f} px, 카메라 자리 오차 최대 {cam_err * 100:.1f} cm")
+    check("10 종이 저절로 찾기: 18장 모두 찾고 순서 맞음, 모서리 3 px 안", missed == 0 and wrong == 0 and worst < 3.0)
+    check("10 종이 저절로 찾기: 카메라 자리 3 cm 안", cam_err < 0.03)
+    R, t = look_at(np.array([0.65, 0.0, 0.25]), np.array([-0.05, 0.0, 0.05]))
+    empty = render_desk(R, t, K_true, W, H, rng)
+    empty[:] = cv2.GaussianBlur(np.full_like(empty, 90), (3, 3), 0)
+    sq = render_desk(R, t, K_true, W, H, rng, other=[(-0.30, 0.25), (-0.30, 0.10), (-0.15, 0.10), (-0.15, 0.25)])
+    sq_only = render_desk(R, t, K_true, W, H, rng, other=[(-0.05, 0.08), (-0.05, -0.07), (0.10, -0.07), (0.10, 0.08)])
+    covered = render_desk(R, t, K_true, W, H, rng, blob=(A4_D / 2, -A4_W / 2, 0.05))
+    r_sq = find_paper(sq)
+    print(f"  종이 없음: {'못 찾음' if find_paper(empty) is None else '찾았다고 함'} / 종이 + 옆에 흰 정사각 카드: "
+          f"{'A4 를 찾음' if r_sq is not None and np.max(np.linalg.norm(r_sq[0] - project(R, t, K_true, CORNERS_TABLE), axis=1)) < 3 else '틀림'}"
+          f" / 모서리 하나를 손이 가림: {'못 찾음 (손을 치우면 찾음)' if find_paper(covered) is None else '찾음'}")
+    calib = TableCalib(project(R, t, K_true, CORNERS_TABLE), W, H)
+    r_only = find_paper(_paint_square_only(sq_only, R, t, K_true))
+    check("10 종이 없거나 정사각 카드만 있으면 찾았다고 하지 않음", find_paper(empty) is None and r_only is None)
+    r_cov = find_paper(covered)
+    check("10 손이 모서리를 가리면 엉뚱한 모서리를 받지 않음",
+          r_cov is None or np.max(np.linalg.norm(r_cov[0] - project(R, t, K_true, CORNERS_TABLE), axis=1)) < 3)
+    check("10 A4 옆에 다른 흰 카드가 있어도 A4 를 고름", r_sq is not None and
+          np.max(np.linalg.norm(r_sq[0] - project(R, t, K_true, CORNERS_TABLE), axis=1)) < 3)
+
+    print("== 11. 손을 + 위에 펴서 가만히 두었는지 (가만히 둔 손도 화면 점이 1.5 px 씩 흔들림)")
+    gate_rng = np.random.default_rng(6)
+
+    def flat_frames(pos, yaw, n, kind="flat", noise=1.5, drift=0.0):
+        local = hand_model(kind, 0.08)
+        outs = []
+        for i in range(n):
+            p = np.asarray(pos, float) + np.array([drift * i, 0, 0])
+            img = shoot(R, t, K_true, (rotz(yaw) @ local.T).T + p, 0.0) + gate_rng.normal(0, noise, (21, 2))
+            world = (R @ rotz(yaw) @ (local * 1.10).T).T + gate_rng.normal(0, 0.003, (21, 3))
+            outs.append((world - world.mean(axis=0), img))
+        return outs
+
+    def first_ok(frames):
+        g = FlatHandGate(calib, "oat")
+        for i, (w_, im) in enumerate(frames):
+            ok, why = g(w_, im)
+            if ok:
+                return i + 1, why
+        return None, why
+
+    cases = [("+ 위에 편 손, 가만히", flat_frames((0, 0, 0), 0.0, 30), True),
+             ("편 손을 20° 돌려 놓음", flat_frames((0, 0, 0), math.radians(20), 30), True),
+             ("+ 에서 8 cm 옆", flat_frames((0, 0.08, 0), 0.0, 30), False),
+             ("손가락을 옆으로 (70°)", flat_frames((0, 0, 0), math.radians(70), 30), False),
+             ("손을 6 cm 들고 있음", flat_frames((0, 0, 0.06), 0.0, 30), False),
+             ("쥔 손", flat_frames((0, 0, 0.03), 0.0, 30, kind="grasp"), False),
+             ("+ 근처에서 천천히 미는 중 (장면마다 1.5 mm)", flat_frames((-0.02, 0, 0), 0.0, 26, drift=0.0015), False)]
+    good = True
+    for name, frames, want in cases:
+        n, why = first_ok(frames)
+        print(f"  {name:24s}: {'시작함 (' + str(n) + '장째)' if n else '안 함 — ' + why}")
+        good &= (n is not None) == want
+    check("11 편 손·가만히일 때만 손 보정을 저절로 시작", good)
+
+
+def _paint_square_only(img, R, t, K):
+    """sq_only 사진에서 A4 를 책상색으로 덮어 흰 정사각 카드만 남긴다."""
+    import cv2
+    from fake_scene import project
+    out = img.copy()
+    p = project(R, t, K, CORNERS_TABLE * 1.03)
+    cv2.fillPoly(out, [np.round(p).astype(np.int32)], (60, 85, 115))
+    q = project(R, t, K, [[-0.05, 0.08, 0], [-0.05, -0.07, 0], [0.10, -0.07, 0], [0.10, 0.08, 0]])
+    cv2.fillPoly(out, [np.round(q).astype(np.int32)], (215, 218, 220))
+    return out
+
+
 def verdict():
     bad = [n for n, ok in CHECKS if not ok]
     print()
@@ -353,4 +454,5 @@ if __name__ == "__main__":
     main()
     check_hard_cases()
     check_finger_shape()
+    check_auto_calib()
     raise SystemExit(0 if verdict() else 1)

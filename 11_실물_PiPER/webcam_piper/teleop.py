@@ -10,7 +10,10 @@ PiPER 는 팔 길이가 사람과 달라 관절 각도를 옮기면 집게가 �
   python teleop.py --send 192.168.0.10 # 팔은 연구실 PC 에: 손 측정만 보내고, 연구실 PC 에서 robot_server.py 가 팔을 움직임
 화면 글자는 영어다 (OpenCV 가 한글을 못 그림). 키:
   SPACE 따라가기 켜기/끄기   R 기록 시작/끝   X 마지막 기록 지우기   G 집게 따라가기   Y 손 돌림 따라가기
-  [ 집게 약하게 ] 세게 (5 mm)   --grip pinch 면 엄지·검지로 집음 (기본은 손 전체)   C 종이 모서리 다시   S 손 시작 자세 다시   Q 또는 ESC 끝
+  [ 집게 약하게 ] 세게 (5 mm)   --grip pinch 면 엄지·검지로 집음 (기본은 손 전체)   S 손 보정 다시   Q 또는 ESC 끝
+  C 종이 다시 찾기 (저절로)   M 종이 모서리를 손으로 누르기 (저절로 못 찾을 때)
+보정 (11/18 부터 저절로): 종이가 보이면 모서리를 스스로 찾고, 손을 + 위에 펴서 1초쯤 가만히 두면 손 보정이 된다.
+  저장된 보정으로 켜면 처음 몇 초 동안 종이를 다시 찾아, 노트북이나 종이가 움직였으면 다시 보정한다. --manual-calib 이면 예전처럼.
   P 위치 확인: 다섯 손가락 끝을 모아 종이 모서리나 + 에 대고 누르면, 가장 가까운 점과 몇 cm 다른지 띄우고 checks.jsonl 에 남김
   TAB (또는 H) 손 모양 바꾸기: 손 전체 ↔ 엄지·검지 (11/17). 따라가기 중이면 멈추므로 SPACE 로 다시. 쥐는 세기는 모양마다 따로 기억
 """
@@ -23,11 +26,12 @@ import time
 import cv2
 import numpy as np
 
-from geometry import (CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, FLAT_H, GRIPS, HandMeasure, TableCalib, backproject_height,
-                      flat_fit, palm_size, scale_for_flat)
+from geometry import (CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, FLAT_H, GRIPS, PALM, FlatHandGate, HandMeasure, StereoHand,
+                      TableCalib, backproject_height, flat_fit, palm_size, scale_for_flat)
 from hand import HandTracker, OneEuro, draw_hand
 from mapping import Mapper
 from net import PORT, Link, code_version
+from paper import PaperFinder
 from panel import DISP_H, robot_panel
 from piper_kin import HOME_Q, PiperKin
 from recorder import CamGrabber, Recorder, jpeg, open_camera
@@ -74,8 +78,11 @@ GUIDE = _load_guide()
 def parse():
     ap = argparse.ArgumentParser(description="웹캠 PiPER 원격조종")
     ap.add_argument("--cam", type=int, default=0, help="웹캠 번호 (노트북 내장 = 0)")
+    ap.add_argument("--cam2", type=int, default=None,
+                    help="두 번째 카메라 번호: 두 화면 삼각측량 (11/18, Point Policy 처럼). 리눅스는 카메라 하나에 /dev/video 가 둘씩이라 보통 2")
     ap.add_argument("--width", type=int, default=1280)
-    ap.add_argument("--height", type=int, default=720)
+    ap.add_argument("--height", type=int, default=960, help="ABKO APC930 은 4:3 센서라 1280x960 이 화면 전체 (11/17 까지 720)")
+    ap.add_argument("--af", action="store_true", help="자동 초점을 켜 둠 (기본: 켠 뒤 3초에 끔 — 초점이 움직이면 초점거리도 바뀜)")
     ap.add_argument("--hfov", type=float, default=None, help="카메라 가로 시야각(도). 모르면 비워 두면 종이로 추정")
     ap.add_argument("--hand", choices=["right", "left"], default="right")
     ap.add_argument("--robot", choices=["preview", "agxbus", "sdk"], default="preview")
@@ -99,6 +106,8 @@ def parse():
                          "pnp: 21점으로 방향·위치 다 풂 (11/15~17, 손가락 모양이 틀리면 높이가 크게 틀림) / palm: 손바닥 다섯 점으로 거리")
     ap.add_argument("--pen", type=float, default=0.0,
                     help="oat 의 앞 장면 벌점 (클수록 덜 흔들리고 더 늦게 따라감). 11/18 부터 0: 흔들림은 1€ 필터가 거름")
+    ap.add_argument("--manual-calib", action="store_true",
+                    help="보정을 손으로만: 종이 모서리 네 번 누르기, 손 펴고 S (11/18 부터 기본은 저절로)")
     ap.add_argument("--wrist-cam", type=int, default=None, help="기록할 로봇 손목 카메라 번호 (선택)")
     ap.add_argument("--front-cam", type=int, default=None, help="기록할 로봇 앞/위 카메라 번호 (선택)")
     return ap.parse_args()
@@ -186,16 +195,36 @@ def main():
     if cap is None:
         raise SystemExit(f"웹캠 {a.cam} 을 못 엶 (다른 프로그램이 쓰는 중인지, 카메라 권한, --cam 1 을 보세요)")
     H, W = frame.shape[:2]
+    t_open = time.monotonic()
+    focus_locked = a.af
+    grab2, tracker2 = None, None
+    if a.cam2 is not None:
+        grab2 = CamGrabber(a.cam2, W, H, mjpg=True, fps=30, lock_focus_after=None if a.af else 3.0)
+        t_wait = time.monotonic()
+        while grab2.ok and grab2.latest() is None and time.monotonic() - t_wait < 3.0:
+            time.sleep(0.05)
+        if not grab2.ok or grab2.latest() is None:
+            raise SystemExit(f"두 번째 카메라 {a.cam2} 을 못 엶 (번호 확인: 리눅스는 보통 0 과 2)")
+        f2 = grab2.latest()
+        if f2.shape[:2] != (H, W):
+            raise SystemExit(f"두 카메라 크기가 다름: {W}x{H} / {f2.shape[1]}x{f2.shape[0]}")
+        print(f"[카메라] 두 대: {a.cam} 과 {a.cam2}, {W}x{H}. 둘 다 손을 보면 삼각측량, 한 대만 보면 그 한 대로")
     extra = {} if link else {k: CamGrabber(i) for k, i in (("wrist", a.wrist_cam), ("front", a.front_cam))
                              if i is not None}
 
     tracker = HandTracker(a.hand)
+    tracker2 = HandTracker(a.hand) if grab2 else None
     smooth = Smoother()
     calib, measure, mode, clicks = None, None, "corners", []
+    calib2, stereo = None, None
     if os.path.exists(a.calib):
         with open(a.calib, encoding="utf-8") as f:
             saved = json.load(f)
-        if saved["table"]["w"] == W and saved["table"]["h"] == H:
+        t2 = saved.get("table2")
+        if grab2 and t2 and t2["w"] == W and t2["h"] == H and saved.get("cam2") == a.cam2:
+            calib2 = TableCalib.from_dict(t2)
+            print(f"[보정] 두 번째 카메라 보정 불러옴 (초점 {calib2.f:.0f}px)")
+        if "table" in saved and saved["table"]["w"] == W and saved["table"]["h"] == H:
             calib = TableCalib.from_dict(saved["table"])
             if saved.get("label") and saved.get("hand", "right") == a.hand:
                 tracker.want_label = saved["label"]
@@ -211,6 +240,27 @@ def main():
                           "손 크기 배율이 조금 다를 수 있으니 S 로 손 보정만 다시 하세요")
                 mode = "run"
                 print(f"[보정] {a.calib} 불러옴 (거리 배율 {saved['scale']:.3f}, 방식 {a.solver})")
+    # 11/18 저절로 보정: 종이가 보이면 모서리를 스스로 찾고, 손을 + 위에 펴서 가만히 두면 손 보정을 시작한다.
+    # 저장된 보정을 불러왔으면 켠 뒤 몇 초 동안 종이를 찾아 보고, 노트북이나 종이가 움직였으면 다시 보정한다.
+    auto = not a.manual_calib
+    finder, gate = PaperFinder(a.hfov), None
+    recheck_until = time.monotonic() + 4.0 if (auto and mode == "run") else None
+    # 두 번째 카메라는 언제나 저절로 (종이 모서리를 누르는 화면이 하나뿐이라). 불러온 보정은 켠 뒤 4초 동안 다시 확인
+    finder2 = PaperFinder(a.hfov)
+    recheck2_until = time.monotonic() + 4.0 if (grab2 and calib2 is not None) else None
+    det2, frame2, n2_seen, t_stereo, src = None, None, -1, -1e9, 0
+
+    def save_table2():
+        d = {}
+        if os.path.exists(a.calib):
+            try:
+                with open(a.calib, encoding="utf-8") as f_:
+                    d = json.load(f_)
+            except (OSError, ValueError):
+                d = {}
+        d["table2"], d["cam2"] = calib2.to_dict(), a.cam2
+        with open(a.calib, "w", encoding="utf-8") as f_:
+            json.dump(d, f_, indent=1)
     rec = None if link else Recorder(a.out, {
         "args": vars(a), "robot_start": mapper.robot_start.tolist(),
         "note": "사람 책상 좌표: 원점 A4 가운데, x 앞(노트북 쪽), y 사람 왼쪽, z 위. 로봇 좌표: 밑동 (0,0,0.90)"})
@@ -239,7 +289,44 @@ def main():
         dt, t_prev = t - t_prev, t
         fps = 0.9 * fps + 0.1 / max(dt, 1e-3)
         det = tracker.detect(frame, t * 1000)
-        raw = measure(det["world"], det["img_px"]) if (measure and det) else None
+        if not focus_locked and t - t_open > 3.0:
+            cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)                  # 초점을 그 자리에 고정 (11/18)
+            focus_locked = True
+        if grab2:
+            f2, t2_, n2 = grab2.latest_with_time()
+            if n2 != n2_seen and f2 is not None:
+                n2_seen, frame2 = n2, f2
+                det2 = tracker2.detect(frame2, t2_ * 1000)
+                if calib2 is None or recheck2_until is not None:
+                    found2 = finder2.feed(frame2)
+                    if recheck2_until is not None and t > recheck2_until:
+                        recheck2_until = None
+                    elif found2 is not None:
+                        moved2 = None if calib2 is None else float(np.max(np.linalg.norm(found2 - calib2.img_pts, axis=1)))
+                        recheck2_until = None
+                        if moved2 is None or moved2 > 8.0:
+                            calib2 = TableCalib(found2, W, H, a.hfov)
+                            save_table2()
+                            msg, msg_t = "camera 2: paper found" + (f" (moved {moved2:.0f} px)" if moved2 else ""), t
+                            print(f"[보정] 두 번째 카메라가 종이를 찾음: 초점 {calib2.f:.0f}px, 카메라 자리 "
+                                  f"{np.round(calib2.cam_pos * 100).astype(int).tolist()} cm")
+        if calib is not None and calib2 is not None:
+            if stereo is None or stereo.calibs[0] is not calib or stereo.calibs[1] is not calib2:
+                stereo = StereoHand(calib, calib2, grip_mode)
+                if calib.focal_source == "estimate" and calib2.focal_source == "estimate":
+                    print(f"[삼각측량] 준비됨. 두 카메라 초점 {calib.f:.0f} / {calib2.f:.0f} px "
+                          f"(같은 기종이라 비슷해야 함, 차이 {abs(calib.f - calib2.f) / max(calib.f, calib2.f) * 100:.0f}%)")
+        else:
+            stereo = None
+        raw, src = None, 0
+        if stereo is not None and det and det2:
+            raw = stereo(det["img_px"], det2["img_px"])
+            if raw is not None:
+                src, t_stereo = 2, t
+        # 한 대만 손을 보면 그 한 대로 (손 보정 배율이 있어야 함). 삼각측량이 막 끊긴 0.3초 동안은 기다린다 (값이 튀지 않게)
+        if raw is None and measure and det and (stereo is None or t - t_stereo > 0.3):
+            raw = measure(det["world"], det["img_px"])
+            src = 1 if raw is not None else 0
         if measure and not det:
             measure.reset()
         meas = smooth(t, raw)
@@ -259,13 +346,47 @@ def main():
                            cv2.MARKER_CROSS, 24, 2)
         for i, p in enumerate(clicks):
             cv2.circle(view, (int(p[0]), int(p[1])), 7, (0, 0, 255), -1)
+        if mode == "corners" and auto and finder.last is not None:          # 찾는 중인 종이 (빨강)
+            cv2.polylines(view, [np.round(finder.last).astype(np.int32)], True, (0, 0, 255), 2)
         disp = cv2.resize(cv2.flip(view, 1), (int(W * scale_disp), DISP_H))
+        if grab2 and frame2 is not None:                                   # 두 번째 카메라: 오른쪽 아래 작은 화면
+            v2 = frame2.copy()
+            if det2:
+                draw_hand(v2, det2["img_px"], tips=(4,) + GRIPS[grip_mode])
+            if calib2 is not None:
+                cv2.polylines(v2, [calib2.project(CORNERS_TABLE).astype(np.int32)], True, (255, 200, 0), 4)
+                cv2.drawMarker(v2, tuple(calib2.project([[0, 0, 0]])[0].astype(int)), (0, 200, 255),
+                               cv2.MARKER_CROSS, 40, 4)
+            elif finder2.last is not None:
+                cv2.polylines(v2, [np.round(finder2.last).astype(np.int32)], True, (0, 0, 255), 4)
+            iw = disp.shape[1] // 3
+            ih = int(iw * H / W)
+            small = cv2.resize(cv2.flip(v2, 1), (iw, ih))
+            y0_, x0_ = DISP_H - ih - 6, disp.shape[1] - iw - 6
+            disp[y0_:y0_ + ih, x0_:x0_ + iw] = small
+            cv2.rectangle(disp, (x0_ - 1, y0_ - 1), (x0_ + iw, y0_ + ih), (255, 255, 255), 1)
+            cv2.putText(disp, "cam2" + ("" if calib2 is not None else ": looking for the paper"), (x0_ + 6, y0_ + 18),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
 
         lines = []
+        if mode == "corners" and auto and not clicks:
+            found = finder.feed(frame)
+            if found is not None:
+                try:
+                    calib = TableCalib(found, W, H, a.hfov)
+                    measure, gate = HandMeasure(calib, 1.0, grip_mode, solver=cal_solver), None
+                    mode, collecting, samples = "hand", False, []
+                    msg, msg_t = "paper found automatically (blue dots should sit on the paper; M = click by hand)", t
+                    print(f"[보정] 종이를 저절로 찾음: 초점 {calib.f:.0f}px, 모서리 어긋남 {calib.reproj_px:.1f}px, "
+                          f"카메라 자리 {np.round(calib.cam_pos * 100).astype(int).tolist()} cm (종이 + 기준 앞·왼쪽·위)")
+                except RuntimeError:
+                    finder.reset()
         if mode == "corners":
             if len(clicks) < 4:
-                lines = ["CALIBRATION 1/2: click the paper corners (seen from YOUR seat)",
-                         f"next: {CORNER_NAMES[len(clicks)]}   (BACKSPACE: undo)"]
+                lines = ["CALIBRATION 1/2: " + ("looking for the paper... keep hands and things off it"
+                                                if auto and not clicks else "click the paper corners (seen from YOUR seat)"),
+                         (f"or click the corners by hand: next {CORNER_NAMES[len(clicks)]}" if auto and not clicks
+                          else f"next: {CORNER_NAMES[len(clicks)]}   (BACKSPACE: undo)")]
             else:
                 try:
                     calib = TableCalib(clicks, W, H, a.hfov)
@@ -278,11 +399,24 @@ def main():
                      f"focal {calib.f:.0f}px ({calib.focal_source}), corner error {calib.reproj_px:.1f}px"]
         if mode == "hand":
             lines = [f"CALIBRATION 2/2: lay your {a.hand} hand FLAT on the paper,",
-                     "palm center on the cross, fingers toward the laptop. Hold still, press S",
-                     "(keep the other hand out of view)"]
+                     "palm center on the cross, fingers toward the laptop. Hold still" + (" (starts by itself)" if auto
+                                                                                         else ", press S"),
+                     "(keep the other hand out of view)   C: find paper again  M: click corners"]
+            if auto and not collecting:
+                if gate is None or gate.calib is not calib:
+                    gate = FlatHandGate(calib, cal_solver)
+                ok_flat, why = gate(det["world"], det["img_px"]) if det else (False, "show your hand")
+                lines.append("auto: " + why)
+                if ok_flat:
+                    collecting, samples = True, []
+                    gate.reset()
             if collecting:
                 lines.append(f"measuring... {len(samples)}/20  (keep still)")
                 if det is not None:
+                    if samples and np.linalg.norm(np.asarray(det["img_px"])[list(PALM)].mean(axis=0)
+                                                  - np.asarray(samples[0]["img_px"])[list(PALM)].mean(axis=0)) > 6.0:
+                        samples = []                                  # 재는 동안 손이 움직이면 처음부터 (11/18)
+                        msg, msg_t = "hand moved - measuring again", t
                     samples.append(det)
                 if len(samples) >= 20:
                     collecting = False
@@ -319,7 +453,9 @@ def main():
                                        "palm_off_m": palm.tolist(), "hand": a.hand, "label": tracker.want_label,
                                        "label_votes": [labels.count(label), len(labels), label],
                                        "solver": a.solver, "flat_hand_m": np.round(flat21, 5).tolist(),
-                                       "palm_w_l_m": [round(pw, 4), round(pl, 4)]}, f, indent=1)
+                                       "palm_w_l_m": [round(pw, 4), round(pl, 4)],
+                                       "table2": calib2.to_dict() if calib2 is not None else None,
+                                       "cam2": a.cam2}, f, indent=1)
                         msg = (f"saved. scale {s:.3f}, palm {pw*100:.1f} x {pl*100:.1f} cm, off the cross x {palm[0]*100:+.1f}"
                                f" y {palm[1]*100:+.1f} cm (near 0 is good), 3D {'MIRRORED' if mirror else 'ok'}"
                                f" {len(votes) - sum(votes)}/{len(votes)}")
@@ -329,6 +465,25 @@ def main():
                         msg_t = t
                         smooth.reset()
                         mode = "run"
+        if mode == "run" and recheck_until is not None:
+            # 켠 뒤 몇 초: 저장된 종이 자리가 지금도 맞는지 (따라가기를 켜면 그만 봄)
+            found = None if follow else finder.feed(frame)
+            if follow or t > recheck_until:
+                recheck_until = None
+                if not follow:
+                    print("[보정] 종이를 못 찾아 저장된 보정을 그대로 씀 (종이 위에 물건이 있거나 가려졌을 수 있음)")
+            elif found is not None:
+                recheck_until = None
+                moved = float(np.max(np.linalg.norm(found - calib.img_pts, axis=1)))
+                if moved > 8.0:
+                    calib = TableCalib(found, W, H, a.hfov)
+                    measure, gate = HandMeasure(calib, 1.0, grip_mode, solver=cal_solver), None
+                    mode, collecting, samples = "hand", False, []
+                    msg, msg_t = f"camera or paper moved ({moved:.0f} px): paper re-found, now lay your hand flat", t
+                    print(f"[보정] 노트북이나 종이가 움직였음 (모서리 {moved:.0f} px): 종이를 다시 잡았고 손 보정을 다시 합니다")
+                else:
+                    msg, msg_t = f"paper check ok ({moved:.1f} px)", t
+                    print(f"[보정] 종이 자리 그대로 (모서리 {moved:.1f} px 차)")
         if mode == "run":
             if not link:
                 q_cmd, width = mapper.step(meas if follow else None, dt, follow)
@@ -346,6 +501,12 @@ def main():
             else:
                 lines = ["hand not found"]
             lines.append(f"{fps:4.1f} fps   SPACE follow  R rec  TAB hand: {GRIP_NAME[grip_mode]}")
+            if grab2:
+                lines.append("3D: " + ("2 cameras (triangulated, err %.1f px)" % stereo.last_err if src == 2 else
+                                       "camera 1 only" if src == 1 else
+                                       "waiting for camera 2 paper" if calib2 is None else
+                                       "hand not seen by both cameras"
+                                       + (" (err %.0f px)" % stereo.last_err if stereo and stereo.last_err else "")))
             lines.append(f"G grip:{'on' if mapper.follow_grip else 'off'}  Y yaw:{'on' if mapper.follow_yaw else 'off'}"
                          f"  [ ] squeeze {mapper.squeeze*1000:.0f}mm")
         if mode == "hand" and GUIDE is not None and GUIDE.shape[0] + 16 <= disp.shape[0] \
@@ -370,14 +531,19 @@ def main():
                            "l3": [round(float(v), 4) for v in np.ravel(det["world"])], "lb": det["label"]}
                 if raw:
                     raw_out["hr"] = [round(float(v), 5) for v in raw["pinch"]] + [round(raw["yaw"], 4), round(raw["gap"], 4)]
+                if det2 is not None:                               # 11/18 두 번째 카메라 화면 21점, 삼각측량 21점 (책상 좌표)
+                    raw_out["l2b"] = [round(float(v), 1) for v in np.ravel(det2["img_px"])]
+                if raw is not None and src == 2:
+                    raw_out["t3"] = [round(float(v), 4) for v in np.ravel(raw["tab21"])]
             if run and link.seq % 30 == 0:                        # 1초에 한 번 노트북 보정 값
                 raw_out["cal"] = {**calib.to_dict(), "scale": measure.scale, "mirror": measure.mirror,
                                   "label": tracker.want_label, "solver": a.solver, "pen": a.pen, "grip": grip_mode,
-                                  "flat": (None if measure.flat is None else np.round(measure.flat, 4).ravel().tolist())}
+                                  "flat": (None if measure.flat is None else np.round(measure.flat, 4).ravel().tolist()),
+                                  "table2": calib2.to_dict() if calib2 is not None else None}
             link.send(hand=hand_out, follow=int(run and follow), rec=int(run and rec_req),
                       grip=int(mapper.follow_grip), yawf=int(mapper.follow_yaw), sq=round(mapper.squeeze, 4),
                       ygm=mapper.yaw_gap_min, ypref=round(mapper.yaw_pref, 4), disc=disc_n, bye=0,
-                      gm=int(grip_mode == "pinch"), **raw_out)
+                      gm=int(grip_mode == "pinch"), src=src, **raw_out)
             st = link.poll()
             if st and st.get("msg_n") != seen_msg_n:
                 if seen_msg_n is not None and st.get("msg"):
@@ -448,6 +614,14 @@ def main():
                 calib, mode = None, "corners"
         elif mode == "hand" and key == ord("s") and not collecting:
             collecting, samples = True, []
+        elif mode == "hand" and key in (ord("c"), ord("m")):
+            auto = key == ord("c") and not a.manual_calib       # C: 종이 다시 찾기, M: 모서리를 손으로 누르기
+            clicks.clear()
+            finder.reset()
+            if key == ord("c") and grab2:
+                calib2 = None
+                finder2.reset()
+            calib, measure, mode, collecting = None, None, "corners", False
         elif mode == "run":
             if key == ord(" "):
                 follow = not follow
@@ -475,6 +649,8 @@ def main():
                 squeeze_by[grip_mode] = mapper.squeeze
                 grip_mode = "pinch" if grip_mode == "whole" else "whole"
                 measure.tips = list(GRIPS[grip_mode])
+                if stereo is not None:
+                    stereo.tips = list(GRIPS[grip_mode])
                 mapper.squeeze, mapper.yaw_gap_min = squeeze_by[grip_mode], GRIP_YGM[grip_mode]
                 smooth.reset()
                 paused_now = follow
@@ -492,10 +668,16 @@ def main():
                 mapper.squeeze = max(0.0, mapper.squeeze - 0.005)
             elif key == ord("]"):
                 mapper.squeeze = min(0.05, mapper.squeeze + 0.005)
-            elif key == ord("c"):
+            elif key in (ord("c"), ord("m")):
                 follow = False
                 arm.hold()
+                auto = key == ord("c") and not a.manual_calib
                 clicks.clear()
+                finder.reset()
+                recheck_until = None
+                if key == ord("c") and grab2:
+                    calib2 = None
+                    finder2.reset()
                 calib, measure, mode = None, None, "corners"
             elif key == ord("s"):
                 follow = False
@@ -517,6 +699,9 @@ def main():
     arm.close()
     tracker.close()
     cap.release()
+    if grab2:
+        tracker2.close()
+        grab2.close()
     for c in extra.values():
         c.close()
     cv2.destroyAllWindows()
