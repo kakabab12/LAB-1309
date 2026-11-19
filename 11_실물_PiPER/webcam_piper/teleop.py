@@ -106,6 +106,8 @@ def parse():
                          "pnp: 21점으로 방향·위치 다 풂 (11/15~17, 손가락 모양이 틀리면 높이가 크게 틀림) / palm: 손바닥 다섯 점으로 거리")
     ap.add_argument("--pen", type=float, default=0.0,
                     help="oat 의 앞 장면 벌점 (클수록 덜 흔들리고 더 늦게 따라감). 11/18 부터 0: 흔들림은 1€ 필터가 거름")
+    ap.add_argument("--status", default=None, metavar="폴더",
+                    help="이 폴더에 상태(status.json, 0.25초마다)와 화면(view.jpg, 1초마다)을 남김 — 다른 프로그램이 실시간으로 보게 (11/18)")
     ap.add_argument("--manual-calib", action="store_true",
                     help="보정을 손으로만: 종이 모서리 네 번 누르기, 손 펴고 S (11/18 부터 기본은 저절로)")
     ap.add_argument("--wrist-cam", type=int, default=None, help="기록할 로봇 손목 카메라 번호 (선택)")
@@ -214,9 +216,13 @@ def main():
 
     tracker = HandTracker(a.hand)
     tracker2 = HandTracker(a.hand) if grab2 else None
+    pool2 = None
+    if grab2:
+        from concurrent.futures import ThreadPoolExecutor
+        pool2 = ThreadPoolExecutor(max_workers=1)
     smooth = Smoother()
     calib, measure, mode, clicks = None, None, "corners", []
-    calib2, stereo = None, None
+    calib2, stereo, saved = None, None, {}
     if os.path.exists(a.calib):
         with open(a.calib, encoding="utf-8") as f:
             saved = json.load(f)
@@ -228,7 +234,11 @@ def main():
             calib = TableCalib.from_dict(saved["table"])
             if saved.get("label") and saved.get("hand", "right") == a.hand:
                 tracker.want_label = saved["label"]
-            if a.solver == "palm" and not saved.get("flat_hand_m"):
+            if "scale" not in saved:
+                # cam_check.py 에서 종이만 맞추고 저장한 것: 손 보정만 하면 됨 (손 펴서 1초, 11/18)
+                measure, mode = HandMeasure(calib, 1.0, grip_mode, solver=cal_solver), "hand"
+                print("[보정] 종이 보정을 불러옴 (cam_check). 손을 종이 + 위에 펴서 1초 두면 손 보정")
+            elif a.solver == "palm" and not saved.get("flat_hand_m"):
                 # 종이 모서리는 그대로 쓰고 손 펴서 올려놓기만 다시 (손바닥 다섯 점의 진짜 크기를 재야 함)
                 measure, mode = HandMeasure(calib, 1.0, grip_mode, solver="oat"), "hand"
                 print("[보정] --solver palm 은 손바닥 보정이 있어야 합니다: 손을 종이에 펴서 S")
@@ -244,11 +254,13 @@ def main():
     # 저장된 보정을 불러왔으면 켠 뒤 몇 초 동안 종이를 찾아 보고, 노트북이나 종이가 움직였으면 다시 보정한다.
     auto = not a.manual_calib
     finder, gate = PaperFinder(a.hfov), None
-    recheck_until = time.monotonic() + 4.0 if (auto and mode == "run") else None
+    # cam_check.py 에서 사람이 확인(클릭)하고 저장한 종이는 다시 찾지 않는다 (흰 책상에서 엉뚱한 네모로 덮어쓸 수 있음, 11/18)
+    trusted = os.path.exists(a.calib) and saved.get("paper_source") == "cam_check"
+    recheck_until = time.monotonic() + 4.0 if (auto and mode == "run" and not trusted) else None
     # 두 번째 카메라는 언제나 저절로 (종이 모서리를 누르는 화면이 하나뿐이라). 불러온 보정은 켠 뒤 4초 동안 다시 확인
     finder2 = PaperFinder(a.hfov)
-    recheck2_until = time.monotonic() + 4.0 if (grab2 and calib2 is not None) else None
-    det2, frame2, n2_seen, t_stereo, src = None, None, -1, -1e9, 0
+    recheck2_until = time.monotonic() + 4.0 if (grab2 and calib2 is not None and not trusted) else None
+    det2, frame2, n2_seen, t_stereo, src, last_pinch = None, None, -1, -1e9, 0, None
 
     def save_table2():
         d = {}
@@ -278,6 +290,10 @@ def main():
     cv2.setMouseCallback(win, on_mouse)
 
     follow, collecting, samples, msg, msg_t = False, False, [], "", 0.0
+    status_t = snap_t = 0.0
+    last_gate = ""
+    if a.status:
+        os.makedirs(a.status, exist_ok=True)
     rec_on = (lambda: rec.on) if rec else (lambda: bool(link.status and link.status.get("rec")))
     t_prev = time.monotonic()
     fps = 0.0
@@ -288,15 +304,26 @@ def main():
         t = time.monotonic()
         dt, t_prev = t - t_prev, t
         fps = 0.9 * fps + 0.1 / max(dt, 1e-3)
+        # 두 카메라 손 찾기를 함께 돌린다 (MediaPipe 는 계산 중에 파이썬 잠금을 풀어서, 따로 돌리면 초당 15장 → 더 빨라짐, 11/18)
+        fut2 = None
+        if grab2:
+            f2_, t2_now, n2_now = grab2.latest_with_time()
+            if n2_now != n2_seen and f2_ is not None:
+                fut2 = pool2.submit(tracker2.detect, f2_, t2_now * 1000)
         det = tracker.detect(frame, t * 1000)
         if not focus_locked and t - t_open > 3.0:
             cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)                  # 초점을 그 자리에 고정 (11/18)
             focus_locked = True
         if grab2:
-            f2, t2_, n2 = grab2.latest_with_time()
+            if fut2 is not None:                                # 함께 돌린 것: 그때 넘긴 사진·시각과 짝을 맞춘다
+                f2, t2_, n2 = f2_, t2_now, n2_now
+            else:
+                f2, t2_, n2 = grab2.latest_with_time()
+            if t2_ is None or time.monotonic() - t2_ > 0.3:
+                det2 = None                                     # 두 번째 카메라 사진이 0.3초 넘게 안 옴 (선이 빠짐 등): 옛 손 점을 쓰지 않음
             if n2 != n2_seen and f2 is not None:
                 n2_seen, frame2 = n2, f2
-                det2 = tracker2.detect(frame2, t2_ * 1000)
+                det2 = fut2.result() if fut2 is not None else tracker2.detect(frame2, t2_ * 1000)
                 if calib2 is None or recheck2_until is not None:
                     found2 = finder2.feed(frame2)
                     if recheck2_until is not None and t > recheck2_until:
@@ -320,11 +347,31 @@ def main():
             stereo = None
         raw, src = None, 0
         if stereo is not None and det and det2:
-            raw = stereo(det["img_px"], det2["img_px"])
-            if raw is not None:
-                src, t_stereo = 2, t
-        # 한 대만 손을 보면 그 한 대로 (손 보정 배율이 있어야 함). 삼각측량이 막 끊긴 0.3초 동안은 기다린다 (값이 튀지 않게)
-        if raw is None and measure and det and (stereo is None or t - t_stereo > 0.3):
+            # 화면마다 손이 둘 보이면 '오른손/왼손' 표시는 옆에서 보는 카메라에서 자주 틀린다 (11/18 실물: 카메라 2 가 몸 쪽 다른 손을 잡아 63 px).
+            # 두 화면 손의 모든 짝을 삼각측량해서 가장 잘 맞는 짝을 쓴다
+            # 두 손이 다 맞으면 프레임마다 왼손·오른손을 오갈 수 있다 → 방금(0.5초 안) 따라가던 손에 가까운 것을 고른다 (실물 안전)
+            best, cands = None, []
+            for h1 in det.get("all", [det]):
+                for h2 in det2.get("all", [det2]):
+                    r_ = stereo(h1["img_px"], h2["img_px"])
+                    cands.append((stereo.last_err, r_, h1, h2))
+            ok_ = [c for c in cands if c[1] is not None]
+            if ok_ and last_pinch is not None and t - t_stereo < 0.5:
+                best = min(ok_, key=lambda c: np.linalg.norm(c[1]["pinch"] - last_pinch))
+                if np.linalg.norm(best[1]["pinch"] - last_pinch) > 0.15:     # 0.5초 안에 15 cm 넘게 옮긴 손은 다른 손으로 본다
+                    best = None
+            elif ok_:
+                best = min(ok_, key=lambda c: c[0])
+            if best is None:
+                stereo.last_err = min(c[0] for c in cands)
+            else:
+                stereo.last_err = best[0]
+                raw = best[1]
+                det, det2 = best[2], best[3]
+                src, t_stereo, last_pinch = 2, t, raw["pinch"].copy()
+        # 카메라 두 대가 준비됐으면 한 대 계산으로 넘어가지 않고 기다린다 (11/18: 한 대 계산은 배율이 따로 틀려 값이 튐,
+        # Point Policy 도 두 화면이 다 볼 때만 씀). 한 대만 있을 때만 그 한 대로
+        if raw is None and measure and det and stereo is None:
             raw = measure(det["world"], det["img_px"])
             src = 1 if raw is not None else 0
         if measure and not det:
@@ -406,6 +453,7 @@ def main():
                 if gate is None or gate.calib is not calib:
                     gate = FlatHandGate(calib, cal_solver)
                 ok_flat, why = gate(det["world"], det["img_px"]) if det else (False, "show your hand")
+                last_gate = why
                 lines.append("auto: " + why)
                 if ok_flat:
                     collecting, samples = True, []
@@ -455,7 +503,7 @@ def main():
                                        "solver": a.solver, "flat_hand_m": np.round(flat21, 5).tolist(),
                                        "palm_w_l_m": [round(pw, 4), round(pl, 4)],
                                        "table2": calib2.to_dict() if calib2 is not None else None,
-                                       "cam2": a.cam2}, f, indent=1)
+                                       "cam2": a.cam2, "paper_source": saved.get("paper_source")}, f, indent=1)
                         msg = (f"saved. scale {s:.3f}, palm {pw*100:.1f} x {pl*100:.1f} cm, off the cross x {palm[0]*100:+.1f}"
                                f" y {palm[1]*100:+.1f} cm (near 0 is good), 3D {'MIRRORED' if mirror else 'ok'}"
                                f" {len(votes) - sum(votes)}/{len(votes)}")
@@ -585,7 +633,34 @@ def main():
             w_now = arm.gripper()
             panel = robot_panel(kin, q_now, mapper.cur, a.x0, a.y0, w_now if np.isfinite(w_now) else mapper.width,
                                 follow, rec.on)
-        cv2.imshow(win, np.hstack([disp, panel]))
+        board = np.hstack([disp, panel])
+        cv2.imshow(win, board)
+        if a.status and t - status_t > 0.25:
+            status_t = t
+            st_ = {"t": round(t, 2), "mode": mode, "fps": round(fps, 1), "follow": bool(follow), "src": src,
+                   "err_px": (round(stereo.last_err, 2) if stereo is not None and stereo.last_err is not None else None),
+                   "det1": det is not None, "det2": det2 is not None, "gate": last_gate if mode == "hand" else "",
+                   "collecting": (len(samples) if collecting else None),
+                   "pinch_cm": (np.round(meas["pinch"] * 100, 1).tolist() if meas else None),
+                   "gap_mm": (round(meas["gap"] * 1000) if meas else None),
+                   "raw_cm": (np.round(raw["pinch"] * 100, 1).tolist() if raw else None),
+                   "msg": msg if t - msg_t < 6 else "", "rec": bool(rec_on())}
+            if raw is not None and src == 2:
+                st_["palm_cm"] = np.round(raw["palm"] * 100, 1).tolist()
+                st_["tab21_z_cm"] = np.round(raw["tab21"][:, 2] * 100, 1).tolist()
+            with open(os.path.join(a.status, "status.tmp"), "w") as f_:
+                json.dump(st_, f_)
+            os.replace(os.path.join(a.status, "status.tmp"), os.path.join(a.status, "status.json"))
+        if a.status and det is not None and det2 is not None:
+            # 두 화면 손 21점 짝 (보정 다듬기용, 11/18): 초점·렌즈 왜곡을 두 화면이 맞도록 고치는 데 씀
+            with open(os.path.join(a.status, "pairs.jsonl"), "a") as f_:
+                f_.write(json.dumps({"t": round(t, 3), "t2": round(float(t2_), 3) if grab2 and t2_ else None,
+                                     "l1": np.round(det["img_px"], 1).ravel().tolist(),
+                                     "l2": np.round(det2["img_px"], 1).ravel().tolist()}) + "\n")
+        if a.status and t - snap_t > 1.0:
+            snap_t = t
+            cv2.imwrite(os.path.join(a.status, "view.tmp.jpg"), cv2.resize(board, (board.shape[1] // 2, board.shape[0] // 2)))
+            os.replace(os.path.join(a.status, "view.tmp.jpg"), os.path.join(a.status, "view.jpg"))
 
         if rec and rec.on:
             imgs = {k: c.latest() for k, c in extra.items()}

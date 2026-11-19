@@ -84,12 +84,15 @@ class HandTracker:
                 if hd and hd[0].category_name == self.want_label:
                     pick = i
                     break
-        lm = res.hand_landmarks[pick]
-        wl = res.hand_world_landmarks[pick]
-        hd = res.handedness[pick][0] if res.handedness and res.handedness[pick] else None
-        return {"img_px": np.array([[p.x * w, p.y * h] for p in lm]),
-                "world": np.array([[p.x, p.y, p.z] for p in wl]),
-                "label": hd.category_name if hd else "?", "score": hd.score if hd else 0.0}
+        hands = []
+        for i in range(len(res.hand_landmarks)):
+            hd = res.handedness[i][0] if res.handedness and res.handedness[i] else None
+            hands.append({"img_px": np.array([[p.x * w, p.y * h] for p in res.hand_landmarks[i]]),
+                          "world": np.array([[p.x, p.y, p.z] for p in res.hand_world_landmarks[i]]),
+                          "label": hd.category_name if hd else "?", "score": hd.score if hd else 0.0})
+        out = dict(hands[pick])
+        out["all"] = hands                     # 11/18: 카메라 두 대일 때 두 화면에서 같은 손끼리 짝지으려고 다 넘김
+        return out
 
     def close(self):
         self.det.close()

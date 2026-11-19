@@ -21,40 +21,48 @@ K3 = np.ones((3, 3), np.uint8)
 K5 = np.ones((5, 5), np.uint8)
 
 
+CLAHE = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+
+
 def _quads(bgr, min_frac=0.003, max_frac=0.5):
-    """밝고 색이 옅은 덩어리 중 바깥 윤곽이 볼록 네모인 것: [(꼭짓점 4×2, 윤곽 점 n×2)]."""
+    """밝고 색이 옅은 덩어리 중 바깥 윤곽이 볼록 네모인 것: [(꼭짓점 4×2, 윤곽 점 n×2)].
+    밝기는 두 가지로 본다: 원래 밝기, 그리고 CLAHE (작은 구역마다 대비를 늘림, 11/18 사용자 제안 — 연구실 흰 책상에서
+    종이 254 / 책상 231 이던 차이가 253 / 213 으로 벌어짐)."""
     h, w = bgr.shape[:2]
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
-    v = cv2.GaussianBlur(hsv[:, :, 2], (5, 5), 0)
     s = cv2.GaussianBlur(hsv[:, :, 1], (5, 5), 0)
-    otsu, _ = cv2.threshold(v, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    hi = float(np.percentile(v, 99))
-    thrs = sorted({int(x) for x in (otsu, (otsu + hi) / 2, otsu - 15, hi - 40) if 30 < x < 250})
     out = []
-    for thr in thrs:
-        mask = ((v > thr) & (s < 90)).astype(np.uint8) * 255
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, K3)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, K5)
-        cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        for c in cnts:
-            a = cv2.contourArea(c)
-            if not (min_frac * w * h < a < max_frac * w * h):
-                continue
-            hull = cv2.convexHull(c)
-            peri = cv2.arcLength(hull, True)
-            ap = None
-            for eps in (0.015, 0.025, 0.035, 0.05):
-                ap = cv2.approxPolyDP(hull, eps * peri, True)
-                if len(ap) <= 4:
-                    break
-            if ap is None or len(ap) != 4 or not cv2.isContourConvex(ap):
-                continue
-            if a < 0.85 * cv2.contourArea(ap):                 # 네모를 거의 꽉 채워야 함 (종이 가장자리를 손이 가리면 탈락)
-                continue
-            q = ap.reshape(4, 2).astype(np.float64)
-            if np.any(q[:, 0] < 3) or np.any(q[:, 0] > w - 4) or np.any(q[:, 1] < 3) or np.any(q[:, 1] > h - 4):
-                continue                                         # 화면 밖으로 잘린 것
-            out.append((q, c.reshape(-1, 2).astype(np.float64)))
+    for v in (cv2.GaussianBlur(hsv[:, :, 2], (5, 5), 0), cv2.GaussianBlur(CLAHE.apply(hsv[:, :, 2]), (5, 5), 0)):
+        otsu, _ = cv2.threshold(v, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        hi = float(np.percentile(v, 99))
+        # 11/18 연구실: 책상이 거의 흰색이라 (밝기 226~231, 종이 251~254) 낮은 문턱에서는 종이와 책상이 한 덩어리가 된다.
+        # 밝은 쪽을 촘촘히 훑는다 (가장 밝은 것보다 6~45 아래).
+        thrs = sorted({int(x) for x in (otsu, (otsu + hi) / 2, otsu - 15, hi - 45, hi - 30, hi - 20, hi - 12, hi - 6)
+                       if 30 < x < 252})
+        for thr in thrs:
+            mask = ((v > thr) & (s < 90)).astype(np.uint8) * 255
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, K3)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, K5)
+            cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+            for c in cnts:
+                a = cv2.contourArea(c)
+                if not (min_frac * w * h < a < max_frac * w * h):
+                    continue
+                hull = cv2.convexHull(c)
+                peri = cv2.arcLength(hull, True)
+                ap = None
+                for eps in (0.015, 0.025, 0.035, 0.05):
+                    ap = cv2.approxPolyDP(hull, eps * peri, True)
+                    if len(ap) <= 4:
+                        break
+                if ap is None or len(ap) != 4 or not cv2.isContourConvex(ap):
+                    continue
+                if a < 0.85 * cv2.contourArea(ap):                 # 네모를 거의 꽉 채워야 함 (종이 가장자리를 손이 가리면 탈락)
+                    continue
+                q = ap.reshape(4, 2).astype(np.float64)
+                if np.any(q[:, 0] < 3) or np.any(q[:, 0] > w - 4) or np.any(q[:, 1] < 3) or np.any(q[:, 1] > h - 4):
+                    continue                                         # 화면 밖으로 잘린 것
+                out.append((q, c.reshape(-1, 2).astype(np.float64)))
     return out
 
 

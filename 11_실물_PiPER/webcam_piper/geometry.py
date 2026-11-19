@@ -301,9 +301,12 @@ def hand_summary(tab, tips):
 class StereoHand:
     """카메라 두 대의 손 21점 → 삼각측량한 책상 좌표 손 (11/18, ABKO APC930 두 대).
     MediaPipe 손 크기 가정도, 손 펴서 재는 배율도 필요 없다 (두 광선이 만나는 곳이 곧 거리).
-    두 화면의 손이 같은 손이 아니거나(다른 손을 고름) 크게 틀리면 재투영이 커지므로 max_err_px 로 거른다."""
+    두 화면의 손이 같은 손이 아니거나(다른 손을 고름) 크게 틀리면 재투영이 커지므로 max_err_px 로 거른다.
+    11/18 연구실 첫 기록 1098장면: MediaPipe 가 두 화면에서 같은 마디를 조금씩 다른 데 잡아 어긋남 가운데 6.5 px, 90% 16 px
+    (보정을 다듬어도 6.8 → 5.9 px 로만 줄어 카메라 보정 탓이 아님). 이 거리(약 70 cm)에서 7 px ≈ 5 mm, 25 px ≈ 2 cm.
+    기준 12 px 이면 84%, 25 px 이면 96% 를 받는다 → 25."""
 
-    def __init__(self, calib1, calib2, grip="whole", max_err_px=12.0):
+    def __init__(self, calib1, calib2, grip="whole", max_err_px=25.0):
         self.calibs = (calib1, calib2)
         self.Ps = [proj_matrix(calib1), proj_matrix(calib2)]
         self.tips = list(GRIPS[grip])
