@@ -18,9 +18,8 @@ PREVIOUS = [
     (2, "Built PiPER teleoperation from hand keypoints seen by two webcams (MediaPipe + triangulation, as in Point Policy)"),
     (2, "Tested it on the real PiPER: the gripper followed my hand at low speed (30%)"),
 ]
-NEXT = [
+NEXT = [  # 11/19: the conference line was removed on request
     (1, "I will measure the real arm's delay and position error, then record hand demonstrations for Point Policy"),
-    (1, "I will present the poster at the IEIE Fall Conference on 11/28"),
 ]
 SIZE = {0: 20, 1: 15, 2: 13, 3: 11.5}
 
