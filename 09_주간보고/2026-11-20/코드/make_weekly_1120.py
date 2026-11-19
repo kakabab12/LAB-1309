@@ -71,9 +71,18 @@ _cSld.insert(0, etree.fromstring('<p:bg xmlns:p="http://schemas.openxmlformats.o
 fill(nxt, "Next", NEXT)
 W = prs.slide_width
 prev.left, prev.top, prev.width, prev.height = Inches(0.25), Inches(0.85), W - Inches(0.45), Inches(1.45)
-pic = s2.shapes.add_picture(str(HERE.parent / "그림_주간보고_1120.png"), 0, Inches(2.35), width=W - Inches(0.4))
-pic.left = int((W - pic.width) / 2)
-nxt.left, nxt.top, nxt.width, nxt.height = Inches(0.25), pic.top + pic.height + Inches(0.1), W - Inches(0.45), Inches(0.9)
+pic = s2.shapes.add_picture(str(HERE.parent / "그림_주간보고_1120.png"), Inches(0.2), Inches(2.35), width=Inches(7.2))
+# 11/19: demo video (YouTube Shorts, vertical) on the right. A click on the picture opens the video during the slide show
+VIDEO = "https://www.youtube.com/shorts/RBSCCwu8Yuc"
+vid = s2.shapes.add_picture(str(HERE.parent / "그림_시연영상.jpg"), 0, Inches(2.35), height=Inches(3.95))
+vid.left = W - Inches(0.25) - vid.width
+vid.click_action.hyperlink.address = VIDEO
+cap = s2.shapes.add_textbox(vid.left - Inches(0.15), vid.top + vid.height + Inches(0.03), vid.width + Inches(0.3), Inches(0.35))
+cp = cap.text_frame.paragraphs[0]
+cp.alignment = 2                                            # center
+cr = cp.add_run(); cr.text = "Demo video (click to play)"; cr.font.size = Pt(11)
+cr.hyperlink.address = VIDEO
+nxt.left, nxt.top, nxt.width, nxt.height = Inches(0.25), pic.top + pic.height + Inches(0.1), vid.left - Inches(0.35), Inches(1.4)
 # The removed reference picture and the fallback pictures of its text boxes stay in the file through the
 # slide's relationships; drop every picture the slide no longer shows
 used = set(s2._element.xpath(".//@r:embed | .//@r:id | .//@r:link"))

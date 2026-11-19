@@ -28,14 +28,14 @@ LINKS = [(0, 1), (1, 2), (2, 3), (3, 4), (0, 5), (5, 6), (6, 7), (7, 8), (5, 9),
 screen = mpimg.imread(R / "그림_손_조종화면.png")               # status text lines at the top already cut off
 hand = json.load(open(R / "손3D_1118.json", encoding="utf-8"))
 
-fig = plt.figure(figsize=(9.6, 3.3), dpi=200)
-gs = fig.add_gridspec(1, 2, width_ratios=[7.2, 2.4], wspace=0.04, left=0.005, right=0.975, top=0.9, bottom=0.02)
+fig = plt.figure(figsize=(7.2, 2.5), dpi=250)          # 11/19: narrower, the demo video thumbnail sits to the right on the slide
+gs = fig.add_gridspec(1, 2, width_ratios=[7.2, 2.4], wspace=0.04, left=0.005, right=0.94, top=0.9, bottom=0.02)
 
 ax = fig.add_subplot(gs[0])
 ax.imshow(screen)
-ax.set_title("Hand keypoints from two webcams driving the real PiPER (live screen)", fontsize=8.5)
+ax.set_title("Hand keypoints from two webcams driving the real PiPER (live screen)", fontsize=7.5)
 for x, y, txt in ((0.18, 0.86, "camera 1"), (0.53, 0.47, "camera 2"), (0.80, 0.86, "robot (real arm)")):
-    ax.text(x, y, txt, transform=ax.transAxes, ha="center", va="center", fontsize=6.5, color="white",
+    ax.text(x, y, txt, transform=ax.transAxes, ha="center", va="center", fontsize=6, color="white",
             bbox=dict(boxstyle="round,pad=0.25", fc="#1f77b4", ec="none", alpha=0.85))
 ax.axis("off")
 
@@ -64,7 +64,7 @@ ax.set_xticks([-10, 0, 10])
 ax.set_yticks([-15, 0, 15])
 ax.set_zticks([0, 10, 20])
 ax.tick_params(labelsize=5, pad=-2)
-ax.set_title("3D hand from 2 cameras (triangulated)", fontsize=8.5)
+ax.set_title("3D hand from 2 cameras", fontsize=7.5)
 
 out = R / "그림_주간보고_1120.png"
 fig.savefig(out)
