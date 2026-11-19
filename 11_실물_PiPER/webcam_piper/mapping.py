@@ -52,7 +52,7 @@ def rotate_toward(cur, goal, max_angle):
 class Mapper:
     def __init__(self, kin, x0=0.30, y0=0.0, gain=1.0, max_speed=0.12, max_yaw_rate=math.radians(60),
                  max_joint_rate=1.0, squeeze=0.025, yaw_limit=math.radians(112), yaw_gap_min=0.05,
-                 yaw_pref=math.radians(-60), min_z=0.006, max_z=0.25):
+                 yaw_pref=math.radians(-60), min_z=0.006, max_z=0.25, box_x=(0.14, 0.50), box_y=0.25):
         self.kin = kin
         self.robot_start = np.array([x0, y0, TABLE_Z + PINCH_H0])
         self.gain = gain
@@ -60,8 +60,9 @@ class Mapper:
         self.squeeze, self.yaw_limit, self.yaw_gap_min, self.yaw_pref = squeeze, yaw_limit, yaw_gap_min, yaw_pref
         self.yaw_fresh = True
         # 집게 끝이 책상에 박히지 않게 min_z 위까지 (기본 6 mm). 실물 첫 시험은 robot_server --min-z 0.10 처럼 높여서
-        self.box_lo = np.array([0.14, -0.25, TABLE_Z + min_z])
-        self.box_hi = np.array([0.50, 0.25, TABLE_Z + max_z])
+        # 작업 상자: 밑동에서 앞 box_x, 좌우 ±box_y (11/19 robot_server 에서 넓힐 수 있게. 기본은 11/15 값)
+        self.box_lo = np.array([box_x[0], -box_y, TABLE_Z + min_z])
+        self.box_hi = np.array([box_x[1], box_y, TABLE_Z + max_z])
         self.reach = 0.55                                            # 밑동 어깨(높이 0.12 m) 에서 이 거리까지
         self.yaw0 = 0.0                                              # 예전 방식(손등 가로줄 기준)의 흔적. 지금은 0
         self.follow_yaw = True

@@ -47,6 +47,12 @@ def parse():
     ap.add_argument("--max-speed", type=float, default=1.0, help="집게 끝 최고 속도 (m/s). 사람 손 빠르기 ~1")
     ap.add_argument("--joint-rate", type=float, default=3.0, help="관절 최고 속도 (rad/s). 11/17 까지 1.0")
     ap.add_argument("--rot-rate", type=float, default=180.0, help="집게가 도는 최고 속도 (도/s). 11/17 까지 60")
+    # 11/19 사용자 "종이 밖에서도 움직일 수 있게": 작업 상자를 넓힘 (11/18 까지 앞 14~50 cm, 좌우 ±25 cm, 높이 25 cm).
+    # PiPER 는 책상 높이에서 밑동 6~58 cm 까지 닿고, 20 cm 넘게 들면 집게가 비스듬해진다 (역기구학 계산 11/19)
+    ap.add_argument("--box-x", type=float, nargs=2, default=[0.12, 0.50], metavar=("앞최소", "앞최대"),
+                    help="집게 끝이 갈 수 있는 앞뒤 범위 (밑동에서 m)")
+    ap.add_argument("--box-y", type=float, default=0.40, help="좌우 ±이만큼 (m)")
+    ap.add_argument("--max-z", type=float, default=0.30, help="책상 위 이 높이(m)까지")
     ap.add_argument("--lift", type=float, default=0.0,
                     help="집게를 사람 손보다 이만큼 높이 따라가게 (m). 실물 첫 시험은 0.10 (높이 바닥 --min-z 대신)")
     ap.add_argument("--min-z", type=float, default=0.006,
@@ -75,9 +81,11 @@ def main():
         print("       노트북에서 SPACE 를 눌러야 따라가고, 통신이 %.1f초 끊기면 멈춥니다. 속도 %d%%" % (a.timeout, a.speed))
         print("       집게 끝 최고 속도 %.0f cm/s, 관절 %.1f rad/s, 책상 위 %.0f cm 아래로는 내려가지 않음, 손보다 %.0f cm 위에서 따라감"
               % (a.max_speed * 100, a.joint_rate, a.min_z * 100, a.lift * 100))
+        print("       움직이는 범위: 밑동에서 앞 %.0f~%.0f cm, 좌우 ±%.0f cm, 책상 위 %.0f cm 까지 (팔 둘레를 이만큼 비울 것)"
+              % (a.box_x[0] * 100, a.box_x[1] * 100, a.box_y * 100, a.max_z * 100))
         input("       준비됐으면 Enter (취소 Ctrl+C) ")
     mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, min_z=a.min_z, max_joint_rate=a.joint_rate,
-                    max_yaw_rate=math.radians(a.rot_rate))
+                    max_yaw_rate=math.radians(a.rot_rate), max_z=a.max_z, box_x=tuple(a.box_x), box_y=a.box_y)
     mapper.robot_start[2] += a.lift                     # 11/18: 손 높이 + lift 로 따라감
     ik_iters = 10 if a.hz >= 60 else 40                 # 100 Hz 면 한 박자 10번이면 됨 (40번은 7~12 ms 라 박자를 못 지킴)
     mapper.yaw0 = 0.0                                   # 노트북이 집게 방향(yaw)을 그대로 보냄

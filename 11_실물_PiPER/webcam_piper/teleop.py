@@ -12,6 +12,8 @@ PiPER 는 팔 길이가 사람과 달라 관절 각도를 옮기면 집게가 �
   SPACE 따라가기 켜기/끄기   R 기록 시작/끝   X 마지막 기록 지우기   G 집게 따라가기   Y 손 돌림 따라가기
   [ 집게 약하게 ] 세게 (5 mm)   --grip pinch 면 엄지·검지로 집음 (기본은 손 전체)   S 손 보정 다시   Q 또는 ESC 끝
   C 종이 다시 찾기 (저절로)   M 종이 모서리를 손으로 누르기 (저절로 못 찾을 때)
+  Z 손 닿는 높이 맞추기 (11/19): 엄지·손가락 끝을 종이에 대고 누르면 그 높이를 0 으로 → 손끝이 책상에 닿을 때 그리퍼 끝도 책상 높이로
+    (서버는 --lift 없이 켜야 함. 책상을 누르지 않게 서버 --min-z 바닥은 남음)
 보정 (11/18 부터 저절로): 종이가 보이면 모서리를 스스로 찾고, 손을 + 위에 펴서 1초쯤 가만히 두면 손 보정이 된다.
   저장된 보정으로 켜면 처음 몇 초 동안 종이를 다시 찾아, 노트북이나 종이가 움직였으면 다시 보정한다. --manual-calib 이면 예전처럼.
   P 위치 확인: 다섯 손가락 끝을 모아 종이 모서리나 + 에 대고 누르면, 가장 가까운 점과 몇 cm 다른지 띄우고 checks.jsonl 에 남김
@@ -261,6 +263,10 @@ def main():
     finder2 = PaperFinder(a.hfov)
     recheck2_until = time.monotonic() + 4.0 if (grab2 and calib2 is not None and not trusted) else None
     det2, frame2, n2_seen, t_stereo, src, last_pinch = None, None, -1, -1e9, 0, None
+    hand_z0 = float(saved.get("hand_touch_z", 0.0) or 0.0)   # 손끝이 종이에 닿았을 때의 집기점 높이 (Z 로 잼, 11/19)
+    z_collect = None
+    if hand_z0:
+        print(f"[보정] 손 닿는 높이 {hand_z0 * 100:.1f} cm 를 0 으로 씀 (Z 로 다시 잼)")
 
     def save_table2():
         d = {}
@@ -377,6 +383,28 @@ def main():
         if measure and not det:
             measure.reset()
         meas = smooth(t, raw)
+        if z_collect is not None and raw is not None:
+            z_collect.append(float(raw["pinch"][2]))
+            if len(z_collect) >= 15:
+                z_sorted = sorted(z_collect)
+                if z_sorted[-3] - z_sorted[2] > 0.015:                  # 재는 동안 손이 1.5 cm 넘게 오르내림: 다시
+                    z_collect, msg, msg_t = [], "hand moved while measuring - hold still on the paper", t
+                else:
+                    hand_z0 = float(np.median(z_collect))
+                    z_collect = None
+                    try:
+                        with open(a.calib, encoding="utf-8") as f_:
+                            d_ = json.load(f_)
+                    except (OSError, ValueError):
+                        d_ = {}
+                    d_["hand_touch_z"] = round(hand_z0, 4)
+                    with open(a.calib, "w", encoding="utf-8") as f_:
+                        json.dump(d_, f_, indent=1)
+                    msg, msg_t = f"touch zero set: fingertips on the paper = {hand_z0 * 100:.1f} cm -> 0", t
+                    print(f"[보정] 손끝이 종이에 닿은 집기점 높이 {hand_z0 * 100:.1f} cm 를 0 으로 (calib.json 에 저장)")
+        if meas is not None and hand_z0:
+            meas = dict(meas)
+            meas["pinch"] = meas["pinch"] - np.array([0.0, 0.0, hand_z0])
         view = frame.copy()
 
         # 화면에 그릴 것 (원본 좌표에 먼저 그린 뒤 거울로 뒤집는다)
@@ -503,7 +531,8 @@ def main():
                                        "solver": a.solver, "flat_hand_m": np.round(flat21, 5).tolist(),
                                        "palm_w_l_m": [round(pw, 4), round(pl, 4)],
                                        "table2": calib2.to_dict() if calib2 is not None else None,
-                                       "cam2": a.cam2, "paper_source": saved.get("paper_source")}, f, indent=1)
+                                       "cam2": a.cam2, "paper_source": saved.get("paper_source"),
+                                       "hand_touch_z": round(hand_z0, 4) if hand_z0 else None}, f, indent=1)
                         msg = (f"saved. scale {s:.3f}, palm {pw*100:.1f} x {pl*100:.1f} cm, off the cross x {palm[0]*100:+.1f}"
                                f" y {palm[1]*100:+.1f} cm (near 0 is good), 3D {'MIRRORED' if mirror else 'ok'}"
                                f" {len(votes) - sum(votes)}/{len(votes)}")
@@ -555,6 +584,8 @@ def main():
                                        "waiting for camera 2 paper" if calib2 is None else
                                        "hand not seen by both cameras"
                                        + (" (err %.0f px)" % stereo.last_err if stereo and stereo.last_err else "")))
+            lines.append(("Z touch zero: measuring... keep fingertips on the paper" if z_collect is not None else
+                          f"Z touch zero: {hand_z0 * 100:.1f} cm" if hand_z0 else "Z: fingertips on paper -> touch zero"))
             lines.append(f"G grip:{'on' if mapper.follow_grip else 'off'}  Y yaw:{'on' if mapper.follow_yaw else 'off'}"
                          f"  [ ] squeeze {mapper.squeeze*1000:.0f}mm")
         if mode == "hand" and GUIDE is not None and GUIDE.shape[0] + 16 <= disp.shape[0] \
@@ -759,6 +790,12 @@ def main():
                 arm.hold()
                 mode, collecting, samples = "hand", False, []
                 measure = HandMeasure(calib, 1.0, grip_mode, solver=cal_solver)
+            elif key == ord("z"):                              # 손 닿는 높이 재기 (따라가기는 멈춤: 높이 기준이 바뀌므로)
+                if follow:
+                    follow = False
+                    arm.hold()
+                z_collect = []
+                msg, msg_t = "touch zero: put thumb and fingertips on the paper and hold still", t
             elif key == ord("p"):
                 msg, msg_t = check_point(meas, measure.scale, a.checks), t
 
