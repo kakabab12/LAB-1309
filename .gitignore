@@ -1,1 +1,4 @@
 __pycache__/
+
+# LibreOffice 가 파일을 여는 동안 만드는 잠금 파일
+.~lock.*#
