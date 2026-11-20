@@ -30,7 +30,7 @@ import numpy as np
 
 from geometry import (CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, FLAT_H, GRIPS, PALM, FlatHandGate, HandMeasure, StereoHand,
                       TableCalib, backproject_height, flat_fit, palm_size, scale_for_flat)
-from hand import HandTracker, OneEuro, draw_hand
+from hand import HandTracker, Median3, OneEuro, StillZone, draw_hand
 from mapping import Mapper
 from net import PORT, Link, code_version
 from paper import PaperFinder
@@ -108,6 +108,10 @@ def parse():
                          "pnp: 21점으로 방향·위치 다 풂 (11/15~17, 손가락 모양이 틀리면 높이가 크게 틀림) / palm: 손바닥 다섯 점으로 거리")
     ap.add_argument("--pen", type=float, default=0.0,
                     help="oat 의 앞 장면 벌점 (클수록 덜 흔들리고 더 늦게 따라감). 11/18 부터 0: 흔들림은 1€ 필터가 거름")
+    ap.add_argument("--no-steady", action="store_true",
+                    help="11/20 손떨림·지터 거르기(멈춰 있을 때 가운데 값 + 멈춤 구역)를 끔 — 11/18 처럼 1€ 필터만")
+    ap.add_argument("--still-mm", type=float, default=3.0,
+                    help="멈춤 구역 반지름 (mm). 손이 이 안에서 떨리면 로봇 목표를 그대로 둠. 클수록 덜 떨고 움직일 때 이만큼 뒤처짐")
     ap.add_argument("--status", default=None, metavar="폴더",
                     help="이 폴더에 상태(status.json, 0.25초마다)와 화면(view.jpg, 1초마다)을 남김 — 다른 프로그램이 실시간으로 보게 (11/18)")
     ap.add_argument("--manual-calib", action="store_true",
@@ -122,18 +126,25 @@ class Smoother:
     - 새로 잡을 때: 3장이 서로 3 cm 안에서 맞아야 받아들인다 (그 전에는 '손 없음').
     - 잡은 뒤 한 장면에 15 cm 넘게 튀면 버린다. 다만 튄 쪽 값이 5장 연달아 서로 3 cm 안이면 손이 정말 옮겨 간 것으로 보고 다시 잡는다."""
     ACQUIRE_N, REJUMP_N, AGREE = 3, 5, 0.03
+    STILL_V = 0.05                     # 손이 이보다 느리면(m/s) 멈춘 것으로 보고 앞 3장면 가운데 값을 쓴다
 
-    def __init__(self):
+    def __init__(self, steady=True, still_m=0.003, still_deg=3.0):
         # 11/18: beta 를 m·rad 단위에 맞춤. 예전 (1.5, 0.5) 는 라디안용이라 손을 빨리 움직이면 70 ms 늦고 3 cm 뒤처졌다
         # (20 fps·잡음 3 mm 흉내: 멈춤 흔들림 4.8 → 1.6 mm, 움직일 때 늦음 70 → 15 ms)
         self.pinch, self.yaw, self.gap = OneEuro(1.0, 20.0), OneEuro(1.0, 5.0), OneEuro(1.0, 20.0)
+        # 11/20 지터·손떨림: 1€ 앞에 '멈춰 있을 때만 가운데 값'(한 장면 튐 버림), 뒤에 멈춤 구역(반지름 안 떨림은 그대로 둠).
+        # 가상 손에서 멈춤 흔들림 3.4 → 1.3 mm (가장 크게 튈 때 19.5 → 4.7 mm), 늦음 +13 ms. steady=False 면 11/18 그대로
+        self.steady = steady
+        self.med = Median3()
+        self.zone_p = StillZone(still_m if steady else 0.0)
+        self.zone_y = StillZone(math.radians(still_deg) if steady else 0.0)
         self.last = None
         self.yaw_unwrapped = None
         self.lost_since = None
         self.pending = []
 
     def reset(self):
-        for f in (self.pinch, self.yaw, self.gap):
+        for f in (self.pinch, self.yaw, self.gap, self.med, self.zone_p, self.zone_y):
             f.reset()
         self.last = self.yaw_unwrapped = None
         self.pending = []
@@ -169,7 +180,13 @@ class Smoother:
         if self.yaw_unwrapped is not None:
             y = self.yaw_unwrapped + math.remainder(y - self.yaw_unwrapped, 2 * math.pi)
         self.yaw_unwrapped = y
-        out = {"pinch": self.pinch(t, m["pinch"]), "yaw": float(self.yaw(t, y)), "gap": float(self.gap(t, m["gap"]))}
+        p = np.asarray(m["pinch"], np.float64)
+        if self.steady:
+            med = self.med(p)
+            slow = self.pinch.dx is None or float(np.linalg.norm(self.pinch.dx)) < self.STILL_V
+            p = med if slow else p
+        out = {"pinch": self.zone_p(t, self.pinch(t, p)), "yaw": float(self.zone_y(t, self.yaw(t, y))),
+               "gap": float(self.gap(t, m["gap"]))}
         self.last = out
         return out
 
@@ -222,7 +239,7 @@ def main():
     if grab2:
         from concurrent.futures import ThreadPoolExecutor
         pool2 = ThreadPoolExecutor(max_workers=1)
-    smooth = Smoother()
+    smooth = Smoother(steady=not a.no_steady, still_m=a.still_mm / 1000.0)
     calib, measure, mode, clicks = None, None, "corners", []
     calib2, stereo, saved = None, None, {}
     if os.path.exists(a.calib):
@@ -284,6 +301,7 @@ def main():
         "note": "사람 책상 좌표: 원점 A4 가운데, x 앞(노트북 쪽), y 사람 왼쪽, z 위. 로봇 좌표: 밑동 (0,0,0.90)"})
     # 연구실 PC 로 보낼 때: 기록은 그쪽에서 한다. 여기서는 바라는 상태만 보내고, 그쪽이 알려 준 실제 상태를 그린다.
     rec_req, disc_n, seen_msg_n = False, 0, None
+    home_n = 0                                               # 11/20: B 를 누른 횟수 (연구실 PC 가 늘 때마다 처음 자세로 감)
     my_ver, ver_warned = code_version(), False
     mismatch = {"follow": None, "rec": None}
     scale_disp = DISP_H / H
@@ -577,7 +595,7 @@ def main():
                          f"grip {meas['gap']*1000:3.0f} mm   turn {math.degrees(math.remainder(meas['yaw'] + math.pi / 2, math.pi)):+4.0f} deg"]
             else:
                 lines = ["hand not found"]
-            lines.append(f"{fps:4.1f} fps   SPACE follow  R rec  TAB hand: {GRIP_NAME[grip_mode]}")
+            lines.append(f"{fps:4.1f} fps   SPACE follow  R rec  B start pose  TAB hand: {GRIP_NAME[grip_mode]}")
             if grab2:
                 lines.append("3D: " + ("2 cameras (triangulated, err %.1f px)" % stereo.last_err if src == 2 else
                                        "camera 1 only" if src == 1 else
@@ -621,7 +639,7 @@ def main():
                                   "table2": calib2.to_dict() if calib2 is not None else None}
             link.send(hand=hand_out, follow=int(run and follow), rec=int(run and rec_req),
                       grip=int(mapper.follow_grip), yawf=int(mapper.follow_yaw), sq=round(mapper.squeeze, 4),
-                      ygm=mapper.yaw_gap_min, ypref=round(mapper.yaw_pref, 4), disc=disc_n, bye=0,
+                      ygm=mapper.yaw_gap_min, ypref=round(mapper.yaw_pref, 4), disc=disc_n, home=home_n, bye=0,
                       gm=int(grip_mode == "pinch"), src=src, **raw_out)
             st = link.poll()
             if st and st.get("msg_n") != seen_msg_n:
@@ -709,6 +727,14 @@ def main():
         key = cv2.waitKey(1) & 0xFF
         if key in (ord("q"), 27):
             break
+        if key == ord("b"):                                    # 11/20 처음 자세로 (save_home.py 로 저장한 자세)
+            if link:
+                if follow:
+                    follow = False
+                home_n += 1
+                msg, msg_t = "robot PC: going to start pose (SPACE stops)", t
+            else:
+                msg, msg_t = "B (start pose) works with robot_server.py: run teleop with --send", t
         if mode == "corners" and key in BACKSPACE and clicks:
             clicks.pop()
         elif mode == "corners_check":
@@ -802,7 +828,7 @@ def main():
     if link:
         for _ in range(5):                                   # 연구실 PC 에 "끝" 을 알림 (팔 멈춤·기록 저장)
             link.send(hand=None, follow=0, rec=0, grip=int(mapper.follow_grip), yawf=int(mapper.follow_yaw),
-                      sq=round(mapper.squeeze, 4), disc=disc_n, bye=1)
+                      sq=round(mapper.squeeze, 4), disc=disc_n, home=home_n, bye=1)
             time.sleep(0.02)
         link.close()
     if rec and rec.on:

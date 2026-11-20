@@ -46,6 +46,52 @@ class OneEuro:
         self.x = self.dx = self.t = None
 
 
+class Median3:
+    """앞 3장면의 가운데 값 (축마다, 11/20). 한 장면만 튀는 값을 버린다.
+    움직일 때 쓰면 한 장면(~40 ms) 늦으므로 Smoother 는 손이 멈춰 있을 때만 쓴다."""
+
+    def __init__(self):
+        self.buf = []
+
+    def __call__(self, x):
+        self.buf = (self.buf + [np.asarray(x, np.float64)])[-3:]
+        return np.median(np.array(self.buf), axis=0)
+
+    def reset(self):
+        self.buf = []
+
+
+class StillZone:
+    """멈춤 구역 (11/20, 손떨림·지터 없애기). 값이 반지름 r 안에서만 떨리면 내보내는 값을 그대로 두고
+    (tau 초에 걸쳐 천천히 가운데로만 맞춤), r 밖으로 나가면 넘은 만큼만 끌려간다 (줄에 묶인 것처럼).
+    움직이는 동안은 r 만큼 뒤에서 따라오고, 멈추면 tau 안에 따라잡는다. r = 0 이면 그대로 내보낸다.
+    가상 손(손떨림 9 Hz 1 mm, 느린 흔들림 1.5 mm, 잡음 xy 2·z 5 mm, 23 fps)에서 r 3 mm 가 멈춤 흔들림을 가장 줄였다."""
+
+    def __init__(self, r=0.003, tau=0.4):
+        self.r, self.tau = float(r), float(tau)
+        self.y = self.t = None
+
+    def __call__(self, t, x):
+        x = np.asarray(x, np.float64)
+        if self.r <= 0:
+            return x
+        if self.y is None:
+            self.y, self.t = x.copy(), t
+            return self.y.copy()
+        dt = max(t - self.t, 1e-3)
+        self.t = t
+        d = x - self.y
+        n = float(np.linalg.norm(d))
+        if n > self.r:
+            self.y = self.y + d * ((n - self.r) / n)
+            d = x - self.y
+        self.y = self.y + d * (1.0 - math.exp(-dt / self.tau))
+        return self.y.copy()
+
+    def reset(self):
+        self.y = self.t = None
+
+
 class HandTracker:
     """웹캠 한 장 → 원하는 손(오른손/왼손)의 화면 21점(px)과 손 3D 21점(m)."""
 

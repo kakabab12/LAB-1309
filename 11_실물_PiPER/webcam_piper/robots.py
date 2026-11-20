@@ -38,6 +38,10 @@ class Preview:
         self.target = np.asarray(q, np.float64).copy()
         self.w_target = float(np.clip(width, 0.0, GRIP_MAX))
 
+    def move_joints(self, q):
+        """관절만 (그리퍼는 그대로) — 처음 자세로 돌아갈 때 (11/20)."""
+        self.target = np.asarray(q, np.float64).copy()
+
     def hold(self):
         self.target = self.q.copy()
 
@@ -85,6 +89,10 @@ class AgxBusArm:
             except Exception as e:  # noqa: BLE001
                 print(f"[팔] 그리퍼 명령 실패: {e}")
                 self._w_sent = w
+
+    def move_joints(self, q):
+        """관절만 (그리퍼는 그대로) — 처음 자세로 돌아갈 때 (11/20)."""
+        self.bus.move_joints([float(x) for x in q])
 
     def hold(self):
         self.bus.move_joints(self.bus.read_joints().position)
@@ -134,6 +142,11 @@ class SdkArm:
         if self._w_sent is None or abs(w - self._w_sent) > 0.002:
             self.p.GripperCtrl(int(round(w * 1e6)), int(round(self.effort * 1000)), 0x01, 0)
             self._w_sent = w
+
+    def move_joints(self, q):
+        """관절만 (그리퍼는 그대로) — 처음 자세로 돌아갈 때 (11/20)."""
+        self.p.MotionCtrl_2(0x01, 0x01, self.speed, 0x00)
+        self.p.JointCtrl(*[int(round(x * self.RAD2MDEG)) for x in q])
 
     def hold(self):
         self.send(self.joints(), self._w_sent if self._w_sent is not None else GRIP_MAX)

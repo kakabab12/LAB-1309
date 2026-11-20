@@ -75,6 +75,13 @@ class Mapper:
         self.cur_mat = kin.fk(self.q_cmd)[1]                         # step_robot 이 역기구학에 주는 집게 방향 (11/17)
         self.width = GRIP_MAX
         self.desired = self.cur.copy()
+        # 11/20 패킷 사이 잇기 (robot_server 가 켬): 손 값은 ~23 Hz 로 오는데 팔 명령은 100 Hz 라, 새 값이 올 때마다
+        # 최고 속도로 갔다 서기를 되풀이했다 (끊어 가며 움직이는 지터). 켜면 새 값이 올 때의 목표에서 새 값까지
+        # 평균 패킷 간격 동안 곧게 간다. 가상 손에서 목표 가속도 거칠기 38 → 12 m/s², 늦음 +12 ms.
+        # 같은 손 dict 가 다시 오면 같은 패킷 (robot_server 는 패킷마다 dict 를 새로 만듦). teleop 혼자 돌 때는 끔 (장면마다 한 번 부름)
+        self.interp = False
+        self._pkt, self._since, self._pkt_dt = None, 0.0, 1.0 / 23.0
+        self._seg_age, self._seg_p0, self._seg_y0 = 0.0, self.cur.copy(), self.cur_yaw
 
     def human_to_robot(self, pinch):
         p = self.robot_start + self.gain * (np.asarray(pinch) - np.array([0.0, 0.0, PINCH_H0]))
@@ -99,20 +106,34 @@ class Mapper:
         ik_iters: 한 박자에 역기구학 반복 수. 박자가 빠르면(연구실 PC 100 Hz) 10 이면 된다 (앞 박자 답에서 이어 풀기 때문)."""
         dt = float(np.clip(dt, 1e-3, 0.2))
         if follow and meas is not None:
-            self.desired = self.human_to_robot(meas["pinch"])
+            goal = self.human_to_robot(meas["pinch"])
             if self.follow_yaw and meas["gap"] > self.yaw_gap_min:
                 y = meas["yaw"] - self.yaw0
                 ref = self.yaw_pref if self.yaw_fresh else self.yaw_goal
                 c = ref + math.remainder(y - ref, math.pi)                         # 180° 다른 두 방향 중 ref 에 가까운 쪽
                 self.yaw_fresh = False
-                j1 = math.atan2(self.desired[1], self.desired[0])                  # 팔이 향한 방향
+                j1 = math.atan2(goal[1], goal[0])                                  # 팔이 향한 방향
                 self.yaw_goal = float(np.clip(c, j1 - self.yaw_limit, j1 + self.yaw_limit))   # 끝에서는 멈춤 (반 바퀴 돌지 않음)
-            yaw_d = self.yaw_goal
             if self.follow_grip:
                 self.width = float(np.clip(meas["gap"] - self.squeeze, 0.0, GRIP_MAX))
+            if self.interp:
+                if meas is not self._pkt:                                          # 새 패킷: 지금 목표에서 새 구간 시작
+                    if self._pkt is not None:
+                        self._pkt_dt = float(np.clip(0.8 * self._pkt_dt + 0.2 * self._since, 0.01, 0.15))
+                    self._pkt, self._since, self._seg_age = meas, 0.0, 0.0
+                    self._seg_p0, self._seg_y0 = self.cur.copy(), self.cur_yaw
+                self._since += dt
+                self._seg_age += dt
+                s = min(self._seg_age / self._pkt_dt, 1.0)
+                self.desired = self._seg_p0 + (goal - self._seg_p0) * s
+                yaw_d = self._seg_y0 + (self.yaw_goal - self._seg_y0) * s
+            else:
+                self.desired = goal
+                yaw_d = self.yaw_goal
         else:
             yaw_d = self.cur_yaw                                     # 손을 놓치거나 멈춤이면 그 자리
             self.desired = self.cur.copy()
+            self._pkt = None                                         # 다시 잡으면 그 자리에서 새로 시작 (끊긴 시간은 간격에 안 넣음)
         step = self.desired - self.cur
         n = np.linalg.norm(step)
         lim = self.max_speed * dt
@@ -170,3 +191,4 @@ class Mapper:
         self.desired = self.cur.copy()
         self.cur_yaw = self.yaw_goal = self.yaw_of(self.q_cmd)
         self.yaw_fresh = True
+        self._pkt = None

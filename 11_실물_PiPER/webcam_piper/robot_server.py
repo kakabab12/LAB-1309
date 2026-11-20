@@ -23,6 +23,7 @@ import time
 import cv2
 import numpy as np
 
+from home import HOME_FILE, HomeMove, load_home, path_ok
 from mapping import Mapper
 from net import PORT, Server, code_version, my_ips
 from panel import robot_panel
@@ -57,6 +58,10 @@ def parse():
                     help="집게를 사람 손보다 이만큼 높이 따라가게 (m). 실물 첫 시험은 0.10 (높이 바닥 --min-z 대신)")
     ap.add_argument("--min-z", type=float, default=0.006,
                     help="집게 끝을 책상 위 이 높이(m) 아래로 내리지 않음. 실물 첫 시험은 0.10 처럼 높게 (11/16)")
+    ap.add_argument("--no-interp", action="store_true",
+                    help="11/20 패킷 사이 잇기를 끔 (새 손 값이 올 때마다 최고 속도로 갔다 서던 11/19 방식)")
+    ap.add_argument("--home-rate", type=float, default=0.6,
+                    help="처음 자세로 돌아갈 때 가장 많이 도는 관절의 최고 속도 (rad/s). 11/20")
     ap.add_argument("--hz", type=float, default=100.0, help="팔에 명령 보내고 기록하는 박자 (11/17 까지 30)")
     ap.add_argument("--timeout", type=float, default=0.5, help="노트북 패킷이 이만큼(초) 안 오면 멈춤")
     ap.add_argument("--out", default=os.path.join(HERE, "data"))
@@ -87,9 +92,17 @@ def main():
     mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, min_z=a.min_z, max_joint_rate=a.joint_rate,
                     max_yaw_rate=math.radians(a.rot_rate), max_z=a.max_z, box_x=tuple(a.box_x), box_y=a.box_y)
     mapper.robot_start[2] += a.lift                     # 11/18: 손 높이 + lift 로 따라감
+    mapper.interp = not a.no_interp                     # 11/20: 손 값 사이를 곧게 이어 끊어 가는 지터를 없앰
     ik_iters = 10 if a.hz >= 60 else 40                 # 100 Hz 면 한 박자 10번이면 됨 (40번은 7~12 ms 라 박자를 못 지킴)
     mapper.yaw0 = 0.0                                   # 노트북이 집게 방향(yaw)을 그대로 보냄
     mapper.sync_to(arm.joints())
+    home_q = load_home()                                # 11/20: save_home.py 로 저장한 처음 자세 (B 로 돌아감)
+    if home_q is not None:
+        home_q = np.clip(home_q, kin.lo, kin.hi)
+        print("[처음 자세] %s 의 관절(도) %s — 노트북 B 로 돌아감" % (os.path.basename(HOME_FILE),
+                                                     ", ".join(f"{math.degrees(v):.1f}" for v in home_q)))
+    else:
+        print("[처음 자세] 저장된 것 없음 — 팔을 손으로 옮겨 두고 python save_home.py")
     srv = Server(a.port)
     cams = {k: CamGrabber(i) for k, i in (("wrist", a.wrist_cam), ("front", a.front_cam)) if i is not None}
     for k, c in cams.items():
@@ -108,6 +121,7 @@ def main():
             win = None
 
     follow, paused = False, False
+    homing, home_prev = None, None     # 11/20 처음 자세로 가는 중 (HomeMove), 노트북 B 누른 횟수
     prev_req = None                    # 노트북이 바로 전에 보낸 follow (None = 아직 못 받음 → 껐다 켜야 움직임)
     rec_req_prev, disc_prev = False, None
     stop_n, msg, msg_n = 0, "", 0
@@ -129,6 +143,35 @@ def main():
             stop_n += 1
             say(reason)
 
+    def start_home():
+        """노트북 B (또는 이 창 B): 따라가기를 끄고 처음 자세로 부드럽게 간다."""
+        nonlocal homing, follow, stop_n
+        if home_q is None:
+            say("no start pose saved: run save_home.py")
+            return
+        if paused:
+            say("paused on robot PC (press SPACE there)")
+            return
+        if follow:
+            follow = False
+            stop_n += 1
+        q0 = arm.joints()
+        ok, low = path_ok(kin, q0, home_q)
+        if not ok:
+            arm.hold()
+            say(f"path to start pose goes {-low * 100:.0f} cm below the table: not moving")
+            return
+        homing = HomeMove(q0, home_q, max_rate=a.home_rate)
+        say(f"going to start pose ({homing.T:.1f} s, SPACE stops)")
+
+    def stop_home(reason):
+        nonlocal homing
+        if homing is not None:
+            homing = None
+            arm.hold()
+            mapper.sync_to(arm.joints())
+            say(reason)
+
     try:
         while True:
             t = time.monotonic()
@@ -137,7 +180,8 @@ def main():
             if srv.new_peer:
                 srv.new_peer = False
                 force_stop("new laptop connected: follow stopped")
-                prev_req, rec_req_prev, disc_prev = None, False, None
+                stop_home("new laptop connected: start pose move stopped")
+                prev_req, rec_req_prev, disc_prev, home_prev = None, False, None, None
                 seen_peer = srv.peer[0]
                 say(f"laptop {seen_peer[0]} connected")
             if m is not None:
@@ -154,12 +198,15 @@ def main():
                 req = bool(m.get("follow", 0))
                 if m.get("bye"):
                     force_stop("laptop closed")
+                    stop_home("laptop closed: start pose move stopped")
                     req = False
                 if prev_req is None:
                     if req:
                         say("follow was ON before connecting: press SPACE again")
                 elif req and not prev_req:
-                    if paused:
+                    if homing is not None:                       # 가는 중 SPACE = 그 자리에 멈춤 (따라가기는 안 켬)
+                        stop_home("start pose move stopped (SPACE again to follow)")
+                    elif paused:
                         say("paused on robot PC (press SPACE there)")
                     else:
                         mapper.sync_to(arm.joints())
@@ -184,6 +231,10 @@ def main():
                     p = rec.discard_last()
                     say(f"deleted {os.path.basename(p)}" if p else "no episode to delete")
                 disc_prev = d
+                hn = int(m.get("home", 0))                       # 노트북 B 를 누를 때마다 1 씩 늚
+                if home_prev is not None and hn != home_prev and not m.get("bye"):
+                    start_home()
+                home_prev = hn
 
             age = srv.age()
             if follow and age > a.timeout:
@@ -193,6 +244,13 @@ def main():
                 rec_req_prev = False
                 say(f"link lost, saved {os.path.basename(r[0])} ({r[1]} frames)" if r else "link lost")
             fresh = age < 0.25
+            if homing is not None:
+                q_home, done = homing.step(dt)
+                arm.move_joints(q_home)
+                if done:
+                    homing = None
+                    mapper.sync_to(home_q)
+                    say("at start pose (SPACE to follow)")
             q_cmd, width = mapper.step(hand if (follow and fresh) else None, dt, follow, ik_iters)
             if follow:
                 arm.send(q_cmd, width)
@@ -219,7 +277,7 @@ def main():
             srv.reply(q=[round(float(v), 5) for v in q_now], w=(round(float(w_now), 4) if np.isfinite(w_now) else None),
                       tgt=[round(float(v), 4) for v in mapper.cur], follow=int(follow), rec=int(rec.on),
                       real=int(arm.is_real), x0=a.x0, y0=a.y0, stop=stop_n, msg=msg, msg_n=msg_n,
-                      paused=int(paused), eps=len(rec.saved), ver=VER)
+                      paused=int(paused), eps=len(rec.saved), ver=VER, homing=int(homing is not None))
 
             if win:
                 link = (f"laptop {seen_peer[0]}" if seen_peer else f"waiting :{a.port}")
@@ -234,10 +292,13 @@ def main():
                 key = cv2.waitKey(1) & 0xFF
                 if key in (ord("q"), 27):
                     break
+                if key == ord("b"):
+                    start_home()
                 if key == ord(" "):
                     paused = not paused
                     if paused:
                         force_stop("paused on robot PC")
+                        stop_home("paused on robot PC: start pose move stopped")
                         if not follow:
                             arm.hold()
                     else:

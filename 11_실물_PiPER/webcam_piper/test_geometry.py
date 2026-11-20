@@ -450,9 +450,70 @@ def verdict():
     return not bad
 
 
+def check_steady():
+    """11/20 지터·손떨림 거르기: 멈춘 손의 떨림과 한 장면 튐을 로봇 목표에 넘기지 않는지, 움직이면 따라가는지,
+    로봇 PC 가 패킷 사이를 이어 끊어 가지 않는지."""
+    from teleop import Smoother
+    print("== 12. 멈춘 손 떨림 (손떨림 9 Hz 1 mm + 잡음 xy 2·z 5 mm, 23 fps, 4초) 과 한 장면 3 cm 튐")
+    rng = np.random.default_rng(12)
+
+    def run(sm, spike_at=()):
+        outs = []
+        for i in range(92):
+            t = i / 23
+            p = np.array([0.0, 0.0, 0.05]) + 0.001 * np.sin(2 * np.pi * 9 * t + np.arange(3)) + rng.normal(0, [0.002, 0.002, 0.005])
+            if i in spike_at:
+                p = p + np.array([0.0, 0.03, 0.0])
+            o = sm(t, {"pinch": p, "yaw": 0.0, "gap": 0.08})
+            outs.append(None if o is None else o["pinch"])
+        o = np.array([x for x in outs[23:] if x is not None])
+        return float(np.max(np.linalg.norm(o - o.mean(0), axis=1)) * 2000)    # 가장 크게 흔들린 폭 (mm)
+    old, new = run(Smoother(steady=False), (50,)), run(Smoother(), (50,))
+    print(f"  흔들린 폭 (튐 포함): 1€ 만 {old:.1f} mm → 새 거르기 {new:.1f} mm")
+    check("12 멈춘 손 떨림·튐을 8 mm 안으로 (1€ 만일 때의 0.4 배 아래)", new < 8.0 and new < old * 0.4)
+    # 움직일 때: 0.3 m/s 로 20 cm. 끝나고 0.5초 안에 1 cm 안으로 따라오고 넘치지 않는지
+    sm, outs = Smoother(), []
+    for i in range(60):
+        t = i / 23
+        x = min(0.3 * max(t - 0.5, 0.0), 0.20)
+        o = sm(t, {"pinch": np.array([x, 0.0, 0.05]), "yaw": 0.0, "gap": 0.08})
+        outs.append(0.0 if o is None else o["pinch"][0])
+    t_end = 0.5 + 0.20 / 0.3
+    after = [o for i, o in enumerate(outs) if i / 23 > t_end + 0.5]
+    lag = 0.3 * max(t_end - 0.1 - 0.5, 0) - outs[int((t_end - 0.1) * 23)]
+    print(f"  0.3 m/s 이동 중 뒤처짐 {lag * 1000:.1f} mm, 멈추고 0.5초 뒤 오차 {abs(after[0] - 0.20) * 1000:.1f} mm, "
+          f"넘침 {max(0.0, max(outs) - 0.20) * 1000:.1f} mm")
+    check("12 움직이면 따라가고 멈추면 1 cm 안", abs(after[0] - 0.20) < 0.01 and max(outs) < 0.205 and lag < 0.03)
+
+    print("== 13. 로봇 PC 패킷 사이 잇기 (손 0.2 m/s 등속, 패킷 23 Hz, 팔 100 Hz)")
+    kin = PiperKin()
+
+    def robot(interp):
+        mp = Mapper(kin, max_speed=1.0, max_joint_rate=3.0)
+        mp.interp = interp
+        mp.sync_to(np.array([0.0, 0.9, -0.9, 0.0, 0.9, 0.0]))
+        pkt, curs = None, []
+        for k in range(150):
+            t = k / 100
+            n = int(t * 23)
+            x = -0.03 + 0.2 * min(n / 23, 0.6)
+            if pkt is None or pkt["n"] != n:
+                pkt = {"n": n, "pinch": np.array([x, 0.0, PINCH_H0]), "yaw": 0.0, "gap": 0.0}   # 새 패킷 = 새 dict
+            mp.step(pkt, 0.01, True, ik_iters=10)
+            curs.append(mp.cur.copy())
+        c = np.array(curs)
+        v = np.linalg.norm(np.diff(c, axis=0), axis=1) * 100
+        mid = v[30:55]                                   # 등속 구간
+        return float(mid.max() / max(mid.mean(), 1e-9)), float(np.linalg.norm(c[-1] - mp.human_to_robot(pkt["pinch"])) * 1000)
+    (r_old, e_old), (r_new, e_new) = robot(False), robot(True)
+    print(f"  등속 구간 최고 속도 / 평균 속도: 잇기 없음 {r_old:.1f} → 잇기 {r_new:.1f} (1 이면 고르게), 마지막 목표와 차 {e_new:.1f} mm")
+    check("13 패킷 사이를 고르게 잇고 마지막 값에 닿음", r_new < 1.6 and r_new < r_old * 0.6 and e_new < 1.0)
+
+
 if __name__ == "__main__":
     main()
     check_hard_cases()
     check_finger_shape()
     check_auto_calib()
+    check_steady()
     raise SystemExit(0 if verdict() else 1)
