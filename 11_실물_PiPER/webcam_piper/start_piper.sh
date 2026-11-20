@@ -9,8 +9,9 @@ D=/home/user/smolVLA/webcam_piper
 ARM_PY=/home/user/smolVLA/chanhyuk_piper-teleop/.venv/bin/python      # agx-bus 가 깔린 찬혁님 venv (팔)
 CAM_PY=$D/.venv/bin/python                                             # MediaPipe venv (카메라)
 PORT=5005
-# 11/19 실물 따라가기 설정. LIFT 0.10 = 집게가 손보다 10 cm 위에서 따라감 (물체를 집으려면 0 으로 하고 카메라 창에서 Z)
-LIFT=0.10
+# 11/19 실물 따라가기 설정. LIFT = 집게가 손보다 이만큼 위에서 따라감 (11/19 0.10).
+# 11/20 0 으로: 서버가 종이 + 를 처음 자세 집게 끝에 맞추므로, 손을 + 에 대고 SPACE 를 누르면 팔이 제자리에 있음
+LIFT=0
 SERVER_ARGS="--robot agxbus --speed 30 --lift $LIFT --max-speed 0.3 --joint-rate 1.5 --rot-rate 90"
 CAM_ARGS="--cam 0 --cam2 2 --send 127.0.0.1"
 

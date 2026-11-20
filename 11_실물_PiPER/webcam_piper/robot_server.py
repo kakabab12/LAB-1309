@@ -27,7 +27,7 @@ from home import HOME_FILE, HomeMove, load_home, path_ok
 from mapping import Mapper
 from net import PORT, Server, code_version, my_ips
 from panel import robot_panel
-from piper_kin import PiperKin
+from piper_kin import TABLE_Z, PiperKin
 from recorder import CamGrabber, Recorder, jpeg
 from robots import make_arm
 
@@ -40,8 +40,11 @@ def parse():
     ap.add_argument("--robot", choices=["preview", "agxbus", "sdk"], default="preview")
     ap.add_argument("--can", default="can0")
     ap.add_argument("--speed", type=int, default=30, help="실물 팔 속도 %%")
-    ap.add_argument("--x0", type=float, default=0.30, help="로봇 종이 가운데: 밑동에서 앞으로 (m)")
-    ap.add_argument("--y0", type=float, default=0.0, help="로봇 종이 가운데: 밑동에서 왼쪽으로 (m)")
+    # 11/20 사용자 "손 + 가운데, 집게도 + 가운데 뒀는데 SPACE 누르면 앞으로 가": 처음 자세 집게 끝은 밑동 앞 14.8 cm 인데
+    # 종이 + 를 앞 30 cm 로 잡아 15 cm 앞으로 갔다. 이제 처음 자세(home_pose.json)가 있으면 + = 처음 자세 집게 끝 (앞·옆·높이).
+    # --x0/--y0 를 주면 예전처럼 그 자리 (높이는 책상 + 1.2 cm)
+    ap.add_argument("--x0", type=float, default=None, help="로봇 종이 가운데: 밑동에서 앞으로 (m). 안 주면 처음 자세 집게 끝 (없으면 0.30)")
+    ap.add_argument("--y0", type=float, default=None, help="로봇 종이 가운데: 밑동에서 왼쪽으로 (m). 안 주면 처음 자세 집게 끝 (없으면 0)")
     ap.add_argument("--gain", type=float, default=1.0, help="사람 1 cm → 로봇 몇 cm")
     # 11/18: 사람 손 속도로 따라가게 기본값을 올림 (11/16 실물 첫 시험은 6 cm/s·관절 1 rad/s 라 손보다 한참 느렸다).
     # 노트북은 초당 18~30번 보내므로, 100 Hz 로 돌며 이 속도 제한 안에서 다음 값까지 이어 준다 (뚝뚝 끊기지 않게)
@@ -89,16 +92,31 @@ def main():
         print("       움직이는 범위: 밑동에서 앞 %.0f~%.0f cm, 좌우 ±%.0f cm, 책상 위 %.0f cm 까지 (팔 둘레를 이만큼 비울 것)"
               % (a.box_x[0] * 100, a.box_x[1] * 100, a.box_y * 100, a.max_z * 100))
         input("       준비됐으면 Enter (취소 Ctrl+C) ")
+    home_q = load_home()                                # 11/20: save_home.py 로 저장한 처음 자세 (B 로 돌아감)
+    if home_q is not None:
+        home_q = np.clip(home_q, kin.lo, kin.hi)
+    origin_home = home_q is not None and a.x0 is None and a.y0 is None
+    if origin_home:                                     # 11/20: 종이 + = 처음 자세 집게 끝
+        hp, _ = kin.fk(home_q)
+        a.x0, a.y0 = float(hp[0]), float(hp[1])
+    a.x0 = 0.30 if a.x0 is None else a.x0
+    a.y0 = 0.0 if a.y0 is None else a.y0
     mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, min_z=a.min_z, max_joint_rate=a.joint_rate,
                     max_yaw_rate=math.radians(a.rot_rate), max_z=a.max_z, box_x=tuple(a.box_x), box_y=a.box_y)
+    if origin_home:                                     # 손을 종이에 대면 (높이 PINCH_H0) 처음 자세 높이
+        mapper.robot_start[2] = max(float(hp[2]), TABLE_Z + a.min_z)
     mapper.robot_start[2] += a.lift                     # 11/18: 손 높이 + lift 로 따라감
+    print("[종이 +] 손을 + 에 대면 집게 끝: 밑동에서 앞 %.1f cm, 왼쪽 %.1f cm, 책상 위 %.1f cm%s"
+          % (mapper.robot_start[0] * 100, mapper.robot_start[1] * 100, (mapper.robot_start[2] - TABLE_Z) * 100,
+             " (처음 자세 집게 끝)" if origin_home else ""))
+    if mapper.robot_start[0] - a.box_x[0] < 0.05:
+        print("        밑동 쪽으로는 %.1f cm 만 갈 수 있음 (작업 상자 앞최소 %.0f cm)"
+              % ((mapper.robot_start[0] - a.box_x[0]) * 100, a.box_x[0] * 100))
     mapper.interp = not a.no_interp                     # 11/20: 손 값 사이를 곧게 이어 끊어 가는 지터를 없앰
     ik_iters = 10 if a.hz >= 60 else 40                 # 100 Hz 면 한 박자 10번이면 됨 (40번은 7~12 ms 라 박자를 못 지킴)
     mapper.yaw0 = 0.0                                   # 노트북이 집게 방향(yaw)을 그대로 보냄
     mapper.sync_to(arm.joints())
-    home_q = load_home()                                # 11/20: save_home.py 로 저장한 처음 자세 (B 로 돌아감)
     if home_q is not None:
-        home_q = np.clip(home_q, kin.lo, kin.hi)
         print("[처음 자세] %s 의 관절(도) %s — 노트북 B 로 돌아감" % (os.path.basename(HOME_FILE),
                                                      ", ".join(f"{math.degrees(v):.1f}" for v in home_q)))
     else:
