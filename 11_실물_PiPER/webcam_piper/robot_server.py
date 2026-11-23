@@ -63,6 +63,10 @@ def parse():
                     help="집게 끝을 책상 위 이 높이(m) 아래로 내리지 않음. 실물 첫 시험은 0.10 처럼 높게 (11/16)")
     ap.add_argument("--no-interp", action="store_true",
                     help="11/20 패킷 사이 잇기를 끔 (새 손 값이 올 때마다 최고 속도로 갔다 서던 11/19 방식)")
+    ap.add_argument("--home-grip", choices=["close", "keep"], default="close",
+                    help="B 로 처음 자세에 갈 때 그리퍼: close 닫음 (11/23 기본, 사용자 요청) / keep 그대로 (11/20)")
+    ap.add_argument("--down-only", action="store_true",
+                    help="11/23 손바닥 방향 따라가기를 끔: 집게는 늘 아래를 보고 돌림만 따라감 (11/22 까지와 같음)")
     ap.add_argument("--home-rate", type=float, default=0.6,
                     help="처음 자세로 돌아갈 때 가장 많이 도는 관절의 최고 속도 (rad/s). 11/20")
     ap.add_argument("--hz", type=float, default=100.0, help="팔에 명령 보내고 기록하는 박자 (11/17 까지 30)")
@@ -103,6 +107,7 @@ def main():
     a.y0 = 0.0 if a.y0 is None else a.y0
     mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, min_z=a.min_z, max_joint_rate=a.joint_rate,
                     max_yaw_rate=math.radians(a.rot_rate), max_z=a.max_z, box_x=tuple(a.box_x), box_y=a.box_y)
+    mapper.follow_tilt = not a.down_only                # 11/23 손바닥 방향 따라 집게를 옆·위로
     if origin_home:                                     # 손을 종이에 대면 (높이 PINCH_H0) 처음 자세 높이
         mapper.robot_start[2] = max(float(hp[2]), TABLE_Z + a.min_z)
     mapper.robot_start[2] += a.lift                     # 11/18: 손 높이 + lift 로 따라감
@@ -139,6 +144,7 @@ def main():
             win = None
 
     follow, paused = False, False
+    was_blocked = False
     homing, home_prev = None, None     # 11/20 처음 자세로 가는 중 (HomeMove), 노트북 B 누른 횟수
     prev_req = None                    # 노트북이 바로 전에 보낸 follow (None = 아직 못 받음 → 껐다 켜야 움직임)
     rec_req_prev, disc_prev = False, None
@@ -180,6 +186,8 @@ def main():
             say(f"path to start pose goes {-low * 100:.0f} cm below the table: not moving")
             return
         homing = HomeMove(q0, home_q, max_rate=a.home_rate)
+        if a.home_grip == "close":                      # 11/23 사용자: B 로 처음 자세를 잡으면 그리퍼도 닫히게
+            mapper.width = 0.0
         say(f"going to start pose ({homing.T:.1f} s, SPACE stops)")
 
     def stop_home(reason):
@@ -208,6 +216,8 @@ def main():
                     rec.extra["laptop_calib"] = m["cal"]          # 에피소드마다 ep_XXX.json 으로 (11/17)
                 h = m.get("hand")
                 hand = {"pinch": np.array(h[:3], float), "yaw": float(h[3]), "gap": float(h[4])} if h else None
+                if hand is not None and len(h) >= 11:            # 11/23 손바닥이 향한 쪽, 엄지 → 손가락 줄
+                    hand["normal"], hand["axis"] = np.array(h[5:8], float), np.array(h[8:11], float)
                 mapper.follow_grip = bool(m.get("grip", 1))
                 mapper.follow_yaw = bool(m.get("yawf", 1))
                 mapper.squeeze = float(np.clip(m.get("sq", 0.025), 0.0, 0.05))
@@ -264,12 +274,18 @@ def main():
             fresh = age < 0.25
             if homing is not None:
                 q_home, done = homing.step(dt)
-                arm.move_joints(q_home)
+                if a.home_grip == "close":
+                    arm.send(q_home, 0.0)                       # 관절과 함께 그리퍼 닫기 (2 mm 넘게 바뀔 때만 명령이 감)
+                else:
+                    arm.move_joints(q_home)
                 if done:
                     homing = None
                     mapper.sync_to(home_q)
                     say("at start pose (SPACE to follow)")
             q_cmd, width = mapper.step(hand if (follow and fresh) else None, dt, follow, ik_iters)
+            if mapper.blocked and not was_blocked:        # 11/23 팔 마디가 책상에 닿을 자세: 그 박자는 안 움직임
+                say("arm would touch the table: holding (turn the palm back down)")
+            was_blocked = mapper.blocked
             if follow:
                 arm.send(q_cmd, width)
             q_now = arm.joints()
@@ -281,6 +297,8 @@ def main():
                 rec.add(t=t, seq=int(last["seq"]) if last else -1, q=q_now, grip=w_now, q_cmd=mapper.q_cmd.copy(),
                         grip_cmd=mapper.width, hand=(np.array(lh[:3], float) if lh else np.full(3, np.nan)),
                         hand_yaw=(float(lh[3]) if lh else np.nan), hand_gap=(float(lh[4]) if lh else np.nan),
+                        hand_normal=(np.array(lh[5:8], float) if lh and len(lh) >= 11 else np.full(3, np.nan)),
+                        blocked=mapper.blocked,
                         target=mapper.cur.copy(), tracked=lh is not None and fresh, follow=follow, link_age=age,
                         lm2d=(np.array(last["l2"], float).reshape(21, 2) if last and last.get("l2") else np.full((21, 2), np.nan)),
                         lm3d=(np.array(last["l3"], float).reshape(21, 3) if last and last.get("l3") else np.full((21, 3), np.nan)),

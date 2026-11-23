@@ -3,7 +3,8 @@
 저장: python save_home.py   (팔을 교시 모드로 손으로 옮겨 둔 채 실행. CAN 을 듣기만 해서 팔은 안 움직임)
 돌아가기: robot_server.py 가 도는 동안 teleop 화면에서 B (또는 robot_server 창에서 B).
   따라가기는 꺼지고, 관절마다 같은 시간에 출발·도착하도록 부드럽게(최소 저크) 간다. 가장 많이 도는 관절도 초당 max_rate 를 넘지 않는다.
-  가는 중 SPACE 를 누르면 그 자리에 멈춘다. 그리퍼는 그대로 둔다 (물체를 쥐고 있으면 떨어뜨리지 않게).
+  가는 중 SPACE 를 누르면 그 자리에 멈춘다. 그리퍼는 11/23 부터 닫는다 (robot_server --home-grip close 기본, 사용자 요청).
+  11/20 처럼 그대로 두려면 --home-grip keep (닫는 것이라 쥐고 있던 물체를 떨어뜨리지는 않는다).
 """
 import json
 import os

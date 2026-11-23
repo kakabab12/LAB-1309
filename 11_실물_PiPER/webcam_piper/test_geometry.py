@@ -510,10 +510,83 @@ def check_steady():
     check("13 패킷 사이를 고르게 잇고 마지막 값에 닿음", r_new < 1.6 and r_new < r_old * 0.6 and e_new < 1.0)
 
 
+def check_palm_tilt():
+    """11/23 손바닥 방향 → 집게 방향. 손등이 보이면(손바닥 아래) 집게 아래, 손바닥이 위면 집게도 위로 (관절이 닿는 데까지)."""
+    print("== 14. 손바닥 방향 따라 집게 돌리기 (가상 팔)")
+    import geometry
+    from mapping import Mapper, approach_from_palm, min_height_for
+    from piper_kin import PiperKin, TABLE_Z, grip_orientation
+    kin = PiperKin()
+
+    def rot_x(a):                                   # 손을 앞 축(x)으로 돌림 = 손목을 뒤집음
+        c, s_ = math.cos(a), math.sin(a)
+        return np.array([[1, 0, 0], [0, c, -s_], [0, s_, c]])
+
+    flat = hand_model("flat")
+    n_down = geometry.palm_normal(flat)
+    n_up = geometry.palm_normal((rot_x(math.pi) @ flat.T).T)
+    print(f"  펴서 엎은 오른손 손바닥 쪽 {np.round(n_down, 2)}, 뒤집은 손 {np.round(n_up, 2)}")
+    check("14a 손등이 보이면 손바닥 쪽이 아래, 뒤집으면 위", n_down[2] < -0.95 and n_up[2] > 0.95)
+    check("14b 손바닥이 20° 안으로 기울면 집게는 똑바로 아래", approach_from_palm(rot_x(math.radians(15)) @ np.array([0, 0, -1.0]))[2] < -0.999)
+
+    def run(tilt_deg, h, steps=400, down_only=False):
+        mp = Mapper(kin, max_speed=0.3, max_joint_rate=3.0, max_yaw_rate=math.radians(120))
+        mp.follow_tilt = not down_only
+        mp.sync_to(np.array([0.0, 0.9, -0.9, 0.0, 0.9, 0.0]))
+        R = rot_x(math.radians(tilt_deg))
+        meas = {"pinch": np.array([0.0, 0.0, PINCH_H0 + h]), "yaw": 0.0, "gap": 0.08,
+                "normal": R @ np.array([0, 0, -1.0]), "axis": R @ np.array([0, 1.0, 0])}
+        low = 9.0
+        for _ in range(steps):
+            q, _w = mp.step(meas, 0.01, True, ik_iters=10)
+            pts = np.asarray(kin.link_points(q))[1:-1]
+            low = min(low, float(pts[:, 2].min()) - TABLE_Z)
+        p, m = kin.fk(mp.q_cmd)
+        tilt = math.degrees(math.acos(float(np.clip(-m[2, 2], -1, 1))))     # 0 아래, 180 위
+        jaw_ok = p[2] >= min_height_for(m, TABLE_Z, 0.0) - 0.01
+        return tilt, (p[2] - TABLE_Z) * 100, low * 100, jaw_ok, mp
+
+    t0, z0, l0, j0, mp0 = run(0, 0.05)
+    _, m_old = kin.fk(mp0.q_cmd)
+    want = grip_orientation(0.0)
+    err = min(math.degrees(math.acos(float(np.clip((np.trace(m_old @ (want @ F).T) - 1) / 2, -1, 1))))
+              for F in (np.eye(3), np.diag([-1.0, -1.0, 1.0])))
+    print(f"  손바닥 아래: 집게 {t0:.0f}° (예전 방식과 차 {err:.1f}°), 집게 끝 높이 {z0:.1f} cm")
+    check("14c 손바닥이 아래면 예전처럼 똑바로 아래", t0 < 3 and err < 3)
+    rows = []
+    for tilt_h, h in ((90, 0.05), (90, 0.15), (180, 0.05), (180, 0.20)):
+        t_, z_, l_, j_, mp_ = run(tilt_h, h)
+        rows.append((tilt_h, h, t_, z_, l_, j_, mp_.blocked))
+        print(f"  손바닥 {tilt_h:3d}° (0 아래, 180 위), 손 높이 +{h*100:.0f} cm → 집게 {t_:3.0f}°, 집게 끝 {z_:4.1f} cm, "
+              f"가장 낮은 팔 마디 {l_:+5.1f} cm, 집게 몸통·손가락 책상 위 {'예' if j_ else '아니오'}{' (멈춤 있었음)' if mp_.blocked else ''}")
+    # PiPER 는 손목 꺾기 ±70° 라 책상 가까이에서 집게가 옆으로 세워지는 데 한계가 있다 (11/23 관절 6만 개 뽑아 봄: 높이 16 cm 아래 70~120°)
+    check("14d 손바닥을 옆으로 세우면 집게도 옆으로 (45° 넘게)", rows[0][2] > 45 and rows[1][2] > 45)
+    check("14e 손바닥을 위로 뒤집으면 옆으로 세울 때보다 더 위로", max(r[2] for r in rows[2:]) > max(rows[0][2], rows[1][2]))
+    check("14f 어느 쪽으로 돌려도 팔 마디와 집게가 책상에 닿지 않음", all(r[4] > 0.5 and r[5] for r in rows))
+    td, _, _, _, _ = run(180, 0.05, down_only=True)
+    check("14g --down-only 면 손바닥을 뒤집어도 집게는 아래", td < 3)
+    # 돌리는 도중 반 바퀴 휙 돌지 않음: 손을 0 → 180° 천천히 뒤집는 동안 한 박자 집게 회전이 작다
+    mp = Mapper(kin, max_speed=0.3, max_joint_rate=3.0, max_yaw_rate=math.radians(120))
+    mp.sync_to(np.array([0.0, 0.9, -0.9, 0.0, 0.9, 0.0]))
+    prev, worst = None, 0.0
+    for k in range(600):
+        R = rot_x(math.radians(180 * min(k / 400, 1.0)))
+        meas = {"pinch": np.array([0.0, 0.0, PINCH_H0 + 0.15]), "yaw": 0.0, "gap": 0.08,
+                "normal": R @ np.array([0, 0, -1.0]), "axis": R @ np.array([0, 1.0, 0])}
+        q, _ = mp.step(meas, 0.01, True, ik_iters=10)
+        _, m = kin.fk(q)
+        if prev is not None:
+            worst = max(worst, math.degrees(math.acos(float(np.clip((np.trace(m @ prev.T) - 1) / 2, -1, 1)))))
+        prev = m
+    print(f"  손을 4초에 걸쳐 뒤집는 동안 한 박자(10 ms) 집게 회전 최대 {worst:.1f}°")
+    check("14h 뒤집는 동안 집게가 휙 돌지 않음 (한 박자 3° 안)", worst < 3.0)
+
+
 if __name__ == "__main__":
     main()
     check_hard_cases()
     check_finger_shape()
     check_auto_calib()
     check_steady()
+    check_palm_tilt()
     raise SystemExit(0 if verdict() else 1)
