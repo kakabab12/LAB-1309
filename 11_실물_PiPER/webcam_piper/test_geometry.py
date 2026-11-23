@@ -582,6 +582,74 @@ def check_palm_tilt():
     check("14h 뒤집는 동안 집게가 휙 돌지 않음 (한 박자 3° 안)", worst < 3.0)
 
 
+def check_hold_start():
+    """11/23 오후 사용자: "스페이스바 누르고 시작하면 집게가 뜨는데? 자세가 그대로여야지". hold_start 면 SPACE 순간 팔이 그대로."""
+    print("== 15. SPACE 때 자세 그대로 (hold_start, 가상 팔)")
+    from mapping import Mapper, rot_angle
+    from piper_kin import PiperKin, TABLE_Z
+    kin = PiperKin()
+    qh = np.radians([-2.82, 92.996, -26.67, 4.49, 43.984, -7.491])       # 11/23 사용자가 고친 처음 자세 (모델로는 끝이 책상 −0.8 cm, 16° 기울어짐)
+    hp, hm = kin.fk(qh)
+
+    def rot_x(a):
+        c, s_ = math.cos(a), math.sin(a)
+        return np.array([[1, 0, 0], [0, c, -s_], [0, s_, c]])
+
+    def rot_z(a):
+        c, s_ = math.cos(a), math.sin(a)
+        return np.array([[c, -s_, 0], [s_, c, 0], [0, 0, 1]])
+
+    def mk(hold):
+        mp = Mapper(kin, float(hp[0]), float(hp[1]), 1.0, max_speed=1.0, min_z=0.006, max_joint_rate=3.0,
+                    max_yaw_rate=math.radians(180), max_z=0.30, box_x=(0.12, 0.50), box_y=0.40)
+        mp.robot_start[2] = max(float(hp[2]), TABLE_Z + 0.006)
+        mp.hold_start, mp.interp = hold, True
+        mp.sync_to(qh.copy())
+        mp.width = 0.0
+        return mp
+
+    def meas(pinch, R, gap):
+        return {"pinch": np.asarray(pinch, float), "yaw": 0.0, "gap": gap,
+                "normal": R @ np.array([0, 0, -1.0]), "axis": R @ np.array([0, 1.0, 0])}
+
+    def go(mp, f, n):
+        for k in range(n):
+            mp.step(f(k), 0.01, True, ik_iters=10)
+        p, m = kin.fk(mp.q_cmd)
+        return p, m
+
+    P0, R0, G0 = np.array([0.0, 0.03, PINCH_H0 + 0.05]), rot_z(math.radians(30)) @ rot_x(math.radians(15)), 0.08
+    worst = (0.0, 0.0, 0.0)
+    for P, R in ((np.array([0, 0, PINCH_H0]), np.eye(3)), (P0, R0), (np.array([0.02, -0.02, PINCH_H0 + 0.02]), rot_x(math.radians(35)))):
+        mp = mk(True)
+        p, m = go(mp, lambda k: meas(P, R, G0), 200)
+        worst = max(worst, (float(np.linalg.norm(p - hp)), math.degrees(rot_angle(m, hm)), mp.width))
+    print(f"  손이 + 에서 벗어나 있고 손바닥이 기울고 손이 펴져 있어도: 2초 뒤 집게 끝 {worst[0]*1000:.1f} mm, 방향 {worst[1]:.1f}°, 그리퍼 {worst[2]*100:.1f} cm")
+    check("15a SPACE 뒤 손이 어디 있든 팔은 그대로 (1 mm·0.5°·그리퍼 그대로)", worst[0] < 0.001 and worst[1] < 0.5 and worst[2] == 0.0)
+    mp = mk(False)
+    p, m = go(mp, lambda k: meas([0, 0, PINCH_H0], np.eye(3), G0), 200)
+    print(f"  예전(--start paper): 손 + 위 편 손에서 집게 끝 {np.linalg.norm(p - hp)*1000:.0f} mm 뜸, 방향 {math.degrees(rot_angle(m, hm)):.0f}° 돎, 그리퍼 {mp.width*100:.1f} cm")
+    check("15b --start paper 는 예전처럼 종이 + 기준 (이 자세에서는 움직임)", np.linalg.norm(p - hp) > 0.005)
+    mp = mk(True)
+    p, m = go(mp, lambda k: meas(P0 + np.array([0.10, 0.0, 0.05]) * min(k / 150, 1.0), R0, G0), 400)
+    print(f"  SPACE 뒤 손을 앞 10·위 5 cm: 집게 끝 {np.round((p - hp) * 100, 1)} cm")
+    check("15c 그 뒤로는 손이 움직인 만큼 (5 mm 안)", np.linalg.norm((p - hp) - [0.10, 0.0, 0.05]) < 0.005)
+    mp = mk(True)
+    p, m = go(mp, lambda k: meas(P0 + np.array([0, 0, -0.03]) * min(k / 100, 1.0), R0, G0), 300)
+    check("15d 손을 처음보다 낮게 내려도 집게 끝은 처음 높이 아래로 안 감", p[2] > hp[2] - 0.002)
+    mp = mk(True)
+    go(mp, lambda k: meas(P0, R0, G0 - 0.005), 100)
+    w_small = mp.width
+    go(mp, lambda k: meas(P0, R0, G0 - 0.04), 100)
+    print(f"  손가락 0.5 cm 움직임 → 그리퍼 {w_small*100:.1f} cm, 4 cm 오므림 → {mp.width*100:.1f} cm")
+    check("15e 그리퍼는 손가락이 1 cm 넘게 움직이면 따라감", w_small == 0.0 and mp.width > 0.01)
+    mp = mk(True)
+    for _ in range(50):
+        mp.step(None, 0.01, True, ik_iters=10)
+    p, m = go(mp, lambda k: meas([0.05, -0.04, PINCH_H0 + 0.08], rot_x(math.radians(25)), 0.07), 200)
+    check("15f 손을 늦게 찾아도 (0.5초 뒤) 팔은 그대로", np.linalg.norm(p - hp) < 0.001 and math.degrees(rot_angle(m, hm)) < 0.5)
+
+
 if __name__ == "__main__":
     main()
     check_hard_cases()
@@ -589,4 +657,5 @@ if __name__ == "__main__":
     check_auto_calib()
     check_steady()
     check_palm_tilt()
+    check_hold_start()
     raise SystemExit(0 if verdict() else 1)

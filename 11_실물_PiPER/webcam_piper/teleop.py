@@ -38,7 +38,7 @@ from paper import PaperFinder
 from panel import DISP_H, robot_panel
 from piper_kin import HOME_Q, PiperKin
 from recorder import CamGrabber, Recorder, jpeg, open_camera
-from robots import make_arm
+from robots import GRIP_MAX, make_arm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BACKSPACE = (8, 127)                                       # 127 = 맥의 delete 키
@@ -111,6 +111,9 @@ def parse():
                     help="oat 의 앞 장면 벌점 (클수록 덜 흔들리고 더 늦게 따라감). 11/18 부터 0: 흔들림은 1€ 필터가 거름")
     ap.add_argument("--no-steady", action="store_true",
                     help="11/20 손떨림·지터 거르기(멈춰 있을 때 가운데 값 + 멈춤 구역)를 끔 — 11/18 처럼 1€ 필터만")
+    ap.add_argument("--start", choices=["keep", "paper"], default="keep",
+                    help="11/23 SPACE 를 누를 때: keep = 팔은 그 자세 그대로, 그때 손 자리를 지금 집게 끝으로 삼고 손이 움직인 만큼 따라감 (기본, 사용자 요청) "
+                         "/ paper = 손이 종이 + 에서 떨어진 만큼 집게도 처음 자세(종이 +)에서 떨어진 자리로 감 (11/22 까지)")
     ap.add_argument("--down-only", action="store_true",
                     help="11/23 손바닥 방향 따라가기를 끔: 집게는 늘 아래를 보고 돌림(yaw)만 따라감 (11/22 까지와 같음)")
     ap.add_argument("--still-mm", type=float, default=3.0,
@@ -222,6 +225,7 @@ def main():
                     yaw_gap_min=GRIP_YGM[grip_mode],
                     yaw_pref=math.radians(-60 if a.hand == "right" else 60))
     mapper.follow_tilt = not a.down_only
+    mapper.hold_start = a.start == "keep"                        # 11/23 SPACE 때 팔은 그 자세 그대로
     geometry.HAND_SIGN = 1.0 if a.hand == "right" else -1.0      # 11/23 손바닥이 향한 쪽 계산 (왼손이면 뒤집음)
     mapper.sync_to(arm.joints())
 
@@ -778,6 +782,9 @@ def main():
                 if follow:
                     if not link:
                         mapper.sync_to(arm.joints())
+                        w_arm = arm.gripper()
+                        if np.isfinite(w_arm):
+                            mapper.width = float(np.clip(w_arm, 0.0, GRIP_MAX))
                     smooth.reset()
                 else:
                     arm.hold()

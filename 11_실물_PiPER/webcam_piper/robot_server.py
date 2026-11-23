@@ -29,7 +29,7 @@ from net import PORT, Server, code_version, my_ips
 from panel import robot_panel
 from piper_kin import TABLE_Z, PiperKin
 from recorder import CamGrabber, Recorder, jpeg
-from robots import make_arm
+from robots import GRIP_MAX, make_arm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -65,6 +65,9 @@ def parse():
                     help="11/20 패킷 사이 잇기를 끔 (새 손 값이 올 때마다 최고 속도로 갔다 서던 11/19 방식)")
     ap.add_argument("--home-grip", choices=["close", "keep"], default="close",
                     help="B 로 처음 자세에 갈 때 그리퍼: close 닫음 (11/23 기본, 사용자 요청) / keep 그대로 (11/20)")
+    ap.add_argument("--start", choices=["keep", "paper"], default="keep",
+                    help="11/23 SPACE 를 누를 때: keep = 팔은 그 자세 그대로, 그때 손 자리를 지금 집게 끝으로 삼고 손이 움직인 만큼 따라감 (기본, 사용자 요청) "
+                         "/ paper = 손이 종이 + 에서 떨어진 만큼 집게도 처음 자세(종이 +)에서 떨어진 자리로 감 (11/22 까지)")
     ap.add_argument("--down-only", action="store_true",
                     help="11/23 손바닥 방향 따라가기를 끔: 집게는 늘 아래를 보고 돌림만 따라감 (11/22 까지와 같음)")
     ap.add_argument("--home-rate", type=float, default=0.6,
@@ -111,9 +114,14 @@ def main():
     if origin_home:                                     # 손을 종이에 대면 (높이 PINCH_H0) 처음 자세 높이
         mapper.robot_start[2] = max(float(hp[2]), TABLE_Z + a.min_z)
     mapper.robot_start[2] += a.lift                     # 11/18: 손 높이 + lift 로 따라감
-    print("[종이 +] 손을 + 에 대면 집게 끝: 밑동에서 앞 %.1f cm, 왼쪽 %.1f cm, 책상 위 %.1f cm%s"
-          % (mapper.robot_start[0] * 100, mapper.robot_start[1] * 100, (mapper.robot_start[2] - TABLE_Z) * 100,
-             " (처음 자세 집게 끝)" if origin_home else ""))
+    mapper.hold_start = a.start == "keep"               # 11/23 사용자 "SPACE 누르면 집게가 뜨는데? 자세가 그대로여야지"
+    if mapper.hold_start:
+        print("[시작] SPACE 를 누르면 팔은 그 자세 그대로이고, 그때 손 자리가 지금 집게 끝이 됨. 그 뒤로 손이 움직인 만큼 따라감"
+              " (그리퍼는 손가락을 1 cm 넘게 움직이면 따라감. 종이 + 기준은 --start paper)")
+    else:
+        print("[종이 +] 손을 + 에 대면 집게 끝: 밑동에서 앞 %.1f cm, 왼쪽 %.1f cm, 책상 위 %.1f cm%s"
+              % (mapper.robot_start[0] * 100, mapper.robot_start[1] * 100, (mapper.robot_start[2] - TABLE_Z) * 100,
+                 " (처음 자세 집게 끝)" if origin_home else ""))
     if mapper.robot_start[0] - a.box_x[0] < 0.05:
         print("        밑동 쪽으로는 %.1f cm 만 갈 수 있음 (작업 상자 앞최소 %.0f cm)"
               % ((mapper.robot_start[0] - a.box_x[0]) * 100, a.box_x[0] * 100))
@@ -238,8 +246,11 @@ def main():
                         say("paused on robot PC (press SPACE there)")
                     else:
                         mapper.sync_to(arm.joints())
+                        w_arm = arm.gripper()                    # 11/23 그리퍼도 지금 폭에서 시작 (hold_start 면 손가락을 움직이기 전까지 그대로)
+                        if np.isfinite(w_arm):
+                            mapper.width = float(np.clip(w_arm, 0.0, GRIP_MAX))
                         follow = True
-                        say("follow started")
+                        say("follow started (arm stays as it is)" if mapper.hold_start else "follow started")
                 elif not req and prev_req:
                     if follow:
                         follow = False

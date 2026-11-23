@@ -22,6 +22,13 @@
   집게를 옆이나 위로 세우면 집게 몸통·손가락이 집게 끝보다 아래로 내려가므로, 그만큼 집게 끝 목표를 들어 올린다 (min_height_for).
   그래도 팔 마디가 책상 1 cm 안으로 내려가는 자세가 나오면 그 박자는 움직이지 않는다 (blocked). 끄기: follow_tilt = False (--down-only).
 
+시작할 때 자세 그대로 (11/23 오후, 사용자: "스페이스바 누르고 시작하면 집게가 뜨는데? 자세가 그대로여야지"):
+  hold_start = True (robot_server·teleop 기본, --start keep) 면 SPACE 를 누른 뒤 처음 받은 손을 '지금 집게 자세' 로 삼는다.
+  그 뒤로는 손이 움직인 만큼 (위치), 손이 돈 만큼 (방향) 집게도 움직인다. 그래서 손이 종이 + 에서 조금 벗어나 있어도,
+  손바닥이 살짝 기울어 있어도 SPACE 순간에 팔은 움직이지 않는다. 손가락 벌림도 SPACE 때보다 1 cm 넘게 바뀌기 전에는 그리퍼를 그대로 둔다.
+  처음 자세가 가상 팔 모델로는 책상 높이 하한(min_z)보다 낮게 나오면 (11/23 저장 자세: −0.8 cm) 모델 책상 높이가 그만큼 틀린 것으로 보고
+  하한을 3 cm 까지 내려 준다. 종이 + 기준 (예전): --start paper.
+
 VR 손잡이 (11/17, vr_handle.py): step_robot 은 로봇 좌표 목표를 바로 받는다 (사람 손 → 로봇 바꾸기는 vr_handle 이 함).
   작업 상자·속도·관절 제한·역기구학은 같고, 집게 방향은 한 박자에 도는 양을 제한해 따라가기를 켤 때 손목이 휙 돌지 않게 한다.
 """
@@ -62,6 +69,8 @@ GRIP_BODY = 0.12                    # 집게 끝 → 6번 마디 (m, 11/23 정�
 JAW_SIDE = 0.05                     # 집게 끝에서 손가락이 옆으로 나온 거리 (열었을 때 반 폭 + 두께, 어림)
 FLIP = np.diag([-1.0, -1.0, 1.0])   # 집게는 향하는 축으로 180° 돌려도 같은 모양
 TILT_LEAD = math.radians(15)        # 집게 방향 목표가 팔이 실제로 낸 방향보다 앞설 수 있는 각
+GRIP_TAKEOVER = 0.01                # hold_start: SPACE 때 손가락 벌림에서 이만큼 넘게 바뀌어야 그리퍼가 따라가기 시작 (m)
+FLOOR_DROP_MAX = 0.03               # hold_start: 처음 자세가 모델 높이 하한보다 낮을 때 하한을 내려 주는 최대 (m)
 
 
 def rot_angle(a, b):
@@ -128,6 +137,13 @@ class Mapper:
         self.tilt_fresh = True
         self.blocked = False                                         # 11/23 팔 마디가 책상에 닿을 자세라 이 박자는 안 움직임
         self.min_link_z = 0.01                                       # 팔 마디가 책상 위 이만큼은 떠 있어야 (m)
+        # 11/23 오후 시작할 때 자세 그대로 (hold_start). sync_to 가 기준을 지우고, 다음에 받은 손이 기준이 된다
+        self.hold_start = False
+        self._anchor = self._hand0 = self._hand_prev = self._gap0 = None
+        self._keep_mat = False
+        self.grip_hold = False
+        self.floor_drop = 0.0
+        self._lo_ext, self._hi_ext = np.zeros(3), np.zeros(3)       # 작업 상자를 처음 자세까지 넓힌 양 (hold_start)
         self.q_cmd = HOME_Q.copy()
         pos, _ = kin.fk(self.q_cmd)
         self.cur = pos.copy()                                        # 지금 보내는 목표 (속도 제한을 거친 것)
@@ -135,6 +151,7 @@ class Mapper:
         self.yaw_goal = self.cur_yaw
         self.cur_mat = kin.fk(self.q_cmd)[1]                         # step_robot 이 역기구학에 주는 집게 방향 (11/17)
         self.goal_mat = self.cur_mat.copy()                          # 11/23 손바닥 방향 목표
+        self._start_tip, self._start_mat = self.cur.copy(), self.cur_mat.copy()   # hold_start 기준 (sync_to 가 다시 잡음)
         self.width = GRIP_MAX
         self.desired = self.cur.copy()
         # 11/20 패킷 사이 잇기 (robot_server 가 켬): 손 값은 ~23 Hz 로 오는데 팔 명령은 100 Hz 라, 새 값이 올 때마다
@@ -154,8 +171,8 @@ class Mapper:
         return bool(np.linalg.norm(self.clip_robot(p) - np.asarray(p)) < tol)
 
     def clip_robot(self, p):
-        """로봇 좌표 목표를 작업 상자와 팔이 닿는 거리 안으로 자른다."""
-        p = np.clip(np.asarray(p, np.float64), self.box_lo, self.box_hi)
+        """로봇 좌표 목표를 작업 상자와 팔이 닿는 거리 안으로 자른다 (hold_start 면 처음 자세까지 넓힌 상자)."""
+        p = np.clip(np.asarray(p, np.float64), self.box_lo + self._lo_ext, self.box_hi + self._hi_ext)
         shoulder = np.array([0.0, 0.0, TABLE_Z + 0.12])
         v = p - shoulder
         n = np.linalg.norm(v)
@@ -169,7 +186,12 @@ class Mapper:
         dt = float(np.clip(dt, 1e-3, 0.2))
         tilt = self.follow_tilt and meas is not None and meas.get("normal") is not None
         if follow and meas is not None:
-            goal = self.human_to_robot(meas["pinch"])
+            if self.hold_start:                                                    # SPACE 뒤 처음 받은 손 = 지금 집게 끝
+                if self._anchor is None:
+                    self._anchor = np.asarray(meas["pinch"], np.float64).copy()
+                goal = self.clip_robot(self._start_tip + self.gain * (np.asarray(meas["pinch"], np.float64) - self._anchor))
+            else:
+                goal = self.human_to_robot(meas["pinch"])
             if tilt and self.follow_yaw:
                 self.goal_mat = self.tilt_goal(meas, goal)
             elif self.follow_yaw and meas["gap"] > self.yaw_gap_min:
@@ -180,7 +202,13 @@ class Mapper:
                 j1 = math.atan2(goal[1], goal[0])                                  # 팔이 향한 방향
                 self.yaw_goal = float(np.clip(c, j1 - self.yaw_limit, j1 + self.yaw_limit))   # 끝에서는 멈춤 (반 바퀴 돌지 않음)
             if self.follow_grip:
-                self.width = float(np.clip(meas["gap"] - self.squeeze, 0.0, GRIP_MAX))
+                if self.grip_hold:                                                 # SPACE 때 그리퍼 폭 그대로, 손가락이 1 cm 넘게 움직이면 따라감
+                    if self._gap0 is None:
+                        self._gap0 = float(meas["gap"])
+                    if abs(float(meas["gap"]) - self._gap0) > GRIP_TAKEOVER:
+                        self.grip_hold = False
+                if not self.grip_hold:
+                    self.width = float(np.clip(meas["gap"] - self.squeeze, 0.0, GRIP_MAX))
             if self.interp:
                 if meas is not self._pkt:                                          # 새 패킷: 지금 목표에서 새 구간 시작
                     if self._pkt is not None:
@@ -201,7 +229,7 @@ class Mapper:
             self._pkt = None                                         # 다시 잡으면 그 자리에서 새로 시작 (끊긴 시간은 간격에 안 넣음)
         if tilt or not self.follow_tilt_off_path():
             # 11/23 손바닥 방향: 집게 방향은 행렬로 돌리고, 옆·위로 세운 만큼 집게 끝 목표를 들어 올린다
-            mz = self.box_lo[2] - TABLE_Z
+            mz = self.box_lo[2] - self.floor_drop - TABLE_Z
             if follow and meas is not None and tilt:
                 nxt = rotate_toward(self.cur_mat, self.goal_mat, self.max_yaw_rate * dt)
                 # 먼저 올라가고 나서 돈다: 다음 방향이 지금 높이로는 책상에 닿으면 이 박자는 돌지 않는다
@@ -210,7 +238,7 @@ class Mapper:
                     self.cur_mat = nxt
             lo = min_height_for(self.cur_mat, TABLE_Z, mz)
             self.desired = self.desired.copy()
-            self.desired[2] = min(max(self.desired[2], lo), self.box_hi[2])
+            self.desired[2] = min(max(self.desired[2], lo), self.box_hi[2] + self._hi_ext[2])
         step = self.desired - self.cur
         n = np.linalg.norm(step)
         lim = self.max_speed * dt
@@ -221,8 +249,11 @@ class Mapper:
             q = self.kin.ik(self.cur, self.cur_mat, self.q_cmd, iters=ik_iters)
         else:
             self.cur_yaw += float(np.clip(yaw_d - self.cur_yaw, -self.max_yaw_rate * dt, self.max_yaw_rate * dt))
-            self.cur_mat = grip_orientation(self.cur_yaw)
-            self.goal_mat = self.cur_mat.copy()
+            if follow and meas is not None:
+                self._keep_mat = False
+            if not self._keep_mat:                                   # hold_start: 손을 받기 전에는 처음 자세 방향을 그대로 (똑바로 아래로 펴지 않음)
+                self.cur_mat = grip_orientation(self.cur_yaw)
+                self.goal_mat = self.cur_mat.copy()
             q = self.kin.ik(self.cur, self.cur_mat, self.q_cmd, iters=ik_iters)
         dq = np.clip(q - self.q_cmd, -self.max_joint_rate * dt, self.max_joint_rate * dt)
         q_new = self.q_cmd + dq
@@ -249,13 +280,27 @@ class Mapper:
         ref = self.cur_mat if self.tilt_fresh else self.goal_mat
         a = approach_from_palm(meas["normal"])
         close = meas.get("axis") if meas["gap"] > self.yaw_gap_min else None
-        R = orient_from(a, close, prev_close=ref[:, 0])
-        R2 = R @ FLIP
-        R = R if rot_angle(R, ref) <= rot_angle(R2, ref) else R2
-        if a[2] < -0.7:                                           # 거의 아래: 돌림(yaw) 을 팔 방향 ±yaw_limit 안으로
+        if self.hold_start:
+            # 손이 SPACE 뒤 처음 모양(H0)에서 돈 만큼 처음 집게 방향을 돌린다: 목표 = H · H0ᵀ · 처음 방향
+            prev = self._hand_prev
+            H = orient_from(a, close, prev_close=None if prev is None else prev[:, 0])
+            if prev is not None and rot_angle(H @ FLIP, prev) < rot_angle(H, prev):
+                H = H @ FLIP                                      # 180° 같은 모양 둘 중 바로 전 손 모양에 이어지는 쪽
+            self._hand_prev = H
+            if self._hand0 is None:
+                self._hand0 = H.copy()
+            R = H @ self._hand0.T @ self._start_mat
+        else:
+            R = orient_from(a, close, prev_close=ref[:, 0])
+            R2 = R @ FLIP
+            R = R if rot_angle(R, ref) <= rot_angle(R2, ref) else R2
+        if R[2, 2] < -0.7:                                        # 거의 아래: 돌림(yaw) 을 팔 방향 ±yaw_limit 안으로
             yaw = math.atan2(R[1, 0], R[0, 0]) - math.pi / 2
             j1 = math.atan2(goal_pos[1], goal_pos[0])
-            ref_yaw = self.yaw_pref if self.tilt_fresh else math.atan2(self.goal_mat[1, 0], self.goal_mat[0, 0]) - math.pi / 2
+            if self.hold_start:                                   # 팔 방향에 가장 가까운 표현으로 (처음 자세 그대로면 안 자름)
+                ref_yaw = j1
+            else:
+                ref_yaw = self.yaw_pref if self.tilt_fresh else math.atan2(self.goal_mat[1, 0], self.goal_mat[0, 0]) - math.pi / 2
             yaw_c = ref_yaw + math.remainder(yaw - ref_yaw, 2 * math.pi)
             yaw_cl = float(np.clip(yaw_c, j1 - self.yaw_limit, j1 + self.yaw_limit))
             if abs(yaw_cl - yaw_c) > 1e-9:
@@ -313,3 +358,15 @@ class Mapper:
         self.tilt_fresh = True
         self.blocked = False
         self._pkt = None
+        # 11/23 오후 hold_start: 다음에 받은 손이 기준. 처음 자세가 작업 상자·높이 하한 밖이어도 그 자리에서 움직이지 않게 넓힌다
+        self._anchor = self._hand0 = self._hand_prev = self._gap0 = None
+        self._start_tip, self._start_mat = self.cur.copy(), self.cur_mat.copy()
+        self._keep_mat = self.grip_hold = self.hold_start
+        self.floor_drop = 0.0
+        self._lo_ext, self._hi_ext = np.zeros(3), np.zeros(3)
+        if self.hold_start:
+            need = min_height_for(self.cur_mat, TABLE_Z, self.box_lo[2] - TABLE_Z)
+            self.floor_drop = float(np.clip(need - self.cur[2], 0.0, FLOOR_DROP_MAX))
+            self._lo_ext[:2] = np.minimum(0.0, self.cur[:2] - self.box_lo[:2])
+            self._lo_ext[2] = -self.floor_drop
+            self._hi_ext = np.maximum(0.0, self.cur - self.box_hi)
