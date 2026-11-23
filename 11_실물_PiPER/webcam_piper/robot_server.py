@@ -23,7 +23,7 @@ import time
 import cv2
 import numpy as np
 
-from home import HOME_FILE, HomeMove, load_home, path_ok
+from home import HOME_CLEAR, HOME_FILE, HomeMove, load_home, path_ok, safe_target
 from mapping import Mapper
 from net import PORT, Server, code_version, my_ips
 from panel import robot_panel
@@ -65,6 +65,8 @@ def parse():
                     help="11/20 패킷 사이 잇기를 끔 (새 손 값이 올 때마다 최고 속도로 갔다 서던 11/19 방식)")
     ap.add_argument("--home-grip", choices=["close", "keep"], default="close",
                     help="B 로 처음 자세에 갈 때 그리퍼: close 닫음 (11/23 기본, 사용자 요청) / keep 그대로 (11/20)")
+    ap.add_argument("--home-clear", type=float, default=HOME_CLEAR,
+                    help="11/23 B 로 갈 자세의 집게 끝을 가상 팔 모델로 책상 위 이만큼(m) 아래로는 안 둠 (저장한 자세가 더 낮으면 같은 방향으로 들어 올림)")
     ap.add_argument("--start", choices=["keep", "paper"], default="keep",
                     help="11/23 SPACE 를 누를 때: keep = 팔은 그 자세 그대로, 그때 손 자리를 지금 집게 끝으로 삼고 손이 움직인 만큼 따라감 (기본, 사용자 요청) "
                          "/ paper = 손이 종이 + 에서 떨어진 만큼 집게도 처음 자세(종이 +)에서 떨어진 자리로 감 (11/22 까지)")
@@ -100,8 +102,11 @@ def main():
               % (a.box_x[0] * 100, a.box_x[1] * 100, a.box_y * 100, a.max_z * 100))
         input("       준비됐으면 Enter (취소 Ctrl+C) ")
     home_q = load_home()                                # 11/20: save_home.py 로 저장한 처음 자세 (B 로 돌아감)
+    home_lift = 0.0
     if home_q is not None:
         home_q = np.clip(home_q, kin.lo, kin.hi)
+        # 11/23 오후 사용자 "B 를 누르면 로봇팔이 책상에 박고 힘이 빠지네": 저장한 자세가 모델로 책상 −0.8 cm 였다
+        home_q, home_lift = safe_target(kin, home_q, a.home_clear)
     origin_home = home_q is not None and a.x0 is None and a.y0 is None
     if origin_home:                                     # 11/20: 종이 + = 처음 자세 집게 끝
         hp, _ = kin.fk(home_q)
@@ -129,6 +134,9 @@ def main():
     ik_iters = 10 if a.hz >= 60 else 40                 # 100 Hz 면 한 박자 10번이면 됨 (40번은 7~12 ms 라 박자를 못 지킴)
     mapper.yaw0 = 0.0                                   # 노트북이 집게 방향(yaw)을 그대로 보냄
     mapper.sync_to(arm.joints())
+    if home_lift > 0:
+        print("[처음 자세] 저장한 자세는 집게 끝이 책상에 너무 가까워서 (모델로 %.1f cm) 같은 방향으로 %.1f cm 들어 올린 자세로 감 (--home-clear)"
+              % ((a.home_clear - home_lift) * 100, home_lift * 100))
     if home_q is not None:
         print("[처음 자세] %s 의 관절(도) %s — 노트북 B 로 돌아감" % (os.path.basename(HOME_FILE),
                                                      ", ".join(f"{math.degrees(v):.1f}" for v in home_q)))
@@ -191,7 +199,7 @@ def main():
         ok, low = path_ok(kin, q0, home_q)
         if not ok:
             arm.hold()
-            say(f"path to start pose goes {-low * 100:.0f} cm below the table: not moving")
+            say(f"path to start pose goes down to {low * 100:.1f} cm over the table: not moving")
             return
         homing = HomeMove(q0, home_q, max_rate=a.home_rate)
         if a.home_grip == "close":                      # 11/23 사용자: B 로 처음 자세를 잡으면 그리퍼도 닫히게

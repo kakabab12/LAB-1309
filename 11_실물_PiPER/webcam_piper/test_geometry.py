@@ -650,6 +650,31 @@ def check_hold_start():
     check("15f 손을 늦게 찾아도 (0.5초 뒤) 팔은 그대로", np.linalg.norm(p - hp) < 0.001 and math.degrees(rot_angle(m, hm)) < 0.5)
 
 
+def check_safe_home():
+    """11/23 오후 사용자: "B 를 누르면 로봇팔이 책상에 박고 힘이 빠지네". B 로 갈 자세를 책상 위 3 cm (모델) 까지 들어 올림."""
+    print("== 16. B 로 갈 자세가 책상에 박히지 않게 (가상 팔)")
+    from home import HOME_CLEAR, path_ok, safe_target
+    from mapping import rot_angle
+    from piper_kin import PiperKin, TABLE_Z
+    kin = PiperKin()
+    q_saved = np.radians([-2.82, 92.996, -26.67, 4.49, 43.984, -7.491])     # 11/23 13:15 저장 (모델로 끝 −0.8 cm)
+    q_crash = np.radians([-1.13, 86.64, -27.94, 1.12, 42.69, -2.13])       # 실물이 책상에 닿아 힘이 빠진 자세 (대기)
+    q_t, lift = safe_target(kin, q_saved)
+    p0, m0 = kin.fk(q_saved)
+    p1, m1 = kin.fk(q_t)
+    print(f"  저장한 자세 끝 {(p0[2] - TABLE_Z) * 100:.1f} cm → B 목표 {(p1[2] - TABLE_Z) * 100:.1f} cm (들어 올림 {lift * 100:.1f} cm), "
+          f"앞뒤·옆 차 {np.linalg.norm(p1[:2] - p0[:2]) * 1000:.1f} mm, 방향 차 {math.degrees(rot_angle(m0, m1)):.2f}°")
+    check("16a 집게 끝이 낮게 저장된 자세는 같은 방향으로 책상 위 3 cm 까지 들어 올림",
+          abs(p1[2] - TABLE_Z - HOME_CLEAR) < 0.001 and np.linalg.norm(p1[:2] - p0[:2]) < 0.002 and rot_angle(m0, m1) < math.radians(1))
+    ok_old, low_old = path_ok(kin, q_crash, q_saved)
+    ok_new, low_new = path_ok(kin, q_crash, q_t)
+    print(f"  힘이 빠진 자세에서 B: 저장한 자세로는 {low_old * 100:.1f} cm 까지 내려감 ({'감' if ok_old else '안 감'}), 들어 올린 자세로는 {low_new * 100:.1f} cm ({'감' if ok_new else '안 감'})")
+    check("16b 책상 아래로 가는 길은 안 가고, 들어 올린 자세로는 감", (not ok_old) and ok_new)
+    q_hi = np.radians([0.0, 60.0, -60.0, 0.0, 60.0, 0.0])
+    q_same, lift0 = safe_target(kin, q_hi)
+    check("16c 이미 충분히 높게 저장한 자세는 그대로", lift0 == 0.0 and np.allclose(q_same, q_hi))
+
+
 if __name__ == "__main__":
     main()
     check_hard_cases()
@@ -658,4 +683,5 @@ if __name__ == "__main__":
     check_steady()
     check_palm_tilt()
     check_hold_start()
+    check_safe_home()
     raise SystemExit(0 if verdict() else 1)
