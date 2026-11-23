@@ -79,7 +79,7 @@ def main():
     out = {"q_rad": [round(math.radians(v), 6) for v in deg], "q_deg": [round(v, 3) for v in deg],
            "grip_m": None if grip is None else round(grip, 5), "mode_when_saved": mode,
            "saved": dt.datetime.now().isoformat(timespec="seconds"),
-           "note": "save_home.py 가 CAN 피드백을 듣고 저장. teleop B 로 이 관절 자세로 돌아감 (그리퍼는 그대로)"}
+           "note": "save_home.py 가 CAN 피드백을 듣고 저장. teleop B 로 이 관절 자세로 돌아감 (그리퍼는 11/23 부터 닫힘)"}
     with open(a.file, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
     print(f"[저장] {a.file}")
