@@ -13,17 +13,19 @@
 
 <br>
 
-<img alt="Python" src="https://img.shields.io/badge/Python-3.10-3776AB?style=for-the-badge&logo=python&logoColor=white">
-<img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white">
-<img alt="LeRobot SmolVLA" src="https://img.shields.io/badge/LeRobot-SmolVLA-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black">
-<img alt="MuJoCo" src="https://img.shields.io/badge/MuJoCo-Simulation-4B5563?style=for-the-badge">
-<img alt="AgileX PiPER" src="https://img.shields.io/badge/AgileX-PiPER-2A6F97?style=for-the-badge">
-<img alt="OpenCV MediaPipe" src="https://img.shields.io/badge/OpenCV-MediaPipe-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white">
+<a href="용어사전.md#python"><img alt="Python" src="https://img.shields.io/badge/Python-3.10-3776AB?style=for-the-badge&logo=python&logoColor=white"></a>
+<a href="용어사전.md#pytorch"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white"></a>
+<a href="용어사전.md#smolvla"><img alt="LeRobot SmolVLA" src="https://img.shields.io/badge/LeRobot-SmolVLA-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black"></a>
+<a href="용어사전.md#mujoco"><img alt="MuJoCo" src="https://img.shields.io/badge/MuJoCo-Simulation-4B5563?style=for-the-badge"></a>
+<a href="용어사전.md#piper"><img alt="AgileX PiPER" src="https://img.shields.io/badge/AgileX-PiPER-2A6F97?style=for-the-badge"></a>
+<a href="용어사전.md#opencv"><img alt="OpenCV MediaPipe" src="https://img.shields.io/badge/OpenCV-MediaPipe-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white"></a>
+<br>
+<sub>배지를 누르면 그 기술이 무엇이고 이 연구에서 어디에 썼는지 볼 수 있습니다 → <a href="용어사전.md#readme-배지에-나온-기술">용어사전</a></sub>
 <br>
 <a href="mailto:yeez0612@naver.com"><img alt="Email" src="https://img.shields.io/badge/Email-Contact-03C75A?style=flat-square&logo=naver&logoColor=white"></a>
 <a href="https://github.com/kakabab12/My_portfolio"><img alt="Portfolio" src="https://img.shields.io/badge/Portfolio-My__portfolio-24292F?style=flat-square&logo=github&logoColor=white"></a>
 <a href="https://www.youtube.com/shorts/RBSCCwu8Yuc"><img alt="Demo video" src="https://img.shields.io/badge/Demo-YouTube-FF0000?style=flat-square&logo=youtube&logoColor=white"></a>
-<img alt="last update" src="https://img.shields.io/github/last-commit/kakabab12/LAB-1309?style=flat-square&label=last%20update&color=555">
+<a href="https://github.com/kakabab12/LAB-1309/commits/main"><img alt="last update" src="https://img.shields.io/github/last-commit/kakabab12/LAB-1309?style=flat-square&label=last%20update&color=555"></a>
 
 <br>
 
