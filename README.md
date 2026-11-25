@@ -31,8 +31,8 @@
 
 <br>
 
-<img src="06_결과물/img/readme_demo_w6r_s1020.gif" height="300" alt="PiPER 디지털 트윈에서 VLA 가 파란 삼각기둥을 남색 판에 옮기는 장면">
-<a href="https://www.youtube.com/shorts/RBSCCwu8Yuc"><img src="09_주간보고/2026-11-20/그림_시연영상.jpg" height="300" alt="실물 PiPER 웹캠 원격조종 시연 영상 (YouTube)"></a>
+<img src="06_결과물/img/readme_demo_w6r_s1020.gif" width="70%" alt="PiPER 디지털 트윈에서 VLA 가 파란 삼각기둥을 남색 판에 옮기는 장면">
+<a href="https://www.youtube.com/shorts/RBSCCwu8Yuc"><img src="09_주간보고/2026-11-20/그림_시연영상.jpg" width="22%" alt="실물 PiPER 웹캠 원격조종 시연 영상 (YouTube)"></a>
 
 <sub>왼쪽: 시뮬레이션에서 SmolVLA 가 "파란 삼각기둥을 남색 판에 놓아줘"를 해내는 장면 (오른쪽 위는 손목 카메라 화면)<br>오른쪽: 연구실 실물 PiPER 를 웹캠으로 잰 손 움직임으로 조종하는 시연 영상 (누르면 YouTube 로 갑니다)</sub>
 
@@ -70,12 +70,10 @@ flowchart LR
     B --> R["A 를 다시 집어<br>마무리"]
 ```
 
-| 항목 | 내용 |
-|---|---|
-| 로봇 | AgileX PiPER 6축 팔 + 그리퍼 (WeGo Robotics 공급). 실물을 그대로 옮긴 시뮬레이션에서 실험하고 실물로 옮깁니다 |
-| 모델 | SmolVLA (0.45B). 위 카메라와 손목 카메라 화면, 로봇 상태, 지시문을 보고 팔 동작을 냅니다 |
-| 조건 | 모델이 계산하는 동안(연구실 GTX 1080 Ti 에서 약 0.45초)에도 팔이 멈추지 않는, 실제 로봇과 같은 조건으로 평가합니다 |
-| 원칙 | 일을 바꿀 때 처음 자세로 돌아가지 않습니다. 시뮬레이터만 아는 정답 좌표는 학습용 시범을 만들 때만 쓰고, 평가 때는 카메라로 찾은 위치만 씁니다 |
+- **로봇**: AgileX PiPER 6축 팔 + 그리퍼 (WeGo Robotics 공급). 실물을 그대로 옮긴 시뮬레이션에서 실험하고 실물로 옮깁니다.
+- **모델**: SmolVLA (0.45B). 위 카메라와 손목 카메라 화면, 로봇 상태, 지시문을 보고 팔 동작을 냅니다.
+- **조건**: 모델이 계산하는 동안(연구실 GTX 1080 Ti 에서 약 0.45초)에도 팔이 멈추지 않는, 실제 로봇과 같은 조건으로 평가합니다.
+- **원칙**: 일을 바꿀 때 처음 자세로 돌아가지 않습니다. 시뮬레이터만 아는 정답 좌표는 학습용 시범을 만들 때만 쓰고, 평가 때는 카메라로 찾은 위치만 씁니다.
 
 ## 지금 어디까지 왔나
 
@@ -114,7 +112,7 @@ flowchart LR
 
 | 9/14 ~ 10/3 | 10/4 ~ 10/24 | 10/24 ~ 11/4 | 11/15 ~ 지금 |
 |:---:|:---:|:---:|:---:|
-| <img src="06_결과물/img/stage_libero_panda.png" width="190" alt="LIBERO 부엌 장면의 Panda 팔"> | <img src="06_결과물/img/stage_piper_blocks.png" width="190" alt="PiPER 와 색 블록"> | <img src="06_결과물/img/stage_piper_world.png" width="190" alt="PiPER 와 여러 모양 물체 13개"> | <img src="11_실물_PiPER/webcam_piper/stand_high/render.png" width="190" alt="웹캠 카메라 기둥 렌더링"> |
+| <img src="06_결과물/img/stage_libero_panda.png" width="190" alt="LIBERO 부엌 장면의 Panda 팔"> | <img src="06_결과물/img/stage_piper_blocks.png" width="190" alt="PiPER 와 색 블록"> | <img src="06_결과물/img/stage_piper_world.png" width="190" alt="PiPER 와 여러 모양 물체 13개"> | <img src="06_결과물/img/stage_real_piper.png" width="190" alt="웹캠으로 잰 손 키포인트 (종이 위 손)"> |
 | **LIBERO · Franka Panda** | **PiPER · 색 블록** | **PiPER · 여러 모양, N개** | **실물 PiPER** |
 | 일을 바꾸면 왜 실패하는지 찾았습니다. 실패의 80% 는 좁은 곳에서 맴도는 것이었습니다 | 블록 4개, 판 4개, 28항목. VLA + 보조 평균 94.5%, 옮기는 도중 끼어들기 90.4% | 모양 5가지, 물체 최대 14개. 지시문을 읽지 않는 다듬기로 일 1개 81% | 웹캠 손 조종으로 실물 팔 움직이기, 시범 모을 준비 |
 | [LIBERO 실험](04_실습/05_libero/README.md) · [Panda 결과](06_결과물/Panda/README.md) | [PiPER 결과 2절](06_결과물/PiPER/README.md#2-색-블록-장면-104--1024) | [PiPER 결과 1절](06_결과물/PiPER/README.md#1-여러-모양n개-장면-1024--지금) | [11_실물_PiPER](11_실물_PiPER/README.md) |
