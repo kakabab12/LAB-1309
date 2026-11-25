@@ -103,17 +103,17 @@ def main():
     for z in (0, cz):
         ax.plot([-135, -105], [0, 0], [z, z], color=INK, lw=0.8)
     ax.text(-150, 0, cz / 2, f"{cz / 10:.0f} cm", fontsize=8, color=INK, ha="right", va="center")
-    ax.text(cx + 40, 0, cz + 60, "APC930 (55° down)", fontsize=7, color=INK)
+    ax.text(cx + 40, 0, cz + 60, "APC930, 55° down", fontsize=7, color=INK)
     tidy(ax, ((-200, 750), (-300, 300), (0, 900)), 14, -62)
     zx = fig.add_axes([0.27, 0.36, 0.18, 0.46], projection="3d")          # 머리·나사·카메라 확대
     draw_many(zx, [(tri_of(m), col) for m, col in asm[-4:-2]])          # 머리와 나사 기둥만 (카메라는 빼서 나사가 보이게)
     zc = info["P"] + np.array([0, 0, top])
     tidy(zx, ((zc[0] - 32, zc[0] + 32), (-32, 32), (zc[2] - 45, zc[2] + 19)), 14, -62)
-    zx.set_title("tripod head + printed 1/4\" stud\n(camera screws onto the stud)", fontsize=6.5, color=MUTED, y=0.95)
-    fig.text(0.02, 0.93, "Camera pole for ABKO APC930 (3D-print, no metal screws)", fontsize=9, color=INK)
+    zx.set_title("tripod head + printed 1/4\" stud\ncamera screws onto the stud", fontsize=6.5, color=MUTED, y=0.95)
+    fig.text(0.02, 0.93, "Camera pole for ABKO APC930, 3D-printed, no metal screws", fontsize=9, color=INK)
 
     # 오른쪽: 한 벌 (카메라 하나 몫) 을 실제 크기 비율 그대로 판 위에 늘어놓음
-    fig.text(0.50, 0.93, "Parts for one camera, true scale (print two sets)", fontsize=9, color=INK)
+    fig.text(0.50, 0.93, "Parts for one camera, true scale, print two sets", fontsize=9, color=INK)
     fig.text(0.50, 0.86, "base 180 mm, 4 poles 202 mm, coupler, tripod head 55°, printed 1/4\" stud, 8 pins", fontsize=7.5, color=MUTED)
     bed = fig.add_axes([0.44, 0.0, 0.56, 0.90], projection="3d")
     place = [("1_base_x1.stl", (0, 0), "#8f9a96", "base", "below"),

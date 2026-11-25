@@ -16,10 +16,10 @@ DATE, NAME = "2026. 11. 27", "Jiyong Lee"
 
 # Level 2 = the check-mark bullet of the lab template (as on 10-14 and 11-12), no detail lines (11-13: the hand-position line was removed on request)
 PREVIOUS = [
-    (2, "Printed the poster for the IEIE Fall Conference (90 x 120 cm)"),
-    (2, "Reduced hand jitter: a still hand shook 1.3 mm instead of 3.4 mm (simulated hand)"),
+    (2, "Printed the poster for the IEIE Fall Conference, 90 x 120 cm"),
+    (2, "Reduced hand jitter: a still hand shook 1.3 mm instead of 3.4 mm in simulation"),
     (2, "Added a start-pose button: the real arm returned to the saved pose in 1.75 s, within 0.2°"),
-    (2, "Made the gripper turn with the palm, up to 91° with the palm up (virtual arm)"),
+    (2, "Made the gripper turn with the palm, up to 91° with the palm up on the virtual arm"),
 ]
 NEXT = [
     (1, "I will 3D-print two camera poles and test the webcams from 80 cm above the desk"),
