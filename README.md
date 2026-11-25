@@ -1,32 +1,67 @@
 <div align="center">
 
-# LAB-1309 연구 기록
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="06_결과물/img/banner_dark.svg">
+  <img src="06_결과물/img/banner_light.svg" width="100%" alt="LAB-1309: 일하는 도중 새 명령을 받아도 이어서 해내는 로봇팔">
+</picture>
 
-**말로 일을 시키는 로봇팔이, 일하는 도중에 새 명령을 받아도 이어서 해내게 하기**
+<br>
 
-계명대학교 LAB-1309 학부연구생 이지용이 공부하고 실험한 것을 날짜별로 남기는 저장소입니다.
+**계명대학교 LAB-1309 학부연구생 이지용의 로봇 학습 연구 기록입니다.**<br>
+카메라 화면과 말로 된 명령을 보고 로봇팔을 움직이는 AI(VLA)가, 일하는 도중에 새 명령을 받아도 처음으로 돌아가지 않고 이어서 해내게 만드는 연구를 합니다.<br>
+시뮬레이션에서 시작해 연구실 실물 로봇팔 PiPER 로 옮기는 중입니다.
 
-<img src="06_결과물/img/readme_demo_w6r_s1020.gif" width="92%" alt="PiPER 디지털 트윈에서 VLA 가 파란 삼각기둥을 남색 판에 옮기는 장면">
+<br>
 
-<sub>PiPER 디지털 트윈(시뮬레이션)에서 SmolVLA 가 "파란 삼각기둥을 남색 판에 놓아줘"를 해내는 장면. 오른쪽 위는 손목 카메라 화면이고, 마지막 몇 cm 는 다듬기가 맞춥니다.</sub>
+<img alt="Python" src="https://img.shields.io/badge/Python-3.10-3776AB?style=for-the-badge&logo=python&logoColor=white">
+<img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white">
+<img alt="LeRobot SmolVLA" src="https://img.shields.io/badge/LeRobot-SmolVLA-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black">
+<img alt="MuJoCo" src="https://img.shields.io/badge/MuJoCo-Simulation-4B5563?style=for-the-badge">
+<img alt="AgileX PiPER" src="https://img.shields.io/badge/AgileX-PiPER-2A6F97?style=for-the-badge">
+<img alt="OpenCV MediaPipe" src="https://img.shields.io/badge/OpenCV-MediaPipe-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white">
+<br>
+<a href="mailto:yeez0612@naver.com"><img alt="Email" src="https://img.shields.io/badge/Email-Contact-03C75A?style=flat-square&logo=naver&logoColor=white"></a>
+<a href="https://github.com/kakabab12/My_portfolio"><img alt="Portfolio" src="https://img.shields.io/badge/Portfolio-My__portfolio-24292F?style=flat-square&logo=github&logoColor=white"></a>
+<a href="https://www.youtube.com/shorts/RBSCCwu8Yuc"><img alt="Demo video" src="https://img.shields.io/badge/Demo-YouTube-FF0000?style=flat-square&logo=youtube&logoColor=white"></a>
+<img alt="last update" src="https://img.shields.io/github/last-commit/kakabab12/LAB-1309?style=flat-square&label=last%20update&color=555">
 
-<br><br>
+<br>
 
-<img alt="robot" src="https://img.shields.io/badge/robot-AgileX%20PiPER-3b5b7a">
-<img alt="model" src="https://img.shields.io/badge/model-SmolVLA-2a6f97">
-<img alt="simulator" src="https://img.shields.io/badge/simulator-MuJoCo-5f6b78">
-<img alt="framework" src="https://img.shields.io/badge/framework-LeRobot%20%C2%B7%20PyTorch-8a6d3b">
-<img alt="last update" src="https://img.shields.io/github/last-commit/kakabab12/LAB-1309?label=last%20update&color=555">
+[한눈에 보기](#한눈에-보기) · [연구 소개](#연구-소개) · [지금 어디까지 왔나](#지금-어디까지-왔나) · [실물 PiPER](#실물-piper-웹캠-원격조종) · [지금까지의 흐름](#지금까지의-흐름) · [저장소 안내](#저장소-안내) · [연락처](#연락처)
 
-[지금 하는 연구](#지금-하는-연구) · [지금 어디까지 왔나](#지금-어디까지-왔나) · [지금까지의 흐름](#지금까지의-흐름) · [주간보고](#주간보고) · [최근 일지](#최근-일지) · [저장소 둘러보기](#저장소-둘러보기)
+<br>
+
+<img src="06_결과물/img/readme_demo_w6r_s1020.gif" height="300" alt="PiPER 디지털 트윈에서 VLA 가 파란 삼각기둥을 남색 판에 옮기는 장면">
+<a href="https://www.youtube.com/shorts/RBSCCwu8Yuc"><img src="09_주간보고/2026-11-20/그림_시연영상.jpg" height="300" alt="실물 PiPER 웹캠 원격조종 시연 영상 (YouTube)"></a>
+
+<sub>왼쪽: 시뮬레이션에서 SmolVLA 가 "파란 삼각기둥을 남색 판에 놓아줘"를 해내는 장면 (오른쪽 위는 손목 카메라 화면)<br>오른쪽: 연구실 실물 PiPER 를 웹캠으로 잰 손 움직임으로 조종하는 시연 영상 (누르면 YouTube 로 갑니다)</sub>
 
 </div>
 
-## 지금 하는 연구
+<br>
+
+## 한눈에 보기
+
+<table>
+<tr>
+<td align="center" width="25%"><h3>81%</h3>시뮬레이션 일 1개 성공률<br><sub>VLA + 다듬기, 150장면, 11/3</sub></td>
+<td align="center" width="25%"><h3>90.4%</h3>옮기는 도중 끼어들기 성공률<br><sub>색 블록 장면, 240장면, 10/24</sub></td>
+<td align="center" width="25%"><h3>0.7 cm</h3>실물 PiPER 가 웹캠 목표를 따라간 오차<br><sub>중간값, 80초 시험, 11/16</sub></td>
+<td align="center" width="25%"><h3>99.0%</h3>ACT 순차 적재 성공률<br><sub>학술대회 논문, 시뮬레이션 기본 장면</sub></td>
+</tr>
+</table>
+
+- **무엇을 하나**: 로봇이 A 를 옮기는 도중 "B 해 줘"라는 새 명령을 받으면, A 를 가까운 빈 자리에 내려놓고 B 를 한 뒤 다시 A 를 마무리하게 만듭니다.
+- **어떻게**: SmolVLA(0.45B)를 실물 PiPER 와 똑같이 만든 시뮬레이션(디지털 트윈)에서 학습시키고, 마지막 몇 cm 를 맞추는 '다듬기'를 붙였습니다.
+- **실물**: 시범 데이터를 모으려고 웹캠 두 대로 사람 손을 재서 실물 PiPER 를 움직이는 원격조종 도구를 만들었습니다.
+- **논문**: 대한전자공학회 2026 추계학술대회 학부생 논문경진대회에 ACT 순차 적재 논문을 냈습니다 (포스터 발표 11/28).
+
+> [!NOTE]
+> 성공률은 모두 시뮬레이션에서 잰 것입니다. 실물 로봇팔에서 VLA 를 돌린 결과는 아직 없습니다.
+
+## 연구 소개
 
 VLA(Vision-Language-Action)는 카메라 화면과 글로 된 명령을 받아 로봇 동작을 내는 모델입니다. 이 연구는 VLA 가 일하는 도중에 새 명령을 받았을 때를 다룹니다.
-
-> 로봇이 A 를 옮기는 도중에 "B 해 줘"라는 새 명령을 받으면, 들고 있던 A 를 가까운 빈 자리에 내려놓고 B 를 한 다음, 다시 A 를 집어 마무리합니다. 처음 자세로 돌아가 다시 시작하지 않고, 사람처럼 이어서 합니다.
 
 ```mermaid
 flowchart LR
@@ -35,109 +70,133 @@ flowchart LR
     B --> R["A 를 다시 집어<br>마무리"]
 ```
 
-- **로봇**: AgileX PiPER 6축 팔 + 그리퍼 (WeGo Robotics 공급). 지금은 실물을 그대로 옮긴 시뮬레이션(디지털 트윈)에서 실험하고, 나중에 실물로 옮깁니다.
-- **모델**: SmolVLA (0.45B). 위 카메라와 손목 카메라 화면, 로봇 상태, 지시문을 보고 팔 동작을 냅니다.
-- **조건**: 모델이 계산하는 0.45초 동안에도 팔이 멈추지 않고 움직이는, 실제 로봇과 같은 조건으로 평가합니다 (연구실 GTX 1080 Ti 기준).
-- **원칙**: 일을 바꿀 때 처음 자세로 돌아가지 않습니다. 시뮬레이터만 아는 정답 좌표는 학습용 시범을 만들 때만 쓰고, 평가 때는 카메라로 찾은 위치만 씁니다.
+| 항목 | 내용 |
+|---|---|
+| 로봇 | AgileX PiPER 6축 팔 + 그리퍼 (WeGo Robotics 공급). 실물을 그대로 옮긴 시뮬레이션에서 실험하고 실물로 옮깁니다 |
+| 모델 | SmolVLA (0.45B). 위 카메라와 손목 카메라 화면, 로봇 상태, 지시문을 보고 팔 동작을 냅니다 |
+| 조건 | 모델이 계산하는 동안(연구실 GTX 1080 Ti 에서 약 0.45초)에도 팔이 멈추지 않는, 실제 로봇과 같은 조건으로 평가합니다 |
+| 원칙 | 일을 바꿀 때 처음 자세로 돌아가지 않습니다. 시뮬레이터만 아는 정답 좌표는 학습용 시범을 만들 때만 쓰고, 평가 때는 카메라로 찾은 위치만 씁니다 |
 
 ## 지금 어디까지 왔나
 
-10/29 기준이고, 모두 시뮬레이션 결과입니다. 장면은 모양 5가지, 물체 최대 14개가 로봇 둘레에 놓이고, 기본 · 흔든 환경(조명·책상 색·카메라 자리를 바꿈) · 물체 많음 세 가지 설정이 있습니다.
+시뮬레이션 장면은 모양 5가지, 물체 최대 14개가 로봇 둘레에 놓이고, 기본 · 흔든 환경(조명 · 책상 색 · 카메라 자리를 바꿈) · 물체 많음 세 가지 설정이 있습니다. 10/30 부터는 판 개수(2~5개), 지연, 팔 속도, 지시문 꼴도 장면마다 바뀝니다. 일 1개는 세 설정 × 50장면 = 150개 일이고, 학습에 쓰지 않은 장면에서 물체를 판 가운데 3 cm 안에 놓아야 성공입니다.
 
-<p align="center"><img src="06_결과물/PiPER/img/world_w8_progress.png" width="88%" alt="w4~w8 일 1개 성공률"></p>
+| 언제 | 모델 | VLA 혼자 | VLA + 다듬기 | 끼어들기 일 2개 (둘 다 성공) |
+|---|---|---|---|---|
+| 10/29 | w8 | 34/150 (23%) | 85/150 (57%) | 10/60 |
+| 11/2 | w11m | 46/150 (31%) | **122/150 (81%)** | 기본 0/20, 흔든 1/20 |
+| 11/3 | w12m | 49/150 (33%) | 121/150 (81%) | 2/60 |
 
-| 일 1개 (세 설정 × 50장면 = 150개 일, w8) | 3cm 안에 놓음 | 판 안에 놓음 |
-|---|---|---|
-| VLA 혼자 | 34/150 (23%) | 48/150 (32%) |
-| VLA + 다듬기 | **85/150 (57%)** | 92/150 (61%) |
+- VLA 는 대부분 맞는 물체를 쥐고 맞는 판까지 가지만, 마지막 몇 cm 가 빗나갑니다. 그래서 지시문을 읽지 않는 '다듬기'를 붙였습니다. 어떤 물체를 어느 판에 놓을지는 VLA 가 정하고, 다듬기는 손이 아주 가까이 왔을 때 물체나 판 가운데로 맞춥니다.
+- 10/30 에 평가를 위처럼 더 어렵게 바꾸고 10/31 에 다듬기를 고쳤습니다. 그래서 10/29 줄과 11/2 줄은 그대로 견줄 수 없습니다.
+- 일 1개는 81% 까지 왔지만, 일 2개를 끼어들기로 이어서 하는 것은 아직 거의 안 됩니다. 지금 연구에서 가장 크게 남은 문제입니다.
+- 목표는 물체 N개를 모두 끼어들기로 옮기는 것까지, 모든 설정에서 95% 입니다.
 
-- VLA 는 대부분 맞는 물체를 쥐고 맞는 판까지 가지만, 마지막 몇 cm 가 빗나갑니다.
-- 그래서 지시문을 읽지 않는 '다듬기'를 붙였습니다. 어떤 물체를 어느 판에 놓을지는 VLA 가 정하고, 다듬기는 손이 아주 가까이 왔을 때 물체나 판 가운데로 맞춥니다. 바꾸는 동작은 전체의 약 18% 입니다.
-- 일 2개 끼어들기는 세 설정 60장면 중 10장면에서 둘 다 성공합니다. 실패는 대부분 B 를 쥐고도 판 가운데 3cm 안에 못 놓은 것이라, 일 1개의 정확도부터 올리고 있습니다.
-- 지금 가장 많이 못 쥐는 것은 검은 물체와 막대입니다. 손목 카메라 몸체가 '검은 물체'로 잡히던 것을 찾아 고치고 다시 재는 중입니다.
-- 목표는 일 2개를 넘어 물체 N개를 모두 끼어들기로 옮기는 것까지, 모든 설정에서 95% 입니다. 그다음은 실물 PiPER 입니다.
+모델별 표, 그래프, 4K 시연 GIF 는 [06_결과물/PiPER](06_결과물/PiPER/README.md)에, 공개 벤치마크와 견준 표는 [10_문서/기준과_벤치마크_비교](10_문서/기준과_벤치마크_비교.md)에 있습니다.
 
-모델별 표와 4K 시연은 [06_결과물/PiPER](06_결과물/PiPER/README.md)에 있습니다.
+## 실물 PiPER 웹캠 원격조종
 
-## 실물 PiPER 웹캠 원격조종 (11/15 ~)
+시뮬레이션 연구와 따로, 실물 PiPER 에 가르칠 시범을 모으는 도구를 만들고 있습니다 (11/15 ~). 웹캠 두 대로 사람 손 21점(MediaPipe)을 재서, 사람 쪽 종이 위에서 손이 움직인 만큼 로봇 집게 끝도 로봇 쪽 종이 위에서 똑같이 움직입니다.
 
-시뮬레이션 연구와 따로, 실물 PiPER 에 가르칠 시범을 모으는 도구를 만들고 있습니다. 카메라로 사람 손 21점(MediaPipe)을 재서,
-**사람 쪽 종이 + 에서 손이 움직인 만큼 로봇 집게 끝도 로봇 쪽 종이 + 에서 똑같이** 움직입니다 (교수님 방향: Point Policy 처럼 손 키포인트).
+<p align="center"><img src="09_주간보고/2026-11-20/그림_손_조종화면.png" width="80%" alt="연구실 카메라 두 대로 잰 손과 실물 팔 자세"></p>
 
-<p align="center"><img src="09_주간보고/2026-11-20/그림_손_조종화면.png" width="70%" alt="연구실 카메라 두 대로 잰 손과 실물 팔 자세"></p>
+| 실물에서 확인한 것 | 결과 |
+|---|---|
+| 따라가기 80초 (11/16) | 집게 끝과 목표의 차이 중간값 0.7 cm |
+| 처음 자세로 돌아가는 B 버튼 (11/20) | 1.75초 만에 관절 차 0.2° 안으로 돌아옴 |
 
-- 실물에서 확인: 11/16 따라가기 80초 (집게 끝이 목표와 0.7 cm), 11/20 처음 자세 B (1.75초, 관절 차 0.2° 안)
-- 진짜 손으로 잰 위치 오차와 지연은 아직 측정해 보지 않았습니다
-- 코드와 설명: [11_실물_PiPER/webcam_piper](11_실물_PiPER/webcam_piper/README.md) · [사용 설명서](11_실물_PiPER/webcam_piper/사용설명서.md) · [노트북에서 실행하기](11_실물_PiPER/webcam_piper/노트북_실행.md) · [시연 영상](https://www.youtube.com/shorts/RBSCCwu8Yuc)
+- 손 떨림은 원유로(1€) 필터로 줄였습니다. 가상 손에서 멈춘 손의 흔들림이 3.4 mm 에서 1.3 mm 로 줄었습니다.
+- 카메라를 책상 위 80 cm 에 두는 3D 프린트 기둥을 설계했습니다 ([stand_high](11_실물_PiPER/webcam_piper/stand_high/README.md)). 아직 출력하지 않았습니다.
+- 진짜 손으로 잰 위치 오차와 지연은 아직 측정해 보지 않았습니다.
+- 코드와 설명: [webcam_piper](11_실물_PiPER/webcam_piper/README.md) · [사용 설명서](11_실물_PiPER/webcam_piper/사용설명서.md) · [노트북에서 실행하기](11_실물_PiPER/webcam_piper/노트북_실행.md)
 
 ## 지금까지의 흐름
 
-| 9/14 ~ 10/3 | 10/4 ~ 10/24 | 10/24 ~ 지금 |
-|:---:|:---:|:---:|
-| <img src="06_결과물/img/stage_libero_panda.png" width="240" alt="LIBERO 부엌 장면의 Panda 팔"> | <img src="06_결과물/img/stage_piper_blocks.png" width="240" alt="PiPER 와 색 블록"> | <img src="06_결과물/img/stage_piper_world.png" width="240" alt="PiPER 와 여러 모양 물체 13개"> |
-| **LIBERO · Franka Panda** | **PiPER · 색 블록** | **PiPER · 여러 모양, N개** |
-| 일을 바꾸면 왜 실패하는지 찾았습니다. 실패의 80% 는 좁은 곳에서 맴도는 것이었습니다 | 블록 4개, 판 4개, 28항목. VLA + 보조로 93.8%, 옮기는 도중 끼어들기 '셋 다' 90.4% | 모양 5가지, 물체 최대 14개. 지시문을 읽지 않는 다듬기로 일 1개 57% |
-| [LIBERO 실험 요약](04_실습/05_libero/README.md) · [Panda 결과](06_결과물/Panda/README.md) | [PiPER 결과 2절](06_결과물/PiPER/README.md) | [PiPER 결과 1절](06_결과물/PiPER/README.md) |
+| 9/14 ~ 10/3 | 10/4 ~ 10/24 | 10/24 ~ 11/4 | 11/15 ~ 지금 |
+|:---:|:---:|:---:|:---:|
+| <img src="06_결과물/img/stage_libero_panda.png" width="190" alt="LIBERO 부엌 장면의 Panda 팔"> | <img src="06_결과물/img/stage_piper_blocks.png" width="190" alt="PiPER 와 색 블록"> | <img src="06_결과물/img/stage_piper_world.png" width="190" alt="PiPER 와 여러 모양 물체 13개"> | <img src="11_실물_PiPER/webcam_piper/stand_high/render.png" width="190" alt="웹캠 카메라 기둥 렌더링"> |
+| **LIBERO · Franka Panda** | **PiPER · 색 블록** | **PiPER · 여러 모양, N개** | **실물 PiPER** |
+| 일을 바꾸면 왜 실패하는지 찾았습니다. 실패의 80% 는 좁은 곳에서 맴도는 것이었습니다 | 블록 4개, 판 4개, 28항목. VLA + 보조 평균 94.5%, 옮기는 도중 끼어들기 90.4% | 모양 5가지, 물체 최대 14개. 지시문을 읽지 않는 다듬기로 일 1개 81% | 웹캠 손 조종으로 실물 팔 움직이기, 시범 모을 준비 |
+| [LIBERO 실험](04_실습/05_libero/README.md) · [Panda 결과](06_결과물/Panda/README.md) | [PiPER 결과 2절](06_결과물/PiPER/README.md#2-색-블록-장면-104--1024) | [PiPER 결과 1절](06_결과물/PiPER/README.md#1-여러-모양n개-장면-1024--지금) | [11_실물_PiPER](11_실물_PiPER/README.md) |
 
-## 주간보고
+<details>
+<summary><b>따로 한 것: ACT 순차 적재 논문 (대한전자공학회 2026 추계학술대회)</b></summary>
 
-| 11/27 | 11/20 | 11/13 |
-|:---:|:---:|:---:|
-| <a href="09_주간보고/2026-11-27/"><img src="09_주간보고/2026-11-27/슬라이드_2_내용.png" width="300" alt="11/27 주간보고 슬라이드"></a> | <a href="09_주간보고/2026-11-20/"><img src="09_주간보고/2026-11-20/슬라이드_2_내용.png" width="300" alt="11/20 주간보고 슬라이드"></a> | <a href="09_주간보고/2026-11-13/"><img src="09_주간보고/2026-11-13/슬라이드_2_내용.png" width="300" alt="11/13 주간보고 슬라이드"></a> |
-| 추계학술대회 포스터 출력, 웹캠 PiPER 손 떨림 거르기·처음 자세 버튼·손바닥 방향, 다음은 카메라 기둥 3D 프린트<br>[pptx](09_주간보고/2026-11-27/주간보고_11_27_이지용.pptx) · [대본과 예상 질문](09_주간보고/2026-11-27/대본_11_27.md) | 추계학술대회 포스터 완성, 웹캠 두 대 손 키포인트(MediaPipe + 삼각측량, Point Policy 방식)로 실물 PiPER 조종 첫 시험<br>[pptx](09_주간보고/2026-11-20/주간보고_11_20_이지용.pptx) · [대본과 예상 질문](09_주간보고/2026-11-20/대본_11_20.md) | 실물 PiPER 첫 시험 조종, 찬혁님 부탁 카메라 마운트 부품 5개 출력, SQLD 시험 준비<br>[pptx](09_주간보고/2026-11-13/주간보고_11_13_이지용.pptx) · [대본과 예상 질문](09_주간보고/2026-11-13/대본_11_13.md) |
-
-작성 규칙과 전체 목록: [09_주간보고](09_주간보고/README.md)
-
-## 최근 일지
-
-| 날짜 | 내용 |
-|---|---|
-| [11/23](03_일지/2026-11-23.md) | 웹캠 PiPER 조종: SPACE 를 눌러도 팔이 그대로 (집게가 뜨던 것), B 로 돌아가면 그리퍼도 닫힘, 집게가 손바닥이 향하는 쪽을 따라 돎 (가상 팔에서 옆 56°, 위로 뒤집으면 63~91°). PiPER 손목 한계로 책상 가까이에서 똑바로 위는 안 됨 |
-| [11/20](03_일지/2026-11-20.md) | 실물 PiPER 웹캠 조종에 처음 자세로 돌아가는 B 버튼. 실물에서 1.75초 만에 관절 차 0.2° 안으로 돌아옴. 떨림 거르기 (가상 손 3.4 → 1.3 mm), 바탕화면 아이콘 |
-| [11/15](03_일지/2026-11-15.md) | 웹캠 하나로 PiPER 원격조종: 노트북 카메라가 손을 재고 연구실 PC 가 팔을 움직임. 손 전체로 쥐면 집게가 같은 자리에서 같은 줄로 쥔다 (그린 손·가상 팔로만 시험) |
-| [10/29](03_일지/2026-10-29.md) | w8: 일 1개 VLA + 다듬기 57%, 일 2개는 그대로. 막히는 곳은 마지막 몇 cm 와 검은 물체 (손목 카메라가 검은 물체로 잡힘) |
-| [10/28](03_일지/2026-10-28.md) | 물체 기억이 덮이던 버그를 고쳐 VLA + 다듬기 일 1개 53%. 일 2개는 아직 2/20 |
-| [10/27](03_일지/2026-10-27.md) | 물체 방향을 입력에 더하고 다듬기 버그 두 개를 고쳐 VLA + 다듬기 43% |
-| [10/26](03_일지/2026-10-26.md) | VLA 가 물체를 쥐기 시작했고, 지시문을 읽지 않는 다듬기로 일 1개 35% |
-| [10/25](03_일지/2026-10-25.md) | 흔든 환경과 같은 색 여러 모양에서도 물체 찾기가 되게 고침, DAgger 시작 |
-| [10/24](03_일지/2026-10-24.md) | 옮기는 도중 끼어들기 '셋 다' 90.4%, 학습이 반올림에 지워지던 문제, 여러 모양·N개 장면 |
-
-전체 목록 (달마다, 한 줄 요약 포함): [03_일지](03_일지/README.md)
-
-## 따로 한 것: ACT 적재 논문
+<br>
 
 <p align="center"><img src="09_주간보고/2026-10-14/그림_여러환경.png" width="75%" alt="ACT 적재 시뮬레이션의 여러 환경과 성공률"></p>
 
-캡스톤(스마트팩토리 비전 검사)의 적재 시스템을 MuJoCo 로 다시 만들고, SO-101 팔이 통을 1층, 옆, 2층 순서로 쌓는 세 단계를 ACT 로 학습시켰습니다. 세 단계를 이어서 모두 성공한 비율은 기본 장면 99.0%, 여러 환경에서 88~100% 입니다 (시뮬레이션). 대한전자공학회 2026 추계학술대회 학부생 논문경진대회에 10/14 제출했습니다. 자세한 것은 [08_개인논문_ACT적재](08_개인논문_ACT적재/README.md)에 있습니다.
+캡스톤(스마트팩토리 비전 검사)의 적재 시스템을 MuJoCo 로 다시 만들고, SO-101 팔이 통을 1층, 옆, 2층 순서로 쌓는 세 단계를 ACT 로 학습시켰습니다. 세 단계를 이어서 모두 성공한 비율은 기본 장면 99.0%, 여러 환경에서 88~100% 입니다 (시뮬레이션). 대한전자공학회 2026 추계학술대회 학부생 논문경진대회에 냈습니다 (포스터 발표 11/28). 자세한 것은 [08_개인논문_ACT적재](08_개인논문_ACT적재/README.md)에 있습니다.
 
-## 저장소 둘러보기
+</details>
 
-| 폴더 | 내용 |
+## 저장소 안내
+
+### 처음 왔다면
+
+| 궁금한 것 | 여기부터 |
 |---|---|
-| [01_공부순서](01_공부순서/ROADMAP.md) | 처음부터 공부하는 순서: 딥러닝, 로봇, 모방학습, VLA 논문, 시뮬레이션, 실험 방법 |
-| [02_논문노트](02_논문노트/README.md) | 읽은 논문 요약과 이 연구 어디에 썼는지 |
-| [03_일지](03_일지/README.md) | 날짜별 연구 일지 (코랩 실습 일지는 `03_일지/공부`) |
-| [04_실습](04_실습/README.md) | 직접 돌려 본 실습과 실험. `05_libero` 가 LIBERO 시기 본 실험이고, 실험 코드 사본은 `05_libero/코드` |
-| [05_로봇팔_제원](05_로봇팔_제원/README.md) | Panda 와 PiPER 제원 비교 |
-| [06_결과물](06_결과물/README.md) | 모델별 성공률, 그림, 4K GIF |
-| [07_물체](07_물체/README.md) | 색 블록 장면의 물체: 사진, 크기, 3D 프린터용 STL, 시뮬레이터 정의 |
-| [08_개인논문_ACT적재](08_개인논문_ACT적재/README.md) | ACT 적재 논문 (본 연구와 별개) |
-| [09_주간보고](09_주간보고/README.md) | 랩미팅 주간보고 슬라이드와 영어 대본 |
-| [10_문서](10_문서/README.md) | 연구 주제·논문 방향 초안 (10/3 기준), 다른 PC 에서 이어받기, 장비와 서버 설치 |
-| [11_실물_PiPER](11_실물_PiPER/README.md) | 실물 PiPER 관련 코드 세 가지. ① **[webcam_piper](11_실물_PiPER/webcam_piper/README.md): 웹캠으로 실물 PiPER 원격조종·시범 기록** (실물 따라가기·처음 자세 시험함, [사용 설명서](11_실물_PiPER/webcam_piper/사용설명서.md)) ② real_piper: 시뮬에서 학습한 VLA 를 실물에 연결하는 코드 (시뮬 팔로 코드 길만 확인, 실물은 아직) ③ U20CAM 손목 카메라 마운트 STL |
-| [12_PiPER_조작법_및_설치법](12_PiPER_조작법_및_설치법/README.md) | PiPER 설치법 (CAN 도구, piper_sdk, WeGo 플러그인), CAN 연결, 조작법 (켜기·관절·그리퍼·멈추기), 원격 조종과 시범 기록, 바로 돌려 보는 예제 4개 |
-| [용어사전.md](용어사전.md) | 일지에 나오는 말 풀이 |
+| 무엇을 했고 결과가 어떤지 | [06_결과물](06_결과물/README.md) → [03_일지](03_일지/README.md) (날짜별, 한 줄 요약 있음) |
+| 실물 PiPER 를 직접 움직여 보고 싶다 | [12_PiPER_조작법_및_설치법](12_PiPER_조작법_및_설치법/README.md) → [웹캠 조종 사용 설명서](11_실물_PiPER/webcam_piper/사용설명서.md) |
+| 매주 무엇을 했는지 | [09_주간보고](09_주간보고/README.md) (슬라이드 + 영어 대본) |
+| VLA 와 로봇 학습을 처음 공부한다 | [01_공부순서](01_공부순서/README.md) → [용어사전](용어사전.md) |
 
-## 장비
+### 폴더
+
+| 분류 | 폴더 | 내용 |
+|---|---|---|
+| 결과와 기록 | [03_일지](03_일지/README.md) | 날짜별 연구 일지 |
+| | [06_결과물](06_결과물/README.md) | 모델별 성공률, 그림, 4K GIF |
+| | [09_주간보고](09_주간보고/README.md) | 랩미팅 주간보고 슬라이드와 영어 대본 |
+| 실물 로봇 | [11_실물_PiPER](11_실물_PiPER/README.md) | 웹캠 원격조종, 시뮬에서 학습한 VLA 를 실물에 잇는 코드, 손목 카메라 마운트 STL |
+| | [12_PiPER_조작법_및_설치법](12_PiPER_조작법_및_설치법/README.md) | 설치 (CAN 도구, piper_sdk, WeGo 플러그인), CAN 연결, 조작법, 예제 4개 |
+| | [05_로봇팔_제원](05_로봇팔_제원/README.md) | Panda 와 PiPER 제원 비교 |
+| | [07_물체](07_물체/README.md) | 색 블록 장면의 물체: 사진, 크기, 3D 프린터용 STL |
+| 공부 | [01_공부순서](01_공부순서/README.md) | 딥러닝, 로봇, 모방학습, VLA 논문, 시뮬레이션, 실험 방법 공부 순서 |
+| | [02_논문노트](02_논문노트/README.md) | 읽은 논문 요약과 이 연구 어디에 썼는지 |
+| | [04_실습](04_실습/README.md) | 직접 돌려 본 실습. `05_libero` 는 LIBERO 시기 본 실험과 코드 사본 |
+| 그 밖 | [08_개인논문_ACT적재](08_개인논문_ACT적재/README.md) | ACT 순차 적재 논문 (본 연구와 별개) |
+| | [10_문서](10_문서/README.md) | 연구 주제 · 논문 방향 초안 (10/3 기준), 이어받기 안내, 장비와 서버 설치 |
+| | [용어사전.md](용어사전.md) | 일지에 나오는 말 풀이 |
+
+<details>
+<summary><b>최근 일지와 주간보고</b></summary>
+
+<br>
+
+| 일지 | 내용 |
+|---|---|
+| [11/23](03_일지/2026-11-23.md) | 웹캠 PiPER 조종: SPACE 를 눌러도 팔이 그대로, B 로 돌아가면 그리퍼도 닫힘, 집게가 손바닥이 향하는 쪽을 따라 돎. B 가 책상에 닿은 일과 고친 것 |
+| [11/20](03_일지/2026-11-20.md) | 처음 자세로 돌아가는 B 버튼 (실물 1.75초, 관절 차 0.2° 안), 떨림 거르기 (가상 손 3.4 → 1.3 mm), 바탕화면 아이콘 |
+| [11/15](03_일지/2026-11-15.md) | 웹캠으로 PiPER 원격조종: 노트북 카메라가 손을 재고 연구실 PC 가 팔을 움직임 |
+| [11/04](03_일지/2026-11-04.md) | 95% 넘었던 블록 장면을 지금 기준 · 공개 벤치마크와 견줌, 실물 PiPER 연결 코드 |
+| [11/02](03_일지/2026-11-02.md) | 새 다듬기와 w11m 으로 일 1개 81%, 그러나 끼어들기 일 2개는 0~1/20 |
+
+| 주간보고 | 내용 |
+|---|---|
+| [11/27](09_주간보고/2026-11-27/) | 추계학술대회 포스터 출력, 원유로 필터로 손 떨림 줄이기, 로봇 팔 처음 자세 버튼. 다음은 카메라 기둥 3D 프린트 |
+| [11/20](09_주간보고/2026-11-20/) | 포스터 완성, 웹캠 두 대 손 키포인트로 실물 PiPER 조종 첫 시험 |
+| [11/13](09_주간보고/2026-11-13/) | 실물 PiPER 첫 시험 조종, 카메라 마운트 부품 3D 프린트 |
+
+전체 목록: [03_일지](03_일지/README.md) · [09_주간보고](09_주간보고/README.md)
+
+</details>
+
+<details>
+<summary><b>장비와 소프트웨어</b></summary>
+
+<br>
 
 | 항목 | 내용 |
 |---|---|
 | 로봇팔 | AgileX PiPER 6축 + 그리퍼 (WeGo Robotics 공급) |
-| 카메라 | 위(또는 정면) 1대 + 손목 1대 |
+| 카메라 | 시뮬레이션: 위 1대 + 손목 1대 / 실물 조종: 웹캠 ABKO APC930 2대 |
 | GPU | 연구실 GTX 1080 Ti (11GB), 개인 RTX 4070 Ti (12GB) |
-| 소프트웨어 | Ubuntu, PyTorch, LeRobot, MuJoCo (LIBERO) |
+| 소프트웨어 | Ubuntu, Python, PyTorch, LeRobot, MuJoCo (LIBERO), OpenCV, MediaPipe, piper_sdk |
 
 사양별 주의사항: [10_문서/하드웨어.md](10_문서/하드웨어.md)
+
+</details>
 
 <details>
 <summary><b>처음 공부한다면: 공부 순서와 문서 난이도</b></summary>
@@ -146,8 +205,8 @@ flowchart LR
 
 | 분야 | 구체적으로 |
 |---|---|
-| 딥러닝 | PyTorch, Transformer, ViT, CLIP/SigLIP, Diffusion·Flow Matching |
-| 로봇 | 자유도(DOF), 순기구학·역기구학, 회전 표현, 제어 주기와 지연 |
+| 딥러닝 | PyTorch, Transformer, ViT, CLIP/SigLIP, Diffusion · Flow Matching |
+| 로봇 | 자유도(DOF), 순기구학 · 역기구학, 회전 표현, 제어 주기와 지연 |
 | 모방학습 | Behavior Cloning, Action Chunking, ACT, Diffusion Policy |
 | VLA 모델 | OpenVLA, SmolVLA, π0, Hi Robot, MemoryVLA 등 최신 논문 |
 | 시뮬레이션 | LIBERO(MuJoCo) 환경에서 정책 평가 |
@@ -166,7 +225,7 @@ flowchart LR
 | 4 | VLA 논문 읽기 | [04_VLA논문](01_공부순서/04_VLA논문.md) |
 | 5 | 시뮬레이션 실습 (LIBERO) | [05_시뮬레이션실습](01_공부순서/05_시뮬레이션실습.md) |
 | 6 | 실험 방법론 | [06_실험방법론](01_공부순서/06_실험방법론.md) |
-| 부록 | 텐서플로우 기초 | [07_텐서플로우](01_공부순서/07_텐서플로우.md) |
+| 부록 | 텐서플로 기초 | [07_텐서플로우](01_공부순서/07_텐서플로우.md) |
 
 같이 보면 좋은 것: [08_수학기초](01_공부순서/08_수학기초.md) (지금부터), [09_연구기본기](01_공부순서/09_연구기본기.md) (1~2개월 뒤), [10_주변분야](01_공부순서/10_주변분야.md) (3개월 뒤). 전체 로드맵과 주차별 일정은 [ROADMAP](01_공부순서/ROADMAP.md), 실습 LAB 6개는 [04_실습](04_실습/README.md), VLA 모델 총정리는 [VLA모델정리](10_문서/VLA모델정리.md)에 있습니다.
 
@@ -192,13 +251,27 @@ flowchart LR
 
 </details>
 
-## 다른 PC 에서 이어서 하기
+<details>
+<summary><b>내려받기와 이어서 하기</b></summary>
+
+<br>
 
 ```bash
-git clone https://github.com/kakabab12/LAB-1309.git
+git clone --depth 1 https://github.com/kakabab12/LAB-1309.git
 ```
 
-GIF 와 영상 때문에 저장소가 큽니다 (1.5GB 쯤). 글만 볼 거라면 `git clone --depth 1` 로 받으면 훨씬 가볍습니다.
-실험 코드는 연구실 PC 의 `~/smolVLA/` 에 있고, 사본이 [04_실습/05_libero/코드](04_실습/05_libero/코드/)에 있습니다. 처음부터 따라 하는 안내는 [10_문서/이어받기.md](10_문서/이어받기.md), Claude Code 로 이어서 할 때의 맥락은 [CLAUDE.md](CLAUDE.md)에 있습니다.
+GIF 와 영상 때문에 전체 기록을 받으면 1.6GB 쯤 됩니다. `--depth 1` 로 마지막 판만 받으면 훨씬 가볍습니다.
+시뮬레이션 실험 코드는 연구실 PC 의 `~/smolVLA/` 에 있고, 사본이 [04_실습/05_libero/코드](04_실습/05_libero/코드/)에 있습니다. 처음부터 따라 하는 안내는 [10_문서/이어받기.md](10_문서/이어받기.md), Claude Code 로 이어서 할 때의 맥락은 [CLAUDE.md](CLAUDE.md)에 있습니다.
 
-<sub>이 저장소는 개인 연구·공부 기록이며 연구실 공식 문서가 아닙니다. 숫자는 모두 시뮬레이션에서 잰 것입니다.</sub>
+</details>
+
+## 연락처
+
+<table>
+<tr><td><b>이름</b></td><td>이지용 (Jiyong Lee) · 계명대학교 컴퓨터공학전공 · LAB-1309 학부연구생</td></tr>
+<tr><td><b>이메일</b></td><td><a href="mailto:yeez0612@naver.com">yeez0612@naver.com</a></td></tr>
+<tr><td><b>전화</b></td><td>010-4803-0454</td></tr>
+<tr><td><b>GitHub</b></td><td><a href="https://github.com/kakabab12">@kakabab12</a> · 포트폴리오 <a href="https://github.com/kakabab12/My_portfolio">My_portfolio</a></td></tr>
+</table>
+
+<sub>이 저장소는 개인 연구 · 공부 기록이며 연구실 공식 문서가 아닙니다.</sub>
