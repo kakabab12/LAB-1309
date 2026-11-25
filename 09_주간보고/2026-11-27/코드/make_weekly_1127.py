@@ -15,11 +15,10 @@ SRC, OUT = Path(sys.argv[1]), HERE.parent / "주간보고_11_27_이지용.pptx"
 DATE, NAME = "2026. 11. 27", "Jiyong Lee"
 
 # Level 2 = the check-mark bullet of the lab template (as on 10-14 and 11-12), no detail lines (11-13: the hand-position line was removed on request)
-PREVIOUS = [
-    (2, "Printed the poster for the IEIE Fall Conference, 90 x 120 cm"),
-    (2, "Reduced hand jitter: a still hand shook 1.3 mm instead of 3.4 mm in simulation"),
-    (2, "Added a start-pose button: the real arm returned to the saved pose in 1.75 s, within 0.2°"),
-    (2, "Made the gripper turn with the palm, up to 91° with the palm up on the virtual arm"),
+PREVIOUS = [  # 11/25 user: keep it simple, drop the palm line
+    (2, "Printed the poster for the IEIE Fall Conference"),
+    (2, "Reduced hand jitter with the One Euro filter"),
+    (2, "Added a button that returns the robot arm to its start pose"),
 ]
 NEXT = [
     (1, "I will 3D-print two camera poles and test the webcams from 80 cm above the desk"),
@@ -72,10 +71,10 @@ _cSld.insert(0, etree.fromstring('<p:bg xmlns:p="http://schemas.openxmlformats.o
                                  '<a:srgbClr val="FFFFFF"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>'))
 fill(nxt, "Next", NEXT)
 W = prs.slide_width
-prev.left, prev.top, prev.width, prev.height = Inches(0.25), Inches(0.85), W - Inches(0.45), Inches(1.75)
-nxt.left, nxt.top, nxt.width, nxt.height = Inches(0.25), Inches(2.65), W - Inches(0.45), Inches(0.95)
+prev.left, prev.top, prev.width, prev.height = Inches(0.25), Inches(0.85), W - Inches(0.45), Inches(1.4)
+nxt.left, nxt.top, nxt.width, nxt.height = Inches(0.25), Inches(2.3), W - Inches(0.45), Inches(0.95)
 # 11/25 user: the picture is a render of the camera pole STL made for the Next item
-pic = s2.shapes.add_picture(str(HERE.parent / "그림_카메라기둥.png"), 0, Inches(3.65), width=W - Inches(0.5))
+pic = s2.shapes.add_picture(str(HERE.parent / "그림_카메라기둥.png"), 0, Inches(3.4), width=W - Inches(0.5))
 pic.left = int((W - pic.width) / 2)
 # The removed reference picture and the fallback pictures of its text boxes stay in the file through the
 # slide's relationships; drop every picture the slide no longer shows
