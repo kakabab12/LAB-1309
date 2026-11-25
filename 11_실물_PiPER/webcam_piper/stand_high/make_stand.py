@@ -9,7 +9,12 @@
   python make_stand.py --panel 15               → APC930 집게가 헐거우면 판을 두껍게
   (pip install manifold3d numpy matplotlib)
 
-APC930 집게 크기는 재 보지 않았다. 12 mm 판을 모니터처럼 잡을 것으로 보고 만들었다.
+APC930 에 맞춤 (11/25, 제조사 상세 그림 확인): 몸통 아래 윗판 + 앞 턱 + 뒤로 접히는 긴 뒷다리("플렉시블 클립"),
+뒷다리에 삼각대 구멍. 제조사 자료에 mm 치수는 없어서 두 가지 머리를 만든다.
+  4a_head_clip   : 집게로 거는 판 (12 mm, 노트북 덮개~모니터를 잡는 집게라 잡힘). 긴 뒷다리 끝이 걸리게 톱니 구간 80 mm
+  4b_head_tripod : 55° 기울어진 받침 + 4c_tripod_stud (1/4인치 20산 나사를 출력한 기둥, 핀으로 고정).
+                   카메라 뒷다리의 삼각대 구멍을 돌려 끼운다. 집게 크기와 상관없이 맞는다 (기본)
+집게 폭·삼각대 구멍 깊이는 재 보지 않았다. 나사가 빡빡하거나 헐거우면 --thread 로 바깥 지름을 바꾼다.
 """
 import math
 import os
@@ -34,6 +39,12 @@ BASE, BASE_T, BOSS, BOSS_H = 180.0, 10.0, 40.0, 32.0
 PANEL_T, PANEL_W, RAMP_L = 12.0, 60.0, 100.0   # 가짜 모니터 판: 두께, 폭, 길이
 HEAD_Y0, HEAD_Y1 = -30.0, -6.0       # 머리의 기둥 쪽 블록 (판 한쪽 옆면과 맞춰 눕혀서 받침 없이 출력)
 A0 = (-4.0, 26.0)                    # 판 가운데 줄이 시작하는 점 (x 앞, z 위, 기둥 꼭대기 기준)
+# 11/25 APC930 삼각대 머리: 1/4"-20 UNC (바깥 6.35 mm, 산 1.27 mm). 출력 나사는 조금 가늘게 (금속 암나사에 들어가게)
+THREAD_MAJOR, THREAD_DEPTH, PITCH, THREAD_L = 6.15, 0.55, 25.4 / 20, 5.0   # 삼각대 구멍 깊이는 재 보지 않아 5 mm 만
+PEG_D, PEG_HOLE, PEG_L, FLANGE_D, FLANGE_T = 9.8, 10.2, 12.0, 20.0, 2.0
+CSK = 5.0                                                                # 턱 아래 비탈 높이 (mm)
+PAD_W, PAD_T, PAD_Y = 28.0, 10.0, 26.0                                   # 기울어진 받침: 폭, 두께, 옆 폭
+PAD_P = (4.0, 46.0)                                                      # 받침 윗면 가운데 (x 앞, z 위, 기둥 꼭대기 기준)
 
 
 def pcs(pts):
@@ -113,7 +124,7 @@ def head(alpha):
     # 판: 지역 좌표 X 판 길이, Y 폭, Z 두께 (+Z = 윗면 = 집게 뒷다리가 놓이는 면)
     ramp = box(0, RAMP_L, -PANEL_W / 2, PANEL_W / 2, -PANEL_T / 2, PANEL_T / 2)
     teeth = CS([np.array([(s, PANEL_T / 2 - 0.05), (s + 4, PANEL_T / 2 - 0.05), (s + 4, PANEL_T / 2 + 1.2)])
-                for s in np.arange(RAMP_L - 80, RAMP_L - 20, 5.0)])
+                for s in np.arange(RAMP_L - 90, RAMP_L - 10, 5.0)])           # 11/25 APC930 뒷다리가 길어 80 mm 구간
     ramp = ramp + along_y(teeth, -PANEL_W / 2, PANEL_W / 2)            # 뒷다리가 미끄러지지 않게 톱니
     for sy in (-1, 1):                                                  # 고무줄 홈 (선택)
         y0, y1 = sorted((sy * (PANEL_W / 2 - 4), sy * (PANEL_W / 2 + 1)))
@@ -133,6 +144,48 @@ def head(alpha):
     sock = box(-SOCK / 2, SOCK / 2, yc - SOCK / 2, yc + SOCK / 2, -1, SOCK_D) + \
         M.extrude(sq(SOCK + 2, 0.0), 1.01, scale_top=(SOCK / (SOCK + 2), SOCK / (SOCK + 2))).translate((0, yc, -0.01))
     return h - sock - pin_y(PIN_AT, 0.0, yc), {"a": a, "n": n, "yc": yc}
+
+
+def head_tripod(alpha):
+    """11/25 APC930: 받침 윗면이 사람 쪽으로 alpha° 기운다. 받침 구멍(10.2 mm)에 4c 나사 기둥을 꽂고 핀으로 고정.
+    카메라를 삼각대처럼 올리면 카메라 위쪽 = 받침 법선이라 alpha° 아래를 본다."""
+    al = math.radians(alpha)
+    u = np.array([math.sin(al), 0.0, math.cos(al)])                       # 받침 법선 (나사 기둥 방향)
+    P = np.array([PAD_P[0], 0.0, PAD_P[1]])
+    yh = PAD_Y / 2
+    blk = box(-BAR / 2, BAR / 2, -yh, yh, 0, 30)
+    pad = box(-PAD_W / 2, PAD_W / 2, -yh, yh, -PAD_T, 0).rotate((0, alpha, 0)).translate(tuple(P))
+    body = M.batch_hull([pad, box(-BAR / 2, BAR / 2, -yh, yh, 18, 30)]) + blk
+    above = box(-100, 100, -100, 100, 0, 100).rotate((0, alpha, 0)).translate(tuple(P))
+    body = body - above                                                   # 받침 윗면보다 위는 비움 (나사 턱·카메라가 닿지 않게)
+    # 기둥 구멍: 출력할 때 위가 되는 쪽(+y)으로 뾰족한 물방울 모양 (눕혀 출력해도 천장이 처지지 않게)
+    r = PEG_HOLE / 2
+    tear = CS.batch_hull([CS.circle(r), CS.circle(0.05).translate((0, r * 1.42))])
+    hole = M.extrude(tear, PEG_L + 1.5).translate((0, 0, -(PEG_L + 1.0))).rotate((0, alpha, 0)).translate(tuple(P))
+    csk = M.cylinder(CSK + 0.01, PEG_HOLE / 2, FLANGE_D / 2 + 0.2).translate((0, 0, -CSK)).rotate((0, alpha, 0)).translate(tuple(P))
+    hole = hole + csk                                                     # 나사 기둥 턱의 비탈이 들어갈 입구
+    pc = P - (PEG_L / 2) * u                                              # 핀은 받침 윗면에서 6 mm 안쪽
+    sock = box(-SOCK / 2, SOCK / 2, -SOCK / 2, SOCK / 2, -1, SOCK_D) + \
+        M.extrude(sq(SOCK + 2, 0.0), 1.01, scale_top=(SOCK / (SOCK + 2), SOCK / (SOCK + 2))).translate((0, 0, -0.01))
+    h = body - hole - pin_y(pc[2], pc[0], 0.0) - sock - pin_y(PIN_AT, 0.0, 0.0)
+    return h, {"u": u, "P": P, "yc": 0.0}
+
+
+def tripod_stud():
+    """11/25 출력하는 1/4"-20 나사 기둥 (세워서 출력). 아래 10 mm 촉은 받침 구멍에 꽂고 핀으로 고정, 위 5 mm 가 나사.
+    나사산은 비켜 놓은 원을 1.27 mm 마다 한 바퀴 비틀어 밀어 낸 것 (출력 나사에서 흔히 쓰는 방법, 산 모양이 둥글다)."""
+    peg = M.cylinder(PEG_L, PEG_D / 2) ^ M.cylinder(PEG_L, PEG_D / 2 - 0.6, PEG_D / 2 + 3.0)   # 아래 끝 모따기
+    flange = M.cylinder(FLANGE_T, FLANGE_D / 2).translate((0, 0, PEG_L))
+    flange = flange + M.cylinder(CSK, PEG_D / 2, FLANGE_D / 2).translate((0, 0, PEG_L - CSK))   # 턱 아래 45° 비탈 (받침 없이 출력)
+    e = THREAD_DEPTH / 2
+    r0 = THREAD_MAJOR / 2 - e
+    turns = THREAD_L / PITCH
+    thread = M.extrude(CS.circle(r0).translate((e, 0)), THREAD_L, n_divisions=int(turns * 32), twist_degrees=360.0 * turns)
+    tip = M.cylinder(THREAD_L, THREAD_MAJOR / 2 + 0.5, THREAD_MAJOR / 2 - 0.9)    # 나사 끝 모따기 (넣기 쉽게)
+    thread = (thread ^ tip).translate((0, 0, PEG_L + FLANGE_T))
+    core = M.cylinder(THREAD_L, r0 - e + 0.05).translate((0, 0, PEG_L + FLANGE_T))
+    pin = pin_y(PEG_L / 2, 0.0, 0.0, teardrop=True)                      # 핀 구멍 (세워 출력하니 물방울 모양)
+    return peg + flange + thread + core - pin
 
 
 def pins(k=6):
@@ -163,7 +216,7 @@ def save(m, name):
     data["n"], data["v"] = nrm, tri
     path = os.path.join(OUT, name)
     with open(path, "wb") as f:
-        f.write(b"C920 stand, no screws (webcam_piper 2026-11-17)".ljust(80, b" "))
+        f.write(b"APC930 camera pole, no screws (webcam_piper 2026-11-25)".ljust(80, b" "))
         f.write(struct.pack("<I", len(t)))
         f.write(data.tobytes())
     b = m.bounding_box()
@@ -180,18 +233,30 @@ def cam_offset(alpha):
     return np.array(A0) + (RAMP_L + 14) * a + 6 * n
 
 
+def cam_offset_tripod(alpha):
+    """11/25 삼각대 머리에 올린 APC930 가운데가 기둥 꼭대기에서 (사람 쪽, 위로) 몇 mm 인지 (대강: 받침 윗면에서 법선으로 29 mm,
+    보는 쪽으로 16 mm. 카메라 치수는 제조사 그림을 보고 어림)."""
+    al = math.radians(alpha)
+    u = np.array([math.sin(al), math.cos(al)])
+    w = np.array([math.cos(al), -math.sin(al)])
+    return np.array(PAD_P) + 29 * u + 16 * w
+
+
 def main():
     import argparse
-    global LS, N_SEG, PANEL_T
+    global LS, N_SEG, PANEL_T, THREAD_MAJOR
     ap = argparse.ArgumentParser(description="APC930 높은 기둥 STL (나사 없음)")
     ap.add_argument("--cam-height", type=float, default=800, help="책상에서 카메라 가운데까지 (mm). 기둥 막대 길이가 여기에 맞춰짐")
     ap.add_argument("--angle", type=int, default=55, help="카메라가 수평에서 아래로 보는 각도 (도). 이 머리로 높이를 맞춤")
     ap.add_argument("--extra-angles", default="45,65", help="같이 만들 머리 각도 (쉼표로)")
     ap.add_argument("--segments", type=int, default=4, help="기둥 막대 개수 (프린터가 작으면 늘림)")
     ap.add_argument("--panel", type=float, default=12.0, help="가짜 모니터 판 두께 (mm). 집게가 헐거우면 늘림")
+    ap.add_argument("--mount", choices=["tripod", "clip"], default="tripod", help="기둥 길이를 어느 머리 기준으로 맞출지 (11/25 기본 삼각대)")
+    ap.add_argument("--thread", type=float, default=THREAD_MAJOR, help="출력 나사 바깥 지름 (mm). 빡빡하면 줄이고 헐거우면 늘림")
     a = ap.parse_args()
-    N_SEG, PANEL_T = a.segments, a.panel
-    LS = round((a.cam_height - cam_offset(a.angle)[1] - (BASE_T + BOSS_H)) / N_SEG, 1)
+    N_SEG, PANEL_T, THREAD_MAJOR = a.segments, a.panel, a.thread
+    off = cam_offset_tripod if a.mount == "tripod" else cam_offset
+    LS = round((a.cam_height - off(a.angle)[1] - (BASE_T + BOSS_H)) / N_SEG, 1)
     print(f"카메라 높이 {a.cam_height:.0f} mm, 각도 {a.angle}° → 막대 {N_SEG}개 × {LS} mm (촉 포함 {LS + TEN_L:.0f} mm)")
     if LS + TEN_L > 220:
         print("  막대가 220 mm 를 넘음: 프린터 판에 안 들어가면 --segments 를 늘리세요")
@@ -205,12 +270,16 @@ def main():
     parts["segment"] = segment()
     parts["coupler"] = coupler()
     heads = {al: head(al) for al in angles}
+    tri_heads = {al: head_tripod(al) for al in angles}
     save(to_bed(parts["base"]), "1_base_x1.stl")
     save(to_bed(parts["segment"], True), f"2_pole_segment_x{N_SEG}.stl")
     save(to_bed(parts["coupler"], True), "3_coupler_x1.stl")
     for al, (hm, _) in heads.items():
-        save(to_bed(hm, True), f"4_head_{al}deg_x1.stl")
-    save(to_bed(pins()), "5_pins_x6.stl")
+        save(to_bed(hm, True), f"4a_head_clip_{al}deg_x1.stl")
+    for al, (hm, _) in tri_heads.items():
+        save(to_bed(hm, True), f"4b_head_tripod_{al}deg_x1.stl")
+    save(to_bed(tripod_stud()), "4c_tripod_stud_x1.stl")
+    save(to_bed(pins(8)), "5_pins_x8.stl")                     # 11/25 이음 6곳 + 나사 기둥 1 + 여유 1
 
     # 조립 (쓸 때 자세): 기둥 축 = z, 사람 쪽 = +x
     top = BASE_T + BOSS_H + N_SEG * LS
@@ -225,9 +294,10 @@ def main():
     cam = cam.rotate((0, a.angle - 90, 0)).translate((A0[0], -info["yc"], top + A0[1]))
     asm.append(("c920", cam, "#2b2f31"))
     for al in angles:
-        c = cam_offset(al)
-        print(f"카메라 가운데 ({al}° 머리): 기둥 축에서 사람 쪽 {c[0]:.0f} mm, 높이 {top + c[1]:.0f} mm (책상 위), "
-              f"종이 + 는 기둥에서 {c[0] + (top + c[1] - 30) / math.tan(math.radians(al)):.0f} mm 앞")
+        for kind, fn in (("삼각대", cam_offset_tripod), ("집게", cam_offset)):
+            c = fn(al)
+            print(f"카메라 가운데 ({kind} {al}° 머리): 기둥 축에서 사람 쪽 {c[0]:.0f} mm, 높이 {top + c[1]:.0f} mm (책상 위), "
+                  f"종이 + 는 기둥에서 {c[0] + (top + c[1] - 30) / math.tan(math.radians(al)):.0f} mm 앞")
     preview(asm, top, cam_offset(a.angle), info, a.angle)
 
 
