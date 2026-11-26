@@ -10,6 +10,7 @@
 6~8 은 11/16 검토에서 더함: 엉뚱한 첫 장면, MediaPipe 손 3D 모양 오차, 손 3D 거울상 판별.
 """
 import math
+import time
 
 import cv2
 import numpy as np
@@ -675,6 +676,118 @@ def check_safe_home():
     check("16c 이미 충분히 높게 저장한 자세는 그대로", lift0 == 0.0 and np.allclose(q_same, q_hi))
 
 
+def check_follower():
+    """11/26 석사형 메모: follower 가 줄에서 꺼내 200 Hz 로 보냄, 3차 중간 점, MIT 모드."""
+    print("== 17. follower (줄에서 꺼내 보내기), 3차 중간 점, MIT (가상 팔)")
+    from mapping import cubic_s
+    from stream import Follower
+
+    class FakeArm:
+        is_real = False
+
+        def __init__(self):
+            self.q = np.zeros(6)
+            self.calls = []
+
+        def joints(self):
+            return self.q.copy()
+
+        def gripper(self):
+            return 0.05
+
+        def move_joints(self, q):
+            self.calls.append(("pos", np.asarray(q).copy(), None))
+
+        def move_mit(self, q, dq, kp, kd):
+            self.calls.append(("mit", np.asarray(q).copy(), np.asarray(dq).copy(), kp, kd))
+
+        def send_gripper(self, w):
+            pass
+
+        def close(self):
+            pass
+
+    eps = 1e-3
+    d0 = (cubic_s(eps) - cubic_s(0.0)) / eps
+    d1 = (cubic_s(1.0) - cubic_s(1.0 - eps)) / eps
+    check("17a 3차 s(t)=3t²−2t³: s(0)=0, s(1)=1, 처음·끝 속도 거의 0, 가운데가 가장 빠름 (1.5배)",
+          cubic_s(0) == 0 and cubic_s(1) == 1 and d0 < 0.01 and d1 < 0.01
+          and abs((cubic_s(0.5 + eps) - cubic_s(0.5 - eps)) / (2 * eps) - 1.5) < 1e-3)
+
+    arm = FakeArm()
+    f = Follower(arm, hz=200, mode="mit", kp=5.0, kd=0.8, push_hz=100, max_rate=3.0, start=False)
+    q1 = np.full(6, 0.01)                         # 10 ms 동안 0.01 rad = 1 rad/s
+    f.push(q1)
+    f.tick(0.000)
+    f.tick(0.005)
+    a1, a2 = arm.calls[0], arm.calls[1]
+    check("17b 100 Hz 목표 하나를 200 Hz 점 두 개로 나눔 (반, 끝)", np.allclose(a1[1], 0.005) and np.allclose(a2[1], 0.01))
+    check("17c MIT 로 보낼 때 목표 속도 = 1 rad/s, kp 5, kd 0.8", np.allclose(a1[2], 1.0) and a1[3] == 5.0 and a1[4] == 0.8)
+    f.tick(0.010)
+    a3 = arm.calls[2]
+    check("17d 다음 목표가 안 오면 마지막 점을 속도 0 으로 (그 자리, 앞질러 가지 않음)",
+          np.allclose(a3[1], 0.01) and np.allclose(a3[2], 0.0))
+
+    for k in range(10):                           # 다음 목표들이 한꺼번에 몰려 옴 (UDP 가 몰려 온 것처럼)
+        f.push(np.full(6, 0.01 + 0.002 * (k + 1)))
+    qlen = len(f.q)
+    check("17e 몰려 와도 줄은 20 ms 어치(4점)까지만, 넘친 옛 점은 버림 (늦음이 쌓이지 않음)", qlen == 4 and f.n_drop == 16)
+    sent = []
+    for k in range(4):
+        f.tick(0.015 + 0.005 * k)
+        sent.append(arm.calls[-1][1][0])
+    steps = np.diff([0.01] + sent)
+    check("17f 남은 점은 순서대로, 한 점에 관절 0.015 rad(3 rad/s × 5 ms) 넘게 안 바뀜",
+          np.all(steps > 0) and np.all(steps <= 0.015 + 1e-9) and abs(sent[-1] - 0.03) < 1e-9)
+
+    f.push(np.full(6, 0.03 + 0.5))                # 한 번에 0.5 rad 튄 목표 (있어서는 안 되지만)
+    f.tick(0.040)
+    jump = arm.calls[-1][1][0] - 0.03
+    check("17g 튄 목표도 한 박자에 0.015 rad 만 감 (MIT 는 팔 안에서 안 잘라 주므로 여기서 자름)", abs(jump - 0.015) < 1e-9 and f.n_clip >= 1)
+
+    arm.q = np.full(6, 0.2)
+    f.hold()
+    f.tick(0.045)
+    check("17h hold(): 줄을 비우고 지금 실제 자세 쪽으로 속도 0 (한 박자 0.015 rad 씩)",
+          len(f.q) == 0 and np.allclose(arm.calls[-1][2], 0.0, atol=3.01) and arm.calls[-1][1][0] > 0.045)
+
+    arm2 = FakeArm()
+    f2 = Follower(arm2, hz=200, mode="position", push_hz=100, start=False)
+    f2.push(np.full(6, 0.004))
+    f2.tick(0.0)
+    check("17i position 모드는 move_joints 로 보냄 (MIT 아님)", arm2.calls[0][0] == "pos")
+
+    arm3 = FakeArm()
+    f3 = Follower(arm3, hz=200, mode="mit", push_hz=100)       # 진짜 쓰레드로 0.5초
+    t0 = time.perf_counter()
+    while time.perf_counter() - t0 < 0.5:
+        f3.push(np.full(6, 0.001 * (time.perf_counter() - t0)))
+        time.sleep(0.01)
+    f3.close()
+    n = len(arm3.calls)
+    print(f"  쓰레드 0.5초: 보낸 명령 {n}개 (200 Hz 면 100), {f3.report()}")
+    check("17j 쓰레드가 실제로 200 Hz 가까이 보냄 (0.5초에 80개 넘게)", n > 80)
+
+    mp = Mapper(PiperKin(), 0.30, 0.0, 1.0, max_speed=1.0, max_joint_rate=3.0)
+    mp.interp, mp.profile = True, "cubic"
+    mp.hold_start = False
+    mp.sync_to(mp.q_cmd)
+    hand = {"pinch": np.array([0.0, 0.0, PINCH_H0]), "yaw": -1.047, "gap": 0.07}
+    for _ in range(300):                          # 출발 자리에 다 올 때까지 (속도 제한에 걸린 구간을 빼고 재려고)
+        mp.step(hand, 0.01, True, ik_iters=10)
+    start = mp.cur.copy()
+    hand2 = {"pinch": np.array([0.02, 0.0, PINCH_H0]), "yaw": -1.047, "gap": 0.07}
+    mp._pkt_dt, mp._since = 0.04, 0.04            # 패킷 간격 40 ms 로 맞춰 둠 (새 패킷에서 0.8·0.04 + 0.2·0.04)
+    xs = []
+    for _ in range(6):
+        mp.step(hand2, 0.01, True, ik_iters=10)
+        xs.append(mp.cur[0] - start[0])
+    dx = np.diff([0.0] + xs)
+    print(f"  mapper cubic: 10 ms 마다 앞으로 {', '.join(f'{v * 1000:.1f}' for v in dx)} mm (40 ms 동안 2 cm)")
+    check("17k mapper --profile cubic: 손 값 사이를 느리게 시작 → 빨라짐 → 느리게 끝 (s = 3t² − 2t³)",
+          dx[0] < dx[1] and dx[1] > dx[3] and abs(xs[3] - 0.02) < 1e-3 and abs(dx[4]) < 1e-4)
+
+
 if __name__ == "__main__":
     main()
     check_hard_cases()
@@ -684,4 +797,5 @@ if __name__ == "__main__":
     check_palm_tilt()
     check_hold_start()
     check_safe_home()
+    check_follower()
     raise SystemExit(0 if verdict() else 1)

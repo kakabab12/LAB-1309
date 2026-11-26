@@ -14,6 +14,25 @@ My_portfolio `2026/05. 웹캠 로봇팔 원격조종` (SO-ARM101, LeRobot) 을 �
 > 카메라 두 대 모두 사람 맞은편(모니터 위 등)에서 종이를 비스듬히 내려다보게, 두 방향이 60~90° 벌어지게. MJPG 로 받아야 초당 30장 (압축 안 하면 1280x720 에서 10장).
 > 기록(robot_server)에는 `src` (2 삼각측량, 1 한 대), `tri3d` (삼각측량 21점, 사람 책상 좌표), `lm2d_b` (두 번째 화면 21점) 가 더 남는다.
 >
+> **11/26 더한 것** (석사형 메모·VR 조종 코드 [tinybc](https://github.com/chanhyuk-jung/tinybc/tree/faster) 에 맞춤. 모두 켜는 옵션이고, 안 주면 11/23 까지와 같다. **가상 팔로만 시험, 실물은 아직**)
+> - **follower (팔에 보내는 일만 하는 일꾼)** `robot_server --follower-hz 200`: 100 Hz 박자가 푼 관절 목표를 줄에 넣고(`follower.append`), 따로 도는 쓰레드가 200 Hz 로 하나씩 꺼내 보낸다(`q.popleft()`).
+>   줄은 20 ms 어치로 묶어 늦음이 쌓이지 않고(넘치면 옛 점을 버림), 비면 마지막 점을 속도 0 으로 계속 보낸다. 점 사이 관절 변화를 3 rad/s × 5 ms 로 한 번 더 자른다 (`stream.py`).
+>   가상 팔·가짜 노트북 12초: 실제 193 Hz, 박자 99% 가 10.4 ms 안 (목표 5 ms, 파이썬 쓰레드라 가끔 밀림).
+> - **MIT 모드** `--mode mit --kp 5 --kd 0.8`: 관절마다 목표 각도·목표 속도·kp·kd 를 보내면 모터가 `힘 = kp·e + kd·ė` 로 바로 당긴다 (agx-bus `move_mit`). 팔 안에서 속도를 자르지 않으므로 follower 를 함께 켠다 (안 주면 200 Hz).
+>   kp 는 석사형 메모에서 5 로 읽었지만 tinybc 코드 기본값은 20 이다 (확인 필요). piper_sdk 쪽은 아직 없음.
+> - **3차 중간 점** `--profile cubic`: 손 값 사이를 `θ0 + s(θ1 − θ0)`, `s = 3t² − 2t³` 로 (처음·끝 속도 0). 가상 팔: 10 ms 마다 3.1 → 6.9 → 6.9 → 3.1 → 0 mm (40 ms 에 2 cm).
+> - **tinybc 형식으로 기록 바꾸기** `to_tinybc.py`: 우리 `ep_XXX.npz` 를 tinybc zarr (`data/actions`, `obs/qpos`, `obs/qvel`, `obs/images/wrist·top`, `info/dt`, `episode_ends`) 로 바꿔 VR 시범과 섞어 쓸 수 있게.
+>   석사형 data.py 로 직접 열어 봄: 구조·배열 설정(dtype·chunks·shards·JPEG 95) 이 석사형 서버가 만든 것과 같고, 값이 원래 기록과 같고(사진 PSNR 51 dB), 석사형 `write_episode` 로 이어 붙여도 됨.
+>   로봇 쪽 카메라 2대가 있어야 한다: `robot_server --wrist-cam N --top-cam M` (11/26 부터 기록에 관절 속도 `qvel`·그리퍼 힘 `grip_force` 도 남김, 로봇 카메라는 JPEG 95).
+>   11/16·11/18 실물 기록은 로봇 카메라 사진이 없어서 바꾸지 않는다.
+>
+> ```bash
+> # 가상 팔로 시험 (가짜 로봇 카메라)
+> ~/smolVLA/chanhyuk_piper-teleop/.venv/bin/python robot_server.py --follower-hz 200 --mode mit --profile cubic --fake-cams
+> # 기록을 tinybc 형식으로 (zarr·imagecodecs·optree 가 있는 찬혁님 .venv)
+> ~/smolVLA/chanhyuk_piper-teleop/.venv/bin/python to_tinybc.py data/20261126_171252 --out data/tinybc_webcam.zarr
+> ```
+>
 > **11/23 더한 것** (사용자: "B 로 처음 자세 잡으면 그리퍼도 닫히게", "손등이 보이면 집게가 아래, 손바닥이 보이면 집게도 위로")
 > - **B 가 책상에 박지 않게** (오후, 사용자: "B 를 누르면 로봇팔이 책상에 박고 힘이 빠지네"): 13:15 저장한 자세는 모델로 집게 끝 책상 −0.8 cm 였고,
 >   실물은 2번 관절 86.6° (저장 93.0°) 에서 책상에 닿아 힘이 빠졌다 (대기 모드). 힘 빠진 채 책상에 얹힌 집게 끝이 모델로 +0.9 cm 라 이 자리 책상은 모델보다 1 cm 쯤 높다.
@@ -259,8 +278,10 @@ sudo ip link set can0 up type can bitrate 1000000
 
 `np.load(경로, allow_pickle=True)` 로 읽는다. 박자마다:
 `t` 초, `q` 실제 관절 6 (rad), `grip` 실제 집게 폭 (m), `q_cmd`·`grip_cmd` 보낸 목표, `hand` 사람 집기점 (사람 책상 좌표 m),
-`hand_yaw`·`hand_gap`, `target` 집게 끝 목표 (로봇 좌표), `tracked`, `follow`, `human_jpg` 웹캠 사진(JPEG), `wrist_jpg`·`front_jpg` (있으면).
-찬혁님 VR 기록(zarr: `obs/qpos` = 관절 6 + 집게 폭, `action/qpos`, 카메라 2대)에 필요한 값이 다 들어 있어 같은 형식으로 바꿀 수 있다.
+`hand_yaw`·`hand_gap`, `target` 집게 끝 목표 (로봇 좌표), `tracked`, `follow`, `human_jpg` 웹캠 사진(JPEG), `wrist_jpg`·`front_jpg` (있으면),
+`qvel` 관절 속도 6 (rad/s, 11/26, 실물은 팔이 읽은 값·가상 팔은 차분), `grip_force` 그리퍼 힘 (11/26).
+석사형 tinybc 형식(zarr)으로는 `to_tinybc.py` 로 바꾼다 (위 11/26). 바꿀 때: `actions` = `q_cmd` + `grip_cmd`/0.1, `obs/qpos` = `q` + `grip`,
+`obs/qvel` = `qvel` + `grip_force`, `obs/images/wrist` = `wrist_jpg`, `obs/images/top` = `front_jpg` (RGB 640x480), `info/dt` = 줄 사이 시간. 앞뒤 따라가기 꺼진 줄은 자름.
 
 ## 시험한 것 (2026-11-15~16, 카메라·손 없이)
 
@@ -311,7 +332,10 @@ sudo ip link set can0 up type can bitrate 1000000
 | `mapping.py` | 사람 집기점 → 로봇 집게 끝 목표, 속도·범위 제한 |
 | `piper_kin.py`, `kin/piper_kin.xml` | PiPER 정기구학·역기구학 (시뮬·real_piper 와 같은 모델, numpy 만) |
 | `robots.py` | 가상 팔 / agx-bus / piper_sdk |
-| `recorder.py` | 시범 기록 |
+| `recorder.py` | 시범 기록, 가짜 로봇 카메라 `FakeCam` (11/26 시험용) |
+| `stream.py` | follower: 관절 목표를 줄에 넣고 200 Hz 로 꺼내 보냄, MIT 모드 (11/26, 석사형 메모) |
+| `to_tinybc.py`, `test_tinybc.py` | 기록 → 석사형 tinybc zarr 형식, 그 시험 (찬혁님 .venv 로 돌림) (11/26) |
+| `table_probe.py` | 책상 높이 재기: 집게 끝을 책상에 대 가며 CAN 듣기만 (11/23) |
 | `test_geometry.py` | 카메라·손 없이 하는 시험 (맨 끝 줄 `결과: 모두 통과`) |
 | `check_setup.py` | 노트북 점검 (프로그램·손 모델·계산 시험·웹캠, `--robot-pc` 연결, `--report` 결과 정리) |
 | `노트북_실행.md` | 노트북 Claude 가 따라 할 순서 |

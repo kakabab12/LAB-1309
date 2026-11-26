@@ -41,6 +41,12 @@ from piper_kin import HOME_Q, TABLE_Z, grip_orientation
 from robots import GRIP_MAX
 
 
+def cubic_s(t):
+    """11/26 석사형 메모: 3차 시간 맞추기 s(t) = 3t² − 2t³ (t 는 0~1). s(0)=0, s(1)=1, 처음과 끝 속도 ṡ(0)=ṡ(1)=0."""
+    t = min(max(float(t), 0.0), 1.0)
+    return t * t * (3.0 - 2.0 * t)
+
+
 def wrap(a):
     return (a + math.pi) % (2 * math.pi) - math.pi
 
@@ -159,6 +165,9 @@ class Mapper:
         # 평균 패킷 간격 동안 곧게 간다. 가상 손에서 목표 가속도 거칠기 38 → 12 m/s², 늦음 +12 ms.
         # 같은 손 dict 가 다시 오면 같은 패킷 (robot_server 는 패킷마다 dict 를 새로 만듦). teleop 혼자 돌 때는 끔 (장면마다 한 번 부름)
         self.interp = False
+        # 11/26 석사형 메모: 중간 점을 θ0 + s(θ1 − θ0), s = 3t² − 2t³ (3차, 처음과 끝에서 속도 0) 로 만든다.
+        # "linear" 는 11/20 그대로 (곧게, 같은 빠르기). robot_server --profile cubic 으로 켬
+        self.profile = "linear"
         self._pkt, self._since, self._pkt_dt = None, 0.0, 1.0 / 23.0
         self._seg_age, self._seg_p0, self._seg_y0 = 0.0, self.cur.copy(), self.cur_yaw
 
@@ -218,6 +227,8 @@ class Mapper:
                 self._since += dt
                 self._seg_age += dt
                 s = min(self._seg_age / self._pkt_dt, 1.0)
+                if self.profile == "cubic":
+                    s = cubic_s(s)
                 self.desired = self._seg_p0 + (goal - self._seg_p0) * s
                 yaw_d = self._seg_y0 + (self.yaw_goal - self._seg_y0) * s
             else:
