@@ -1,10 +1,11 @@
 # 실물 PiPER
 
-이 폴더에는 세 가지가 있다.
+이 폴더에는 네 가지가 있다.
 
 | 폴더 | 무엇 | 지금 상태 |
 |---|---|---|
-| [webcam_piper](webcam_piper/README.md) | **웹캠으로 실물 PiPER 원격조종·시범 기록** (리더 팔·VR 없이). 카메라가 사람 손을 재고 연구실 PC 가 팔을 움직인다. [사용 설명서](webcam_piper/사용설명서.md) · [노트북에서 실행하기](webcam_piper/노트북_실행.md) | 실물 따라가기(11/16)와 처음 자세 B(11/20) 시험함. 진짜 손 정확도는 아직 측정해 보지 않음 |
+| [webcam_piper](webcam_piper/README.md) | **웹캠으로 실물 PiPER 원격조종·시범 기록** (리더 팔·VR 없이). 카메라가 사람 손을 재고 연구실 PC 가 팔을 움직인다. [사용 설명서](webcam_piper/사용설명서.md) · [노트북에서 실행하기](webcam_piper/노트북_실행.md) · 카메라 기둥 3D 프린트: [80 cm 높은 기둥 (APC930 두 대)](webcam_piper/stand_high/README.md), [C920 스탠드](webcam_piper/stand/README.md) | 실물 따라가기(11/16)와 처음 자세 B(11/20) 시험함. 진짜 손 정확도는 아직 측정해 보지 않음 |
+| [point_policy](point_policy/README.md) | **사람 손 시범 영상으로 PiPER 가르치기** (논문 Point Policy 방식, 11/27). 카메라 두 대로 사람이 진짜 물체를 옮기는 모습을 찍고, 손·물체 점만으로 정책을 학습해 시뮬 PiPER 로 실행. placo 역기구학 선택 가능 | 가짜 손 시범 40개로 처음 보는 자리 50장면 중 47개 (시뮬). 진짜 손 시범은 아직 |
 | `real_piper/` (아래 글) | 시뮬에서 학습한 VLA 를 실물 PiPER 에 연결하는 코드 | 시뮬 팔로 코드 길만 확인, 실물은 아직 |
 | [손목카메라_마운트_U20CAM](손목카메라_마운트_U20CAM/README.md) | 손목 카메라 3D 프린트 마운트 | 출력함 |
 

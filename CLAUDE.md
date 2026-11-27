@@ -2,8 +2,9 @@
 
 > 다른 PC에서 새 세션을 시작했을 때, 이 파일을 읽으면 그동안의 맥락을 이어갈 수 있습니다.
 
-## 최신 상태 (2026-11-26) — 이것부터
+## 최신 상태 (2026-11-27) — 이것부터
 
+- 11/27: 논문 Point Policy 방식을 따로 만듦 [11_실물_PiPER/point_policy](11_실물_PiPER/point_policy/README.md) — 사람이 진짜 물체를 옮기는 영상(카메라 두 대) → 손 21점(MediaPipe)·물체 점(첫 장면에 찍고 CoTracker3) → 삼각측량 → 엄지·검지 가운데 = 집게 끝, 7 cm 기준 → 로봇 점 5개 → 점 토큰 트랜스포머(지난 10, 앞 20걸음, 6 Hz) → 시뮬 PiPER. 가짜 손 시범 40개로 처음 보는 자리 47/50. placo 역기구학 `--ik placo` (point_policy/.venv, 방향 무게 0.001: 1 cm 넘게 틀린 곳 0/240, 1.1 ms). 찬혁님 URDF 와 시뮬 모델은 집게 끝 가운데값 7 mm 다름. 진짜 손 시범은 아직. 일지 [03_일지/2026-11-27.md](03_일지/2026-11-27.md)
 - 11/26: 웹캠 PiPER 를 석사형(찬혁님) VR 조종 tinybc (github chanhyuk-jung/tinybc, faster) 에 맞춤 — `robot_server --follower-hz 200 --mode mit --kp 5 --kd 0.8 --profile cubic` (stream.py, 켜는 옵션, 가상 팔만), 기록에 qvel·grip_force, `to_tinybc.py` 로 ep_XXX.npz → tinybc zarr (석사형 data.py 로 열어 구조·설정·값 같음 확인, 로봇 카메라 2대 필요 `--wrist-cam --top-cam`). test_geometry 64, test_tinybc 10. 실물 MIT 는 아직. 일지 [03_일지/2026-11-26.md](03_일지/2026-11-26.md)
 - 11/23: 웹캠 PiPER — B 로 처음 자세에 가면 그리퍼 닫힘 (`--home-grip close` 기본, `keep` 이면 예전), 집게가 손바닥 방향을 따라 돎 (geometry.palm_normal, mapping.approach_from_palm, `--down-only` 로 끔). 가상 팔: 옆 54~56°, 위로 뒤집으면 +5 cm 63°·+20 cm 91°. PiPER J5 ±69° 라 집게 끝 16 cm 아래에서는 70~120° 가 한계, 똑바로 위는 35 cm 넘게. 먼저 들고 나서 돌기, 팔 마디가 책상 1 cm 안이면 멈춤. 오후: 처음 자세 다시 저장(사용자가 고친 자세, 11/20 은 home_pose_1120.json), SPACE 때 자세 그대로 (`--start keep` 기본: SPACE 뒤 첫 손 = 지금 집게 자세, 이후 손이 움직인·돈 만큼, 그리퍼는 손가락 1 cm 넘게 움직여야, `--start paper` = 예전). 같은 오후 실물 B 가 책상에 박고 대기 모드로 힘 빠짐 (저장 자세 모델 −0.8 cm, 책상은 모델보다 ~1 cm 높음) → B 목표를 모델 책상 위 3 cm 까지 들어 올림 (`home.safe_target`, `--home-clear`), 길은 1 cm 아래 금지. test_geometry 53개. 고친 뒤 실물은 아직. 일지 [03_일지/2026-11-23.md](03_일지/2026-11-23.md)
 - 11/20: 웹캠 PiPER 실물 조종 — 처음 자세 버튼 B (`save_home.py` 로 저장, 실물 1.75초·관절 차 0.2° 안), 떨림 거르기 (멈춘 손 가상 3.4 → 1.3 mm, 진짜 손은 아직), 종이 + = 처음 자세 집게 끝 (SPACE 때 15 cm 앞으로 가던 것), 바탕화면 아이콘 `start_piper.sh`. 카메라 두 대 삼각측량 `--cam2`. 남은 것: 손을 들어도 팔이 안 올라감(원인 미확인), 진짜 손 떨림 측정. 일지 [03_일지/2026-11-20.md](03_일지/2026-11-20.md)
